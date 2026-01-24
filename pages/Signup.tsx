@@ -76,41 +76,18 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
     };
 
     return (
-        <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-[2.5rem] p-12 border border-neutral-100 shadow-xl animate-in zoom-in-95 duration-500">
-                <div className="text-center mb-12">
-                    <div className="inline-flex p-4 bg-[#FF9900] rounded-[1.5rem] text-white mb-6 shadow-lg">
-                        <User className="w-6 h-6" />
-                    </div>
-                    <h1 className="text-3xl font-bold text-neutral-900 tracking-tight-custom mb-2">Create Your Account</h1>
-                    <p className="text-neutral-400 font-light">Join LegitGrinder and start importing with confidence</p>
-                </div>
+        type = "text"
+                                value = { formData.fullName }
+    onChange = {(e) => setFormData({ ...formData, fullName: e.target.value })}
+required
+className = "w-full pl-16 pr-6 py-4 bg-neutral-50 border border-transparent rounded-[1.5rem] outline-none focus:bg-white focus:border-neutral-200 focus:shadow-lg transition-all"
+placeholder = "John Doe"
+    />
+                        </div >
+                    </div >
 
-                {error && (
-                    <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm">
-                        {error}
-                    </div>
-                )}
-
-                <form onSubmit={handleSignup} className="space-y-6">
-                    {/* Full Name */}
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-4">Full Name</label>
-                        <div className="relative">
-                            <User className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 w-5 h-5" />
-                            <input
-                                type="text"
-                                value={formData.fullName}
-                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                                required
-                                className="w-full pl-16 pr-6 py-4 bg-neutral-50 border border-transparent rounded-[1.5rem] outline-none focus:bg-white focus:border-neutral-200 focus:shadow-lg transition-all"
-                                placeholder="John Doe"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Email & Phone */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {/* Email & Phone */ }
+    < div className = "grid grid-cols-1 md:grid-cols-2 gap-4" >
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-4">Email</label>
                             <div className="relative">
@@ -140,10 +117,10 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                                 />
                             </div>
                         </div>
-                    </div>
+                    </div >
 
-                    {/* Location */}
-                    <div className="space-y-2">
+    {/* Location */ }
+    < div className = "space-y-2" >
                         <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-4">Location</label>
                         <div className="relative">
                             <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 w-5 h-5" />
@@ -156,10 +133,10 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                                 placeholder="Nairobi, Kenya"
                             />
                         </div>
-                    </div>
+                    </div >
 
-                    {/* Password */}
-                    <div className="space-y-2">
+    {/* Password */ }
+    < div className = "space-y-2" >
                         <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-4">Password</label>
                         <div className="relative">
                             <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 w-5 h-5" />
@@ -179,10 +156,10 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                             </button>
                         </div>
-                    </div>
+                    </div >
 
-                    {/* Import Needs */}
-                    <div className="space-y-3">
+    {/* Import Needs */ }
+    < div className = "space-y-3" >
                         <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-4">Import Interests</label>
                         <div className="grid grid-cols-2 gap-3">
                             {importOptions.map((option) => (
@@ -202,7 +179,7 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                                 </button>
                             ))}
                         </div>
-                    </div>
+                    </div >
 
                     <button
                         type="submit"
@@ -223,9 +200,9 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                             Sign In
                         </button>
                     </p>
-                </form>
-            </div>
-        </div>
+                </form >
+            </div >
+        </div >
     );
 };
 

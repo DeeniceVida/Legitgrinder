@@ -23,42 +23,47 @@ const Pricelist = () => {
     fetchPrices();
   }, []);
 
-  const fetchPrices = async () => {
+  const fetchPricelist = async () => {
     setLoading(true);
     try {
       // Join products and product_variants
       const { data, error } = await supabase
         .from('product_variants')
         .select(`
-          id,
-          capacity,
-          price_kes,
-          last_updated,
-          status,
+          *,
           products (
-            brand,
+            id,
             name,
-            series
+            series,
+            brand
           )
-        `);
+        `)
+        .order('id', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching pricelist:', error);
+        return;
+      }
 
       if (data) {
-        const mapped: DisplayItem[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.products?.name || 'Unknown',
-          brand: item.products?.brand || 'unknown',
-          series: item.products?.series || '',
-          capacity: item.capacity,
-          priceKES: item.price_kes,
-          lastUpdated: item.last_updated,
-          status: item.status
+        const mapped = data.map((variant: any) => ({
+          id: variant.id,
+          productId: variant.product_id,
+          name: variant.products?.name || 'Unknown',
+          brand: variant.products?.brand || 'unknown', // Added brand from products
+          series: variant.products?.series || '', // Added series from products
+          capacity: variant.capacity,
+          priceKES: variant.price_kes,
+          priceUSD: variant.price_usd,
+          status: variant.status,
+          lastUpdated: variant.last_updated,
+          sourceUrl: variant.source_url,
+          previous_price_kes: variant.previous_price_kes
         }));
         setItems(mapped);
       }
     } catch (err) {
-      console.error('Error fetching prices:', err);
+      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
