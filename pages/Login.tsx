@@ -4,9 +4,10 @@ import { supabase } from '../src/lib/supabase';
 
 interface LoginProps {
   onLoginSuccess: () => void;
+  onNavigate: (page: string) => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigate }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -106,7 +107,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             Don't have an account?{' '}
             <button
               type="button"
-              onClick={() => window.location.href = '/signup'}
+              onClick={() => onNavigate('signup')}
               className="text-[#FF9900] font-bold hover:underline"
             >
               Create Account

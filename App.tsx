@@ -113,7 +113,7 @@ const App: React.FC = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'home': return <Home onNavigate={setCurrentPage} />;
-      case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
+      case 'login': return <Login onLoginSuccess={handleLoginSuccess} onNavigate={setCurrentPage} />;
       case 'signup': return <Signup onSignupSuccess={handleLoginSuccess} />;
       case 'pricelist': return <Pricelist />;
       case 'collaboration': return <Collaboration />;
