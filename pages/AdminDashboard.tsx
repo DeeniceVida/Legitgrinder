@@ -132,10 +132,16 @@ const AdminDashboard: React.FC = () => {
 
     if (editingProduct) {
       const { error } = await supabase.from('products').update(dbData).eq('id', editingProduct.id);
-      if (error) alert(error.message);
+      if (error) {
+        console.error('Update product error:', error);
+        alert(`Update failed: ${error.message}`);
+      }
     } else {
       const { error } = await supabase.from('products').insert(dbData);
-      if (error) alert(error.message);
+      if (error) {
+        console.error('Insert product error:', error);
+        alert(`Insertion failed: ${error.message}. This might be a schema sync delay—try again in 5 seconds.`);
+      }
     }
     fetchData();
     setShowProductModal(false);
@@ -144,12 +150,14 @@ const AdminDashboard: React.FC = () => {
 
   const clearProducts = async () => {
     if (confirm('Delete all products in shop manager? This cannot be undone.')) {
-      const { error } = await supabase.from('products').delete().gt('id', 0);
+      // Broadest possible delete filter to ensure all records are hit
+      const { error } = await supabase.from('products').delete().neq('name', '___FORCE_DELETE_ALL_RECORDS___');
       if (!error) {
-        alert('All products wiped.');
+        alert('Merchant inventory wiped successfully.');
         fetchData();
       } else {
-        alert(error.message);
+        console.error('Wipe all error:', error);
+        alert(`Wipe failed: ${error.message}`);
       }
     }
   };
