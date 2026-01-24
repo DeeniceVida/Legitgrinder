@@ -9,6 +9,7 @@ interface DisplayItem {
   series: string;
   capacity: string;
   priceKES: number | null;
+  prevPrice: number | null;
   lastUpdated: string | null;
   status: string;
 }
@@ -91,8 +92,8 @@ const Pricelist = () => {
                 key={brand}
                 onClick={() => setSelectedBrand(brand)}
                 className={`px-6 py-3 rounded-xl font-bold text-sm capitalize transition-all whitespace-nowrap ${selectedBrand === brand
-                    ? 'bg-neutral-900 text-white shadow-lg'
-                    : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100'
+                  ? 'bg-neutral-900 text-white shadow-lg'
+                  : 'bg-neutral-50 text-neutral-500 hover:bg-neutral-100'
                   }`}
               >
                 {brand}
