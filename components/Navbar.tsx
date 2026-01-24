@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Menu, X, ShoppingBag, Calculator, Package, User, HelpCircle, LayoutDashboard, Tag, Handshake } from 'lucide-react';
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
