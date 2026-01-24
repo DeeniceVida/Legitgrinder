@@ -46,7 +46,7 @@ const AdminDashboard: React.FC = () => {
     fetchAnalytics();
     if (activeTab === 'products') fetchProducts();
     if (activeTab === 'orders' || activeTab === 'invoices') fetchOrders();
-    if (activeTab === 'customers') fetchConsultations();
+    if (activeTab === 'customers') fetchConsultations(); // For consultations
     if (activeTab === 'pricelist') fetchPricelist();
     if (activeTab === 'content') fetchBlogs();
   }, [activeTab]);
@@ -135,7 +135,7 @@ const AdminDashboard: React.FC = () => {
   // --- UI COMPONENTS ---
 
   const Sidebar = () => (
-    <aside className="w-64 bg-white border-r border-neutral-100 flex flex-col fixed h-screen z-10">
+    <aside className="w-64 bg-white border-r border-neutral-100 flex flex-col fixed h-screen z-10 hidden lg:flex">
       <div className="p-8 flex items-center gap-3">
         <div className="bg-[#FF9900] p-2 rounded-lg text-white">
           <LayoutDashboard className="w-6 h-6" />
@@ -150,7 +150,7 @@ const AdminDashboard: React.FC = () => {
             <SidebarItem id="dashboard" icon={<PieChart />} label="Dashboard" />
             <SidebarItem id="orders" icon={<ShoppingBag />} label="Orders" badge={orders.filter(o => o.status !== 'Delivered').length} />
             <SidebarItem id="products" icon={<Box />} label="Products" />
-            <SidebarItem id="customers" icon={<Users />} label="Customers" />
+            <SidebarItem id="consultation" icon={<MessageCircle />} label="Consultations" badge={analytics.pendingConsultations} />
             <SidebarItem id="pricelist" icon={<RefreshCcw />} label="Scraper Manager" />
           </div>
         </div>
@@ -159,8 +159,8 @@ const AdminDashboard: React.FC = () => {
           <p className="px-4 text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-2">Marketing & Content</p>
           <div className="space-y-1">
             <SidebarItem id="marketing" icon={<Mail />} label="Email Marketing" />
+            <SidebarItem id="customers" icon={<Users />} label="Customers" />
             <SidebarItem id="content" icon={<PenTool />} label="Blog Posts" />
-            <SidebarItem id="store" icon={<Smartphone />} label="Online Store" />
           </div>
         </div>
 
@@ -187,7 +187,7 @@ const AdminDashboard: React.FC = () => {
   const SidebarItem = ({ id, icon, label, badge }: any) => (
     <button
       onClick={() => setActiveTab(id)}
-      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === id ? 'bg-[#FF9900] text-white shadow-lg shadow-orange-200' : 'text-neutral-500 hover:bg-neutral-50'
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === id ? 'bg-[#3B8392] text-white shadow-lg shadow-teal-200' : 'text-neutral-500 hover:bg-neutral-50'
         }`}
     >
       <div className="flex items-center gap-3">
@@ -195,7 +195,7 @@ const AdminDashboard: React.FC = () => {
         <span>{label}</span>
       </div>
       {badge > 0 && (
-        <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeTab === id ? 'bg-white/20 text-white' : 'bg-orange-100 text-[#FF9900]'}`}>
+        <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeTab === id ? 'bg-white/20 text-white' : 'bg-[#FF9900] text-white'}`}>
           {badge}
         </span>
       )}
@@ -221,20 +221,133 @@ const AdminDashboard: React.FC = () => {
             Analytics Chart Placeholder
           </div>
         </div>
-        <div className="bg-white rounded-[2rem] p-8 border border-neutral-100 shadow-sm">
-          <h3 className="font-bold text-xl mb-6">Most Active Day</h3>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {[40, 60, 30, 80, 50, 90, 70].map((h, i) => (
-              <div key={i} className={`w-full rounded-t-xl transition-all hover:opacity-80 ${h === 90 ? 'bg-[#FF9900]' : 'bg-neutral-100'}`} style={{ height: `${h}%` }}></div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
 
+  const ScraperManager = () => {
+    const filteredList = pricelist.filter(item =>
+      (item as any).products?.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+      <div className="space-y-8 animate-in fade-in">
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <h2 className="text-3xl font-bold">Scraper Manager</h2>
+            <p className="text-neutral-400 text-sm mt-1">Paste Back Market URLs to auto-sync prices</p>
+          </div>
+          <div className="bg-[#3B8392]/10 text-[#3B8392] px-4 py-2 rounded-lg text-xs font-bold border border-[#3B8392]/20">
+            Worker Status: Active (10m)
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden shadow-sm">
+          <div className="p-6 border-b border-neutral-100">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search variants..."
+                className="w-full pl-12 pr-4 py-3 bg-neutral-50 rounded-xl outline-none focus:ring-2 focus:ring-[#3B8392]/20 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-neutral-50">
+                <tr>
+                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Product</th>
+                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Manual Price</th>
+                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Back Market URL</th>
+                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Auto Price</th>
+                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Link Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-50">
+                {filteredList.map((item: any) => (
+                  <tr key={item.id} className="hover:bg-neutral-50">
+                    <td className="p-4">
+                      <div className="font-bold">{(item as any).products?.name}</div>
+                      <div className="text-xs text-neutral-400">{item.capacity}</div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          defaultValue={item.price_kes || ''}
+                          id={`manual-price-${item.id}`}
+                          placeholder="Manual..."
+                          className="w-24 px-3 py-2 bg-neutral-50 rounded-lg text-sm border border-neutral-200 focus:border-[#FF9900] outline-none"
+                        />
+                        <button
+                          onClick={async () => {
+                            const input = document.getElementById(`manual-price-${item.id}`) as HTMLInputElement;
+                            if (input?.value) {
+                              const manualPrice = Number(input.value);
+                              await supabase.from('product_variants').update({ price_kes: manualPrice, previous_price_kes: item.price_kes || manualPrice }).eq('id', item.id);
+                              fetchPricelist();
+                            }
+                          }}
+                          className="p-2 bg-[#FF9900]/10 text-[#FF9900] rounded-lg hover:bg-[#FF9900]/20 transition-all"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          defaultValue={item.source_url || ''}
+                          id={`url-input-${item.id}`}
+                          placeholder="https://backmarket..."
+                          className="w-48 px-3 py-2 bg-neutral-50 rounded-lg text-sm border border-neutral-200 focus:border-[#3B8392] outline-none"
+                        />
+                        <button
+                          onClick={async () => {
+                            const input = document.getElementById(`url-input-${item.id}`) as HTMLInputElement;
+                            if (input?.value) {
+                              await supabase.from('product_variants').update({ source_url: input.value }).eq('id', item.id);
+                              fetchPricelist();
+                            }
+                          }}
+                          className="p-2 bg-[#3B8392]/10 text-[#3B8392] rounded-lg hover:bg-[#3B8392]/20 transition-all"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
+                        {item.source_url && (
+                          <a href={item.source_url} target="_blank" className="p-2 text-neutral-400 hover:text-[#3B8392]">
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      {item.price_kes ? <span className="font-bold text-[#3B8392]">KES {item.price_kes.toLocaleString()}</span> : <span className="italic text-neutral-300">Pending</span>}
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${item.source_url ? 'bg-[#3B8392]/10 text-[#3B8392]' : 'bg-neutral-100 text-neutral-400'}`}>
+                        {item.source_url ? 'Linked' : 'Unlinked'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const MarketingManager = () => {
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
+    // Replace with real profiles fetch
     const customers = [
       { id: '1', full_name: 'Munga Kamau', email: 'munga@gmail.com', total_spend: 154000, last_purchase: '2024-05-12' },
       { id: '2', full_name: 'Sarah Njeru', email: 'sarah@yahoo.com', total_spend: 45000, last_purchase: '2024-04-30' },
@@ -255,7 +368,7 @@ const AdminDashboard: React.FC = () => {
       <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden animate-in fade-in">
         <div className="p-8 border-b border-neutral-100 flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold">Customer Marketing</h2>
+            <h2 className="text-2xl font-bold">Email Marketing</h2>
             <p className="text-neutral-400 text-sm">Target recent buyers with offers</p>
           </div>
           <button
@@ -304,6 +417,32 @@ const AdminDashboard: React.FC = () => {
       </div>
     );
   };
+
+  const CustomerManager = () => (
+    <div className="space-y-6 animate-in fade-in">
+      <h2 className="text-2xl font-bold">Customer Database</h2>
+      <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-neutral-50">
+            <tr>
+              <th className="p-6 text-xs font-black uppercase text-neutral-400">Name</th>
+              <th className="p-6 text-xs font-black uppercase text-neutral-400">Contact</th>
+              <th className="p-6 text-xs font-black uppercase text-neutral-400">Total Spent</th>
+              <th className="p-6 text-xs font-black uppercase text-neutral-400">Last Active</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-50">
+            <tr className="hover:bg-neutral-50">
+              <td className="p-6 font-bold">Munga Kamau</td>
+              <td className="p-6 text-sm">munga@gmail.com</td>
+              <td className="p-6 font-bold text-[#FF9900]">KES 154,000</td>
+              <td className="p-6 text-sm text-neutral-400">May 12, 2024</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   const ShopManager = () => (
     <div className="space-y-6 animate-in fade-in">
@@ -448,40 +587,32 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 
-  const renderPricelistManager = () => (
-    <div className="text-center py-20 text-neutral-400 font-bold">
-      Pricelist Scraper Manager (See previous implementation if needed, placeholder to keep file short)
-    </div>
-  );
-
   return (
     <div className="flex min-h-screen bg-[#F8F9FB]">
       <Sidebar />
-      <main className="ml-64 flex-1 p-10">
+      <main className="ml-0 lg:ml-64 flex-1 p-10">
         <header className="flex justify-between items-center mb-10">
           <div>
             <h1 className="text-3xl font-bold capitalize">{activeTab}</h1>
-            <p className="text-neutral-400">Welcome back, Admin</p>
+            <p className="text-neutral-400">LegitGrinder Admin Panel</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white p-2 rounded-xl shadow-sm border border-neutral-100">
               <CalendarIcon className="w-5 h-5 text-neutral-400" />
             </div>
-            <button className="bg-[#FF9900] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-orange-200">
-              Export Report
-            </button>
           </div>
         </header>
 
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'marketing' && <MarketingManager />}
-        {activeTab === 'customers' && <MarketingManager />} {/* Customers = Marketing for now */}
+        {activeTab === 'customers' && <CustomerManager />}
         {activeTab === 'content' && <BlogManager />}
         {activeTab === 'products' && <ShopManager />}
         {activeTab === 'invoices' && <InvoiceManager />}
         {activeTab === 'orders' && <InvoiceManager />}
         {activeTab === 'store' && <ShopManager />}
-        {activeTab === 'pricelist' && renderPricelistManager()}
+        {activeTab === 'pricelist' && <ScraperManager />}
+        {activeTab === 'consultation' && <ConsultationManager />}
       </main>
     </div>
   );
