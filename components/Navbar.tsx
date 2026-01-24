@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { Menu, X, ShoppingBag, Calculator, Package, User, HelpCircle, LayoutDashboard, Tag, Handshake } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
@@ -9,6 +8,31 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Check if user is logged in as admin
+    const checkAdmin = async () => {
+      try {
+        const { supabase } = await import('../src/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+
+          setIsAdmin(profile?.role === 'admin');
+        }
+      } catch (err) {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdmin();
+  }, [currentPage]);
 
   const navLinks = [
     { name: 'Shop', id: 'shop' },
@@ -18,8 +42,12 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
     { name: 'Collaboration', id: 'collaboration' },
     { name: 'Consultancy', id: 'consultancy' },
     { name: 'FAQ', id: 'faq' },
-    { name: 'Admin', id: 'admin' },
   ];
+
+  // Only show Admin if user is logged in as admin
+  if (isAdmin) {
+    navLinks.push({ name: 'Admin', id: 'admin' });
+  }
 
   return (
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100 h-20 flex items-center">

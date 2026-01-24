@@ -141,9 +141,18 @@ const Pricelist = () => {
                     </td>
                     <td className="px-6 py-4">
                       {item.priceKES ? (
-                        <span className="font-bold text-[#FF9900]">
-                          KES {item.priceKES.toLocaleString()}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-[#FF9900]">
+                            KES {item.priceKES.toLocaleString()}
+                          </span>
+                          {(item as any).previous_price_kes && (item as any).previous_price_kes !== item.priceKES && (
+                            <span className={`text-xs font-bold flex items-center gap-1 ${item.priceKES < (item as any).previous_price_kes ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                              {item.priceKES < (item as any).previous_price_kes ? '↓' : '↑'}
+                              {Math.abs(((item.priceKES - (item as any).previous_price_kes) / (item as any).previous_price_kes * 100)).toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-gray-400 italic">Pending...</span>
                       )}
