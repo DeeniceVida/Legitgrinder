@@ -110,9 +110,8 @@ const Pricelist = () => {
           ))}
         </div>
         <button
-          onClick={fetchPrices}
-          className="p-3 rounded-xl border border-gray-200 hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
-          title="Refresh Prices"
+          onClick={fetchPricelist}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
         </button>
