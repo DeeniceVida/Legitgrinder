@@ -107,8 +107,27 @@ const AdminDashboard: React.FC = () => {
   };
 
   const updateSourceUrl = async (id: number, url: string) => {
-    await supabase.from('product_variants').update({ source_url: url }).eq('id', id);
-    setPricelist(prev => prev.map(p => p.id === id ? { ...p, source_url: url } : p));
+    try {
+      const { error } = await supabase
+        .from('product_variants')
+        .update({ source_url: url })
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error saving URL:', error);
+        alert('Failed to save URL. Please try again.');
+        return;
+      }
+
+      // Update local state after successful save
+      setPricelist(prev => prev.map(p => p.id === id ? { ...p, source_url: url } : p));
+
+      // Optional: Show success feedback
+      console.log('URL saved successfully for product variant', id);
+    } catch (err) {
+      console.error('Error:', err);
+      alert('Failed to save URL. Please try again.');
+    }
   };
 
   const handleProductSubmit = async (formData: any) => {
@@ -291,33 +310,27 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          value={item.source_url || ''}
-                          onChange={(e) => {
-                            // Update local state immediately for UX
-                            setPricelist(prev => prev.map(p =>
-                              p.id === item.id ? { ...p, source_url: e.target.value } : p
-                            ));
-                          }}
-                          onBlur={(e) => {
-                            // Save to database on blur
-                            if (e.target.value) updateSourceUrl(item.id, e.target.value);
-                          }}
-                          placeholder="Paste URL..."
+                          defaultValue={item.source_url || ''}
+                          id={`url-input-${item.id}`}
+                          placeholder="Paste Back Market URL..."
                           className="flex-1 px-3 py-2 bg-neutral-50 rounded-lg text-sm border border-neutral-200 focus:border-[#FF9900] outline-none"
                         />
+                        <button
+                          onClick={() => {
+                            const input = document.getElementById(`url-input-${item.id}`) as HTMLInputElement;
+                            if (input?.value) {
+                              updateSourceUrl(item.id, input.value);
+                            }
+                          }}
+                          className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-all"
+                          title="Save URL"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
                         {item.source_url && (
-                          <>
-                            <button
-                              onClick={() => updateSourceUrl(item.id, item.source_url!)}
-                              className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-all"
-                              title="Save URL"
-                            >
-                              <Save className="w-4 h-4" />
-                            </button>
-                            <a href={item.source_url} target="_blank" className="p-2 hover:text-[#FF9900]">
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          </>
+                          <a href={item.source_url} target="_blank" className="p-2 hover:text-[#FF9900]">
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
                         )}
                       </div>
                     </td>
