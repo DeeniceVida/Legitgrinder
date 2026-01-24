@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, RefreshCw, Smartphone, CheckCircle, Clock } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../src/lib/supabase';
 
 interface DisplayItem {
   id: number; // variant id
@@ -96,8 +96,8 @@ const Pricelist = () => {
               key={brand}
               onClick={() => setSelectedBrand(brand)}
               className={`px-6 py-3 rounded-xl capitalize whitespace-nowrap transition-colors ${selectedBrand === brand
-                  ? 'bg-[#1a1a1a] text-white'
-                  : 'bg-white border border-gray-200 hover:border-[#FF9900] text-gray-600'
+                ? 'bg-[#1a1a1a] text-white'
+                : 'bg-white border border-gray-200 hover:border-[#FF9900] text-gray-600'
                 }`}
             >
               {brand}
