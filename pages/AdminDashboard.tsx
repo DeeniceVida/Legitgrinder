@@ -85,7 +85,11 @@ const AdminDashboard: React.FC = () => {
       }
       if (activeTab === 'products') {
         const { data: p } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-        if (p) setProducts(p as any);
+        if (p) setProducts(p.map((item: any) => ({
+          ...item,
+          priceKES: item.price_kes, // Map for UI consistency
+          stockStatus: item.stock_status
+        })));
       }
       if (activeTab === 'orders') {
         const { data: o } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
@@ -113,11 +117,24 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleProductSubmit = async (formData: any) => {
+    // Map UI names to DB names
+    const dbData = {
+      name: formData.name,
+      price_kes: formData.priceKES,
+      category: formData.category,
+      stock_status: formData.stockStatus,
+      image: formData.image,
+      images: formData.images,
+      description: formData.description,
+      shop_variants: formData.shop_variants,
+      origin: formData.origin
+    };
+
     if (editingProduct) {
-      const { error } = await supabase.from('products').update(formData).eq('id', editingProduct.id);
+      const { error } = await supabase.from('products').update(dbData).eq('id', editingProduct.id);
       if (error) alert(error.message);
     } else {
-      const { error } = await supabase.from('products').insert(formData);
+      const { error } = await supabase.from('products').insert(dbData);
       if (error) alert(error.message);
     }
     fetchData();
@@ -127,8 +144,13 @@ const AdminDashboard: React.FC = () => {
 
   const clearProducts = async () => {
     if (confirm('Delete all products in shop manager? This cannot be undone.')) {
-      const { error } = await supabase.from('products').delete().neq('id', 'placeholder');
-      if (!error) fetchData();
+      const { error } = await supabase.from('products').delete().gt('id', 0);
+      if (!error) {
+        alert('All products wiped.');
+        fetchData();
+      } else {
+        alert(error.message);
+      }
     }
   };
 

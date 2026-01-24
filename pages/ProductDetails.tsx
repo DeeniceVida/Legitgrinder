@@ -13,7 +13,11 @@ const ProductDetails = ({ productId, onNavigate }: { productId: string, onNaviga
         const fetchProduct = async () => {
             const { data } = await supabase.from('products').select('*').eq('id', productId).single();
             if (data) {
-                setProduct(data);
+                setProduct({
+                    ...data,
+                    priceKES: data.price_kes,
+                    stockStatus: data.stock_status
+                });
                 if (data.shop_variants && data.shop_variants.length > 0) {
                     setSelectedVariant(data.shop_variants[0]);
                 }
