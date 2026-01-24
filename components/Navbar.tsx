@@ -96,7 +96,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
             <button
               key={link.id}
               onClick={() => onNavigate(link.id)}
-              className={`text-xs font-bold uppercase tracking-widest transition-all duration-300 ${currentPage === link.id ? 'text-neutral-900' : 'text-neutral-400 hover:text-neutral-900'
+              className={`text-xs font-bold uppercase tracking-widest transition-all duration-300 ${currentPage === link.id ? 'text-[#3B8392]' : 'text-neutral-400 hover:text-[#3B8392]'
                 }`}
             >
               {link.name}
@@ -107,7 +107,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
         <div className="flex items-center space-x-6">
           <button
             onClick={() => onNavigate('login')}
-            className="hidden md:block text-xs font-bold uppercase tracking-widest bg-neutral-900 text-white px-6 py-3 rounded-full hover:bg-black transition-all"
+            className="hidden md:block text-xs font-bold uppercase tracking-widest bg-neutral-900 text-white px-8 py-3.5 rounded-full hover:bg-[#3B8392] transition-all shadow-xl shadow-neutral-100"
           >
             Account
           </button>

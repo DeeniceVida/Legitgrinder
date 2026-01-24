@@ -51,7 +51,7 @@ const App: React.FC = () => {
       status: OrderStatus.SHIPPING,
       date: '2024-05-10',
       updates: [
-        { status: OrderStatus.ORDERED, date: '2024-05-10', location: 'USA Warehouse' },
+        { status: OrderStatus.RECEIVED_BY_AGENT, date: '2024-05-10', location: 'USA Warehouse' },
         { status: OrderStatus.SHIPPING, date: '2024-05-12', location: 'Transit to Kenya' }
       ]
     }
@@ -137,7 +137,7 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-16">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-3 mb-8">
-                <div className="bg-[#FF9900] p-2 rounded-xl text-white">
+                <div className="bg-[#3B8392] p-2 rounded-xl text-white shadow-lg shadow-[#3B8392]/20">
                   <Smartphone className="w-6 h-6" />
                 </div>
                 <span className="font-bold text-2xl tracking-tighter">LegitGrinder.</span>
@@ -145,7 +145,7 @@ const App: React.FC = () => {
               <p className="text-neutral-500 font-light text-lg mb-10 max-w-md">Premium gateway for tech and industrial imports. Bridging the gap between global markets and East Africa.</p>
               <div className="flex gap-6">
                 {[Instagram, Youtube, Mail].map((Icon, i) => (
-                  <a key={i} href="#" className="p-3 bg-white border border-neutral-200 rounded-full hover:border-[#FF9900] hover:text-[#FF9900] transition-all">
+                  <a key={i} href="#" className="p-3 bg-white border border-neutral-100 rounded-full hover:border-[#3B8392] hover:text-[#3B8392] transition-all shadow-sm">
                     <Icon className="w-5 h-5" />
                   </a>
                 ))}
@@ -155,7 +155,7 @@ const App: React.FC = () => {
               <h4 className="font-bold text-neutral-900 mb-8 uppercase tracking-widest text-xs">Solutions</h4>
               <ul className="space-y-4 text-neutral-500 font-light">
                 {['Shop Inventory', 'Price Calculator', 'Order Tracking', 'Consultancy'].map((item, i) => (
-                  <li key={i} className="hover:text-[#FF9900] cursor-pointer transition-colors">{item}</li>
+                  <li key={i} className="hover:text-[#3B8392] cursor-pointer transition-colors">{item}</li>
                 ))}
               </ul>
             </div>
