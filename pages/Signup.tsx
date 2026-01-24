@@ -86,62 +86,62 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                 </div>
 
                 {error && (
-                    <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm">
-                        {error}
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                        <strong>Error:</strong> {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSignup} className="space-y-4">
                     <div className="relative">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 w-5 h-5" />
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF9900] w-5 h-5" />
                         <input
                             type="text"
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                             required
-                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-green-600 transition-all"
+                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-[#FF9900] transition-all"
                             placeholder="Full name"
                         />
                     </div>
 
                     <div className="relative">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 w-5 h-5" />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF9900] w-5 h-5" />
                         <input
                             type="email"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             required
-                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-green-600 transition-all"
+                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-[#FF9900] transition-all"
                             placeholder="Email"
                         />
                     </div>
 
                     <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 w-5 h-5" />
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF9900] w-5 h-5" />
                         <input
                             type="tel"
                             value={formData.phone}
                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                             required
-                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-green-600 transition-all"
+                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-[#FF9900] transition-all"
                             placeholder="Phone number"
                         />
                     </div>
 
                     <div className="relative">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 w-5 h-5" />
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF9900] w-5 h-5" />
                         <input
                             type="text"
                             value={formData.location}
                             onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                             required
-                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-green-600 transition-all"
+                            className="w-full pl-12 pr-4 py-3 bg-neutral-50 border-2 border-transparent rounded-xl outline-none focus:border-[#FF9900] transition-all"
                             placeholder="Location (City, Country)"
                         />
                     </div>
 
                     <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-green-600 w-5 h-5" />
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FF9900] w-5 h-5" />
                         <input
                             type={showPassword ? "text" : "password"}
                             value={formData.password}
@@ -168,8 +168,8 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                                     type="button"
                                     onClick={() => toggleImportNeed(option)}
                                     className={`p-3 rounded-xl text-xs font-medium transition-all ${formData.importNeeds.includes(option)
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                                        ? 'bg-[#FF9900] text-white'
+                                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                                         }`}
                                 >
                                     {option}
@@ -183,17 +183,17 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                             type="checkbox"
                             id="terms"
                             required
-                            className="mt-1 w-4 h-4 text-green-600 border-neutral-300 rounded focus:ring-green-600"
+                            className="mt-1 w-4 h-4 text-[#FF9900] border-neutral-300 rounded focus:ring-[#FF9900]"
                         />
                         <label htmlFor="terms" className="text-xs text-neutral-600">
-                            I agree with the <a href="#" className="text-green-600 font-bold hover:underline">Terms & Condition</a>
+                            I agree with the <a href="#" className="text-[#FF9900] font-bold hover:underline">Terms & Condition</a>
                         </label>
                     </div>
 
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-4 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all disabled:opacity-70 flex justify-center items-center gap-3 mt-6"
+                        className="w-full py-4 bg-[#FF9900] text-white rounded-xl font-bold hover:bg-orange-600 transition-all disabled:opacity-70 flex justify-center items-center gap-3 mt-6"
                     >
                         {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                         {loading ? 'Creating Account...' : 'Continue'}
@@ -204,7 +204,7 @@ const Signup: React.FC<SignupProps> = ({ onSignupSuccess }) => {
                         <button
                             type="button"
                             onClick={() => window.location.href = '/login'}
-                            className="text-green-600 font-bold hover:underline"
+                            className="text-[#FF9900] font-bold hover:underline"
                         >
                             Login
                         </button>

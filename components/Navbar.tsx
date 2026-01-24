@@ -10,29 +10,58 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    // Check if user is logged in as admin
-    const checkAdmin = async () => {
-      try {
-        const { supabase } = await import('../src/lib/supabase');
-        const { data: { session } } = await supabase.auth.getSession();
+  // Define checkAdmin outside useEffect so it can be called directly and by the listener
+  const checkAdmin = async () => {
+    try {
+      // Import supabase here to ensure it's available when checkAdmin is called
+      const { supabase } = await import('../src/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
 
-        if (session) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-
-          setIsAdmin(profile?.role === 'admin');
-        }
-      } catch (err) {
+      if (!session) {
         setIsAdmin(false);
+        return;
       }
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(profile?.role === 'admin');
+    } catch (err) {
+      console.error('Admin check error:', err);
+      setIsAdmin(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAdmin(); // Initial check on component mount
+
+    let authListener: any; // Declare authListener here
+
+    // Set up auth state change listener
+    const setupAuthListener = async () => {
+      const { supabase } = await import('../src/lib/supabase');
+      const { data } = supabase.auth.onAuthStateChange(() => {
+        checkAdmin(); // Re-check admin status on auth state change
+      });
+      authListener = data;
     };
 
-    checkAdmin();
-  }, [currentPage]);
+    setupAuthListener();
+
+    // Cleanup function to unsubscribe from the listener
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
   const navLinks = [
     { name: 'Shop', id: 'shop' },

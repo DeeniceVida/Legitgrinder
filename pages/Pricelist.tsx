@@ -20,7 +20,7 @@ const Pricelist = () => {
   const [selectedBrand, setSelectedBrand] = useState('all');
 
   useEffect(() => {
-    fetchPrices();
+    fetchPricelist();
   }, []);
 
   const fetchPricelist = async () => {
