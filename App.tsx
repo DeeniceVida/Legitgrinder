@@ -7,11 +7,12 @@ import Tracking from './pages/Tracking';
 import AdminDashboard from './pages/AdminDashboard';
 import Login from './pages/Login';
 import Pricelist from './pages/Pricelist';
+import Consultancy from './pages/Consultancy';
 import Collaboration from './pages/Collaboration';
 import AIAssistant from './components/AIAssistant';
-import { 
-  Smartphone, Package, Globe, HelpCircle, Instagram, Youtube, Mail, MapPin, 
-  Plus, ArrowUpRight, Box, Clock, ChevronRight, CheckCircle2 
+import {
+  Smartphone, Package, Globe, HelpCircle, Instagram, Youtube, Mail, MapPin,
+  Plus, ArrowUpRight, Box, Clock, ChevronRight, CheckCircle2
 } from 'lucide-react';
 import { STATUS_SEQUENCE } from './constants';
 import { OrderStatus } from './types';
@@ -41,69 +42,68 @@ const App: React.FC = () => {
 
   const renderMyOrders = () => (
     <div className="py-24 px-6 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-       <div className="mb-16">
-          <h1 className="text-5xl font-bold tracking-tight-custom mb-4">My Dashboard</h1>
-          <p className="text-neutral-400 font-light">Track your active global imports in real-time.</p>
-       </div>
+      <div className="mb-16">
+        <h1 className="text-5xl font-bold tracking-tight-custom mb-4">My Dashboard</h1>
+        <p className="text-neutral-400 font-light">Track your active global imports in real-time.</p>
+      </div>
 
-       <div className="space-y-10">
-          {mockUserOrders.map(order => {
-             const statusIdx = STATUS_SEQUENCE.indexOf(order.status);
-             return (
-                <div key={order.id} className="bg-white border border-neutral-100 rounded-[3rem] p-12 shadow-sm hover:shadow-xl transition-all duration-700 group">
-                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
-                      <div className="flex items-center gap-6">
-                         <div className="w-20 h-20 bg-neutral-900 rounded-[2rem] flex items-center justify-center text-white shadow-2xl group-hover:bg-[#FF9900] transition-colors duration-500">
-                            <Box className="w-10 h-10" />
-                         </div>
-                         <div>
-                            <p className="text-[10px] font-black text-neutral-300 uppercase tracking-widest mb-1">Order #{order.id}</p>
-                            <h3 className="text-3xl font-bold text-neutral-900 tracking-tight-custom">{order.product}</h3>
-                         </div>
-                      </div>
-                      <div className="text-left md:text-right">
-                         <p className="text-[10px] font-black text-neutral-300 uppercase tracking-widest mb-1">Est. Arrival</p>
-                         <p className="text-xl font-bold text-neutral-900">{order.estArrival}</p>
-                      </div>
-                   </div>
-
-                   {/* Progress Logic */}
-                   <div className="relative mb-12 px-2">
-                      <div className="absolute top-1/2 left-0 w-full h-1 bg-neutral-100 -translate-y-1/2 rounded-full overflow-hidden">
-                         <div 
-                           className="h-full bg-[#FF9900] transition-all duration-1000" 
-                           style={{ width: `${(statusIdx / (STATUS_SEQUENCE.length - 1)) * 100}%` }}
-                         ></div>
-                      </div>
-                      <div className="relative z-10 flex justify-between">
-                         {STATUS_SEQUENCE.map((s, i) => (
-                            <div key={s} className="flex flex-col items-center group/step">
-                               <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg transition-all duration-500 ${
-                                  i <= statusIdx ? 'bg-[#FF9900] text-white scale-110' : 'bg-white text-neutral-200'
-                               }`}>
-                                  {i < statusIdx ? <CheckCircle2 className="w-5 h-5" /> : (i === statusIdx ? <Clock className="w-5 h-5 animate-pulse" /> : <Box className="w-4 h-4" />)}
-                               </div>
-                               <p className={`absolute -bottom-8 text-[9px] font-black uppercase tracking-tighter w-20 text-center transition-colors ${i <= statusIdx ? 'text-[#FF9900]' : 'text-neutral-300'}`}>
-                                  {s}
-                               </p>
-                            </div>
-                         ))}
-                      </div>
-                   </div>
-
-                   <div className="mt-20 pt-10 border-t border-neutral-50 flex justify-between items-center">
-                      <div className="flex items-center gap-3 text-neutral-400">
-                         <Clock className="w-4 h-4" />
-                         <span className="text-sm font-light italic">Last scan: Agents Warehouse, Shenzhen</span>
-                      </div>
-                      <button className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#FF9900] hover:text-black transition-colors">
-                         View Details <ChevronRight className="w-4 h-4" />
-                      </button>
-                   </div>
+      <div className="space-y-10">
+        {mockUserOrders.map(order => {
+          const statusIdx = STATUS_SEQUENCE.indexOf(order.status);
+          return (
+            <div key={order.id} className="bg-white border border-neutral-100 rounded-[3rem] p-12 shadow-sm hover:shadow-xl transition-all duration-700 group">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
+                <div className="flex items-center gap-6">
+                  <div className="w-20 h-20 bg-neutral-900 rounded-[2rem] flex items-center justify-center text-white shadow-2xl group-hover:bg-[#FF9900] transition-colors duration-500">
+                    <Box className="w-10 h-10" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-neutral-300 uppercase tracking-widest mb-1">Order #{order.id}</p>
+                    <h3 className="text-3xl font-bold text-neutral-900 tracking-tight-custom">{order.product}</h3>
+                  </div>
                 </div>
-             );
-          })}
-       </div>
+                <div className="text-left md:text-right">
+                  <p className="text-[10px] font-black text-neutral-300 uppercase tracking-widest mb-1">Est. Arrival</p>
+                  <p className="text-xl font-bold text-neutral-900">{order.estArrival}</p>
+                </div>
+              </div>
+
+              {/* Progress Logic */}
+              <div className="relative mb-12 px-2">
+                <div className="absolute top-1/2 left-0 w-full h-1 bg-neutral-100 -translate-y-1/2 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#FF9900] transition-all duration-1000"
+                    style={{ width: `${(statusIdx / (STATUS_SEQUENCE.length - 1)) * 100}%` }}
+                  ></div>
+                </div>
+                <div className="relative z-10 flex justify-between">
+                  {STATUS_SEQUENCE.map((s, i) => (
+                    <div key={s} className="flex flex-col items-center group/step">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg transition-all duration-500 ${i <= statusIdx ? 'bg-[#FF9900] text-white scale-110' : 'bg-white text-neutral-200'
+                        }`}>
+                        {i < statusIdx ? <CheckCircle2 className="w-5 h-5" /> : (i === statusIdx ? <Clock className="w-5 h-5 animate-pulse" /> : <Box className="w-4 h-4" />)}
+                      </div>
+                      <p className={`absolute -bottom-8 text-[9px] font-black uppercase tracking-tighter w-20 text-center transition-colors ${i <= statusIdx ? 'text-[#FF9900]' : 'text-neutral-300'}`}>
+                        {s}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-20 pt-10 border-t border-neutral-50 flex justify-between items-center">
+                <div className="flex items-center gap-3 text-neutral-400">
+                  <Clock className="w-4 h-4" />
+                  <span className="text-sm font-light italic">Last scan: Agents Warehouse, Shenzhen</span>
+                </div>
+                <button className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#FF9900] hover:text-black transition-colors">
+                  View Details <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -121,7 +121,7 @@ const App: React.FC = () => {
           </div>
           <h1 className="text-5xl md:text-7xl font-medium mb-6 tracking-tight-custom text-neutral-900 leading-tight">Elite <span className="italic heading-accent text-neutral-400">Inventory.</span></h1>
           <p className="text-neutral-500 mb-20 max-w-xl mx-auto text-lg font-light leading-relaxed">Vetted tech and industrial machinery ready for deployment in Kenya.</p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
             {[1, 2, 3, 4, 5, 6].map(i => (
               <div key={i} className="group flex flex-col cursor-pointer text-left">
@@ -150,6 +150,7 @@ const App: React.FC = () => {
       );
       case 'calculators': return <Calculators />;
       case 'tracking': return <Tracking />;
+      case 'consultancy': return <Consultancy />;
       case 'admin': return <AdminDashboard />;
       case 'faq': return (
         <div className="max-w-3xl mx-auto py-24 px-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -178,24 +179,24 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-[#FF9900] selection:text-white">
-      <Navbar 
+      <Navbar
         onNavigate={(page) => {
           if (page === 'admin') setCurrentPage('admin');
           else setCurrentPage(page);
-        }} 
-        currentPage={currentPage} 
+        }}
+        currentPage={currentPage}
       />
-      
+
       <main className="flex-1 bg-white">
         {isLoggedIn && currentPage === 'home' && (
-           <div className="max-w-7xl mx-auto px-6 pt-12">
-              <button 
-                onClick={() => setCurrentPage('my-orders')}
-                className="bg-[#FF9900]/5 border border-[#FF9900]/20 text-[#FF9900] px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-3 hover:bg-[#FF9900] hover:text-white transition-all shadow-sm"
-              >
-                 <Box className="w-4 h-4" /> Active Shipments (1)
-              </button>
-           </div>
+          <div className="max-w-7xl mx-auto px-6 pt-12">
+            <button
+              onClick={() => setCurrentPage('my-orders')}
+              className="bg-[#FF9900]/5 border border-[#FF9900]/20 text-[#FF9900] px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest flex items-center gap-3 hover:bg-[#FF9900] hover:text-white transition-all shadow-sm"
+            >
+              <Box className="w-4 h-4" /> Active Shipments (1)
+            </button>
+          </div>
         )}
         {renderPage()}
       </main>
@@ -219,7 +220,7 @@ const App: React.FC = () => {
                 ))}
               </div>
             </div>
-            
+
             <div>
               <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-8">Navigation</h4>
               <ul className="space-y-4 text-neutral-400 text-lg font-light">
@@ -227,6 +228,7 @@ const App: React.FC = () => {
                 <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('pricelist')}>Pricelist</li>
                 <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('calculators')}>China Imports</li>
                 <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('tracking')}>Live Tracking</li>
+                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('consultancy')}>Book Consultation</li>
               </ul>
             </div>
 
@@ -239,7 +241,7 @@ const App: React.FC = () => {
               </ul>
             </div>
           </div>
-          
+
           <div className="pt-10 border-t border-neutral-900 flex flex-col md:flex-row justify-between items-center text-neutral-600 text-[10px] font-bold uppercase tracking-[0.2em]">
             <p>&copy; 2024 LegitGrinder Logistics. Built for the modern importer.</p>
             <div className="flex space-x-8 mt-6 md:mt-0">

@@ -16,6 +16,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
     { name: 'Calculators', id: 'calculators' },
     { name: 'Tracking', id: 'tracking' },
     { name: 'Collaboration', id: 'collaboration' },
+    { name: 'Consultancy', id: 'consultancy' },
     { name: 'FAQ', id: 'faq' },
     { name: 'Admin', id: 'admin' },
   ];
@@ -24,9 +25,9 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
     <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100 h-20 flex items-center">
       <div className="max-w-7xl mx-auto px-6 w-full flex justify-between items-center">
         <div className="flex items-center cursor-pointer group" onClick={() => onNavigate('home')}>
-          <img 
-            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg" 
-            alt="Logo" 
+          <img
+            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg"
+            alt="Logo"
             className="h-8 w-auto rounded-lg grayscale group-hover:grayscale-0 transition-all duration-500"
           />
           <span className="ml-3 text-lg font-semibold text-neutral-900 tracking-tight-custom">LegitGrinder</span>
@@ -38,9 +39,8 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
             <button
               key={link.id}
               onClick={() => onNavigate(link.id)}
-              className={`text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
-                currentPage === link.id ? 'text-neutral-900' : 'text-neutral-400 hover:text-neutral-900'
-              }`}
+              className={`text-xs font-bold uppercase tracking-widest transition-all duration-300 ${currentPage === link.id ? 'text-neutral-900' : 'text-neutral-400 hover:text-neutral-900'
+                }`}
             >
               {link.name}
             </button>
@@ -48,7 +48,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
         </div>
 
         <div className="flex items-center space-x-6">
-          <button 
+          <button
             onClick={() => onNavigate('login')}
             className="hidden md:block text-xs font-bold uppercase tracking-widest bg-neutral-900 text-white px-6 py-3 rounded-full hover:bg-black transition-all"
           >
@@ -76,7 +76,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
                 {link.name}
               </button>
             ))}
-            <button 
+            <button
               onClick={() => {
                 onNavigate('login');
                 setIsOpen(false);
