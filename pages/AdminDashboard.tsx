@@ -294,8 +294,9 @@ const AdminDashboard: React.FC = () => {
               <thead className="bg-neutral-50">
                 <tr>
                   <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Product</th>
+                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Manual Price (KES)</th>
                   <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Back Market URL</th>
-                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Price (KES)</th>
+                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Auto Price (KES)</th>
                   <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Status</th>
                 </tr>
               </thead>
@@ -303,8 +304,44 @@ const AdminDashboard: React.FC = () => {
                 {filteredList.map((item: any) => (
                   <tr key={item.id} className="hover:bg-neutral-50">
                     <td className="p-4">
-                      <div className="font-bold">{item.products?.name}</div>
+                      <div className="font-bold">{(item as any).products?.name}</div>
                       <div className="text-xs text-neutral-400">{item.capacity}</div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          defaultValue={item.price_kes || ''}
+                          id={`manual-price-${item.id}`}
+                          placeholder="Manual price..."
+                          className="w-32 px-3 py-2 bg-neutral-50 rounded-lg text-sm border border-neutral-200 focus:border-[#FF9900] outline-none"
+                        />
+                        <button
+                          onClick={async () => {
+                            const input = document.getElementById(`manual-price-${item.id}`) as HTMLInputElement;
+                            if (input?.value) {
+                              const manualPrice = Number(input.value);
+                              const { error } = await supabase
+                                .from('product_variants')
+                                .update({
+                                  price_kes: manualPrice,
+                                  previous_price_kes: item.price_kes || manualPrice
+                                })
+                                .eq('id', item.id);
+
+                              if (error) {
+                                alert('Failed to save price: ' + error.message);
+                              } else {
+                                fetchPricelist();
+                              }
+                            }
+                          }}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all"
+                          title="Set Manual Price"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
