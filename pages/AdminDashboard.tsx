@@ -3,707 +3,422 @@ import {
   LayoutDashboard, ShoppingBag, Users, TrendingUp, Plus, RefreshCcw, Zap,
   Settings, ShieldAlert, Calendar as CalendarIcon, Clock, Box, Tag, Smartphone, CheckCircle2,
   Search, ShieldCheck, Link as LinkIcon, Image as ImageIcon, Trash2, Edit3, Save, ExternalLink,
-  FileText, Printer, ChevronRight, X, ChevronLeft, ArrowUp, ArrowDown
+  FileText, Printer, ChevronRight, X, ChevronLeft, ArrowUp, ArrowDown, PieChart, PenTool,
+  DollarSign, CreditCard, MessageCircle
 } from 'lucide-react';
-import { PricelistItem, Product, Origin, Order, OrderStatus, ShippingMode, ProductVariant } from '../types';
-import { PHONE_MODELS_SCHEMA, STATUS_SEQUENCE } from '../constants';
 import { supabase } from '../src/lib/supabase';
 import InvoiceGenerator from '../components/InvoiceGenerator';
+import { Product, Variant, Origin, Order, OrderStatus, ShippingMode, ProductVariant } from '../types';
 
 interface AdminDashboardProps {
   onLogout: () => void;
 }
 
 const AdminDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'shop' | 'pricelist' | 'consultancy'>('overview');
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Data States
   const [pricelist, setPricelist] = useState<ProductVariant[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
+  const [blogs, setBlogs] = useState<any[]>([]);
+
+  // UI States
   const [searchTerm, setSearchTerm] = useState('');
   const [showProductModal, setShowProductModal] = useState(false);
+  const [showBlogModal, setShowBlogModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-
-  // Calendar state
+  const [editingBlog, setEditingBlog] = useState<any | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Analytics state
+  // Analytics
   const [analytics, setAnalytics] = useState({
     totalRevenue: 0,
     activeOrders: 0,
     monthlyTrend: 0,
-    pendingConsultations: 0
+    pendingConsultations: 0,
+    pageViews: 16431, // Mock
+    visitors: 6225 // Mock
   });
 
   useEffect(() => {
+    fetchAnalytics();
+    if (activeTab === 'products') fetchProducts();
+    if (activeTab === 'orders' || activeTab === 'invoices') fetchOrders();
+    if (activeTab === 'customers') fetchConsultations();
     if (activeTab === 'pricelist') fetchPricelist();
-    if (activeTab === 'consultancy') fetchConsultations();
-    if (activeTab === 'shop') fetchProducts();
-    if (activeTab === 'overview') fetchAnalytics();
-    if (activeTab === 'orders') fetchOrders();
+    if (activeTab === 'content') fetchBlogs();
   }, [activeTab]);
 
-  const fetchPricelist = async () => {
-    const { data } = await supabase
-      .from('product_variants')
-      .select(`*, products(name, series, brand)`)
-      .order('id', { ascending: true });
-    if (data) setPricelist(data);
-  };
-
-  const fetchConsultations = async () => {
-    const { data } = await supabase
-      .from('consultations')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (data) setConsultations(data);
-  };
-
+  // Fetchers
   const fetchProducts = async () => {
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .order('id', { ascending: true });
+    const { data } = await supabase.from('products').select('*').order('id');
     if (data) setProducts(data as any);
   };
 
   const fetchOrders = async () => {
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
     if (data) setOrders(data);
   };
 
+  const fetchConsultations = async () => {
+    const { data } = await supabase.from('consultations').select('*').order('created_at', { ascending: false });
+    if (data) setConsultations(data);
+  };
+
+  const fetchPricelist = async () => {
+    const { data } = await supabase.from('product_variants').select(`*, products(name, series, brand)`).order('id');
+    if (data) setPricelist(data);
+  };
+
+  const fetchBlogs = async () => {
+    const { data } = await supabase.from('blogs').select('*').order('created_at', { ascending: false });
+    if (data) setBlogs(data);
+  };
+
   const fetchAnalytics = async () => {
-    // Calculate from orders
-    let totalRevenue = 0;
-
-    const { data: ordersData } = await supabase.from('orders').select('total_cost_kes');
-    if (ordersData) {
-      totalRevenue = ordersData.reduce((acc, curr) => acc + (curr.total_cost_kes || 0), 0);
-    }
-
-    const { count: activeOrderCount } = await supabase
-      .from('orders')
-      .select('*', { count: 'exact', head: true })
-      .neq('status', 'Delivered');
-
-    const monthlyTrend = 12; // This would need real historical data
-
-    const { count: pendingConsultations } = await supabase
-      .from('consultations')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending_approval');
-
-    setAnalytics({
-      totalRevenue,
-      activeOrders: activeOrderCount || 0,
-      monthlyTrend,
-      pendingConsultations: pendingConsultations || 0
-    });
+    // Real calculation would go here
+    const { count: pending } = await supabase.from('consultations').select('*', { count: 'exact', head: true }).eq('status', 'pending_approval');
+    setAnalytics(prev => ({ ...prev, pendingConsultations: pending || 0 }));
   };
 
-  const updateSourceUrl = async (id: number, url: string) => {
-    try {
-      const { error } = await supabase
-        .from('product_variants')
-        .update({ source_url: url })
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error saving URL:', error);
-        alert('Failed to save URL. Please try again.');
-        return;
-      }
-
-      // Update local state after successful save
-      setPricelist(prev => prev.map(p => p.id === id ? { ...p, source_url: url } : p));
-
-      // Optional: Show success feedback
-      console.log('URL saved successfully for product variant', id);
-    } catch (err) {
-      console.error('Error:', err);
-      alert('Failed to save URL. Please try again.');
-    }
-  };
-
-  const handleProductSubmit = async (formData: any) => {
-    if (editingProduct) {
-      await supabase.from('products').update(formData).eq('id', editingProduct.id);
+  // Actions
+  const handleBlogSubmit = async (formData: any) => {
+    if (editingBlog) {
+      await supabase.from('blogs').update(formData).eq('id', editingBlog.id);
     } else {
-      await supabase.from('products').insert(formData);
+      await supabase.from('blogs').insert(formData);
     }
-    fetchProducts();
-    setShowProductModal(false);
-    setEditingProduct(null);
+    fetchBlogs();
+    setShowBlogModal(false);
+    setEditingBlog(null);
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (confirm('Delete this product?')) {
-      await supabase.from('products').delete().eq('id', id);
-      fetchProducts();
+  const handleDeleteBlog = async (id: string) => {
+    if (confirm('Delete this blog?')) {
+      await supabase.from('blogs').delete().eq('id', id);
+      fetchBlogs();
     }
   };
 
-  const approveConsultation = async (id: number) => {
-    await supabase
-      .from('consultations')
-      .update({ status: 'scheduled' })
-      .eq('id', id);
+  // Consultation Logic
+  const handleConsultationAction = async (booking: any, action: 'confirm' | 'approve') => {
+    if (action === 'confirm') {
+      const message = `Hello ${booking.client_name}, your consultation request for ${new Date(booking.requested_date).toLocaleString()} has been confirmed. Please pay the consultation fee to secure your slot. M-PESA Paybill: 123456, Account: CONSULT.`;
+      const whatsappUrl = `https://wa.me/${booking.client_phone}?text=${encodeURIComponent(message)}`;
+
+      await supabase.from('consultations').update({ status: 'confirmed_waiting_payment' }).eq('id', booking.id);
+      window.open(whatsappUrl, '_blank');
+    } else if (action === 'approve') {
+      await supabase.from('consultations').update({ status: 'scheduled', payment_status: 'paid' }).eq('id', booking.id);
+    }
     fetchConsultations();
   };
 
-  const renderOverview = () => (
-    <div className="space-y-8">
+  // --- UI COMPONENTS ---
+
+  const Sidebar = () => (
+    <aside className="w-64 bg-white border-r border-neutral-100 flex flex-col fixed h-screen z-10">
+      <div className="p-8 flex items-center gap-3">
+        <div className="bg-[#FF9900] p-2 rounded-lg text-white">
+          <LayoutDashboard className="w-6 h-6" />
+        </div>
+        <span className="font-bold text-xl tracking-tight">AdminHub</span>
+      </div>
+
+      <nav className="flex-1 px-4 space-y-8 overflow-y-auto pb-4">
+        <div>
+          <p className="px-4 text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-2">Main</p>
+          <div className="space-y-1">
+            <SidebarItem id="dashboard" icon={<PieChart />} label="Dashboard" />
+            <SidebarItem id="orders" icon={<ShoppingBag />} label="Orders" badge={orders.filter(o => o.status !== 'Delivered').length} />
+            <SidebarItem id="products" icon={<Box />} label="Products" />
+            <SidebarItem id="customers" icon={<Users />} label="Customers" />
+            <SidebarItem id="pricelist" icon={<RefreshCcw />} label="Scraper Manager" />
+          </div>
+        </div>
+
+        <div>
+          <p className="px-4 text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-2">Content</p>
+          <div className="space-y-1">
+            <SidebarItem id="content" icon={<PenTool />} label="Blog Posts" />
+            <SidebarItem id="store" icon={<Smartphone />} label="Online Store" />
+          </div>
+        </div>
+
+        <div>
+          <p className="px-4 text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-2">Finances</p>
+          <div className="space-y-1">
+            <SidebarItem id="invoices" icon={<FileText />} label="Invoices" />
+            <SidebarItem id="transactions" icon={<CreditCard />} label="Transactions" />
+          </div>
+        </div>
+      </nav>
+
+      <div className="p-4 border-t border-neutral-100">
+        <button
+          onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }}
+          className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl w-full font-bold transition-all"
+        >
+          <Settings className="w-5 h-5" /> Log Out
+        </button>
+      </div>
+    </aside>
+  );
+
+  const SidebarItem = ({ id, icon, label, badge }: any) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === id ? 'bg-[#FF9900] text-white shadow-lg shadow-orange-200' : 'text-neutral-500 hover:bg-neutral-50'
+        }`}
+    >
+      <div className="flex items-center gap-3">
+        {React.cloneElement(icon, { size: 18 })}
+        <span>{label}</span>
+      </div>
+      {badge > 0 && (
+        <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeTab === id ? 'bg-white/20 text-white' : 'bg-orange-100 text-[#FF9900]'}`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+
+  const DashboardView = () => (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm">
-          <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-4">Total Revenue</p>
-          <h3 className="text-4xl font-bold text-neutral-900">KES {analytics.totalRevenue.toLocaleString()}</h3>
-          <p className="text-green-500 text-xs font-bold mt-4 flex items-center gap-1">
-            <ArrowUp className="w-3 h-3" /> +{analytics.monthlyTrend}% vs last month
-          </p>
+        <StatCard title="Page Views" value={analytics.pageViews.toLocaleString()} trend="+15.5%" icon={<EyeBox />} color="blue" />
+        <StatCard title="Visitors" value={analytics.visitors.toLocaleString()} trend="+8.4%" icon={<Users />} color="green" />
+        <StatCard title="Total Orders" value={orders.length.toString()} trend="+4.4%" icon={<ShoppingBag />} color="orange" />
+        <StatCard title="Pending Consults" value={analytics.pendingConsultations.toString()} trend="Action Req" icon={<MessageCircle />} color="red" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white rounded-[2rem] p-8 border border-neutral-100 shadow-sm">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="font-bold text-xl">Total Profit</h3>
+            <select className="bg-neutral-50 border-none rounded-lg text-xs font-bold py-2 px-3"><option>Last 30 Days</option></select>
+          </div>
+          <div className="h-64 flex items-center justify-center bg-neutral-50 rounded-2xl text-neutral-400 font-bold">
+            Analytics Chart Placeholder
+          </div>
         </div>
-        <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm">
-          <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-4">Active Orders</p>
-          <h3 className="text-4xl font-bold text-neutral-900">{analytics.activeOrders}</h3>
-          <p className="text-neutral-400 text-xs font-bold mt-4">Across all regions</p>
-        </div>
-        <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm">
-          <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-4">Pending Consultations</p>
-          <h3 className="text-4xl font-bold text-neutral-900">{analytics.pendingConsultations}</h3>
-          <p className="text-amber-500 text-xs font-bold mt-4">Action Required</p>
-        </div>
-        <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm">
-          <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-4">Products Listed</p>
-          <h3 className="text-4xl font-bold text-neutral-900">{products.length}</h3>
-          <p className="text-neutral-400 text-xs font-bold mt-4">Across all categories</p>
+        <div className="bg-white rounded-[2rem] p-8 border border-neutral-100 shadow-sm">
+          <h3 className="font-bold text-xl mb-6">Most Active Day</h3>
+          <div className="h-64 flex items-end justify-between gap-2">
+            {/* Mock bars */}
+            {[40, 60, 30, 80, 50, 90, 70].map((h, i) => (
+              <div key={i} className={`w-full rounded-t-xl transition-all hover:opacity-80 ${h === 90 ? 'bg-[#FF9900]' : 'bg-neutral-100'}`} style={{ height: `${h}%` }}></div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-4 text-xs font-bold text-neutral-400">
+            <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+          </div>
         </div>
       </div>
     </div>
   );
 
-  const renderShopManager = () => (
-    <div className="space-y-8">
+  const ConsultationManager = () => (
+    <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden animate-in fade-in">
+      <div className="p-8 border-b border-neutral-100">
+        <h2 className="text-2xl font-bold">Consultation Requests</h2>
+      </div>
+      <table className="w-full text-left">
+        <thead className="bg-neutral-50">
+          <tr>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Client</th>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Requested Date</th>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Status</th>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Action</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-neutral-50">
+          {consultations.map(c => (
+            <tr key={c.id} className="hover:bg-neutral-50">
+              <td className="p-6">
+                <div className="font-bold">{c.client_name}</div>
+                <div className="text-xs text-neutral-400">{c.client_phone}</div>
+              </td>
+              <td className="p-6 font-medium">{new Date(c.requested_date).toLocaleString()}</td>
+              <td className="p-6">
+                <StatusBadge status={c.status} />
+              </td>
+              <td className="p-6">
+                {c.status === 'pending_approval' && (
+                  <button onClick={() => handleConsultationAction(c, 'confirm')} className="bg-[#FF9900] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-orange-600">
+                    <MessageCircle className="w-4 h-4" /> Confirm & WhatsApp
+                  </button>
+                )}
+                {c.status === 'confirmed_waiting_payment' && (
+                  <button onClick={() => handleConsultationAction(c, 'approve')} className="bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-green-700">
+                    <CheckCircle2 className="w-4 h-4" /> Confirm Payment
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const BlogManager = () => (
+    <div className="space-y-6 animate-in fade-in">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold">Product Catalog</h2>
-        <button
-          onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
-          className="bg-[#FF9900] text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-orange-600"
-        >
-          <Plus className="w-4 h-4" /> Add Product
+        <h2 className="text-2xl font-bold">Blog Management</h2>
+        <button onClick={() => { setEditingBlog(null); setShowBlogModal(true); }} className="bg-[#FF9900] text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2">
+          <Plus className="w-4 h-4" /> New Post
         </button>
       </div>
 
-      {products.length === 0 ? (
-        <div className="bg-white rounded-[2rem] border border-neutral-100 p-20 text-center">
-          <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-neutral-300" />
-          <h3 className="text-xl font-bold mb-2">No Products Yet</h3>
-          <p className="text-neutral-400 mb-6">Start by adding your first product to the catalog</p>
-          <button
-            onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
-            className="bg-[#FF9900] text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest inline-flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" /> Add Your First Product
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-[2rem] border border-neutral-100 p-6 hover:shadow-lg transition-all">
-              <div className="aspect-square bg-neutral-100 rounded-xl mb-4 overflow-hidden">
-                {product.image ? (
-                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <ImageIcon className="w-12 h-12 text-neutral-300" />
-                  </div>
-                )}
-              </div>
-              <h3 className="font-bold text-lg mb-2">{product.name}</h3>
-              <p className="text-sm text-neutral-500 mb-4">{product.category}</p>
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-bold text-xl">KES {product.priceKES?.toLocaleString() || 0}</span>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${product.stockStatus === 'In Stock' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                  }`}>
-                  {product.stockStatus}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => { setEditingProduct(product); setShowProductModal(true); }}
-                  className="flex-1 py-2 bg-neutral-100 rounded-lg text-xs font-bold hover:bg-neutral-200"
-                >
-                  <Edit3 className="w-4 h-4 inline" /> Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteProduct(product.id)}
-                  className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100"
-                >
-                  <Trash2 className="w-4 h-4 inline" /> Delete
-                </button>
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {blogs.map(blog => (
+          <div key={blog.id} className="bg-white rounded-[2rem] p-6 border border-neutral-100 hover:shadow-lg transition-all">
+            <div className="h-40 bg-neutral-100 rounded-xl mb-4 overflow-hidden">
+              {blog.image_url ? <img src={blog.image_url} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full"><ImageIcon className="text-neutral-300" /></div>}
             </div>
-          ))}
-        </div>
-      )}
+            <h3 className="font-bold text-lg mb-2 line-clamp-1">{blog.title}</h3>
+            <p className="text-sm text-neutral-500 mb-4 line-clamp-2">{blog.excerpt}</p>
+            <div className="flex gap-2">
+              <button onClick={() => { setEditingBlog(blog); setShowBlogModal(true); }} className="flex-1 py-2 bg-neutral-50 rounded-lg text-xs font-bold hover:bg-neutral-100">Edit</button>
+              <button onClick={() => handleDeleteBlog(blog.id)} className="flex-1 py-2 bg-red-50 text-red-500 rounded-lg text-xs font-bold hover:bg-red-100">Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      {showProductModal && <ProductModal
-        product={editingProduct}
-        onClose={() => setShowProductModal(false)}
-        onSubmit={handleProductSubmit}
-      />}
+      {showBlogModal && (
+        <BlogModal blog={editingBlog} onClose={() => setShowBlogModal(false)} onSubmit={handleBlogSubmit} />
+      )}
     </div>
   );
 
-  const renderPricelistManager = () => {
-    const filteredList = pricelist.filter(item =>
-      (item as any).products?.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return (
-      <div className="space-y-8">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold">Scraper Manager</h2>
-            <p className="text-neutral-400 text-sm mt-1">Paste Back Market URLs to enable auto-pricing</p>
-          </div>
-          <div className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-xs font-bold">
-            Worker: Active (10m)
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden">
-          <div className="p-6 border-b border-neutral-100">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search products..."
-                className="w-full pl-12 pr-4 py-3 bg-neutral-50 rounded-xl outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-neutral-50">
-                <tr>
-                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Product</th>
-                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Manual Price (KES)</th>
-                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Back Market URL</th>
-                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Auto Price (KES)</th>
-                  <th className="p-4 text-left text-xs font-black uppercase text-neutral-400">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-50">
-                {filteredList.map((item: any) => (
-                  <tr key={item.id} className="hover:bg-neutral-50">
-                    <td className="p-4">
-                      <div className="font-bold">{(item as any).products?.name}</div>
-                      <div className="text-xs text-neutral-400">{item.capacity}</div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          defaultValue={item.price_kes || ''}
-                          id={`manual-price-${item.id}`}
-                          placeholder="Manual price..."
-                          className="w-32 px-3 py-2 bg-neutral-50 rounded-lg text-sm border border-neutral-200 focus:border-[#FF9900] outline-none"
-                        />
-                        <button
-                          onClick={async () => {
-                            const input = document.getElementById(`manual-price-${item.id}`) as HTMLInputElement;
-                            if (input?.value) {
-                              const manualPrice = Number(input.value);
-                              const { error } = await supabase
-                                .from('product_variants')
-                                .update({
-                                  price_kes: manualPrice,
-                                  previous_price_kes: item.price_kes || manualPrice
-                                })
-                                .eq('id', item.id);
-
-                              if (error) {
-                                alert('Failed to save price: ' + error.message);
-                              } else {
-                                fetchPricelist();
-                              }
-                            }
-                          }}
-                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all"
-                          title="Set Manual Price"
-                        >
-                          <Save className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          defaultValue={item.source_url || ''}
-                          id={`url-input-${item.id}`}
-                          placeholder="Paste Back Market URL..."
-                          className="flex-1 px-3 py-2 bg-neutral-50 rounded-lg text-sm border border-neutral-200 focus:border-[#FF9900] outline-none"
-                        />
-                        <button
-                          onClick={() => {
-                            const input = document.getElementById(`url-input-${item.id}`) as HTMLInputElement;
-                            if (input?.value) {
-                              updateSourceUrl(item.id, input.value);
-                            }
-                          }}
-                          className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-all"
-                          title="Save URL"
-                        >
-                          <Save className="w-4 h-4" />
-                        </button>
-                        {item.source_url && (
-                          <a href={item.source_url} target="_blank" className="p-2 hover:text-[#FF9900]">
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      {item.price_kes ? (
-                        <span className="font-bold text-green-600">KES {item.price_kes.toLocaleString()}</span>
-                      ) : (
-                        <span className="text-neutral-300 italic">Pending</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${item.source_url ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-400'
-                        }`}>
-                        {item.source_url ? 'Active' : 'Unlinked'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+  const InvoiceManager = () => (
+    <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden animate-in fade-in">
+      <div className="p-8 border-b border-neutral-100 flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Invoices & Orders</h2>
+        <div className="flex gap-2">
+          <button className="p-2 border border-neutral-200 rounded-lg"><Printer className="w-5 h-5" /></button>
         </div>
       </div>
-    );
-  };
-
-  const renderConsultancy = () => {
-    const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
-    const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let i = 1; i <= daysInMonth; i++) days.push(i);
-
-    const bookedDates = consultations.map(c => new Date(c.requested_date).getDate());
-
-    return (
-      <div className="space-y-8">
-        <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-bold">Consultancy Calendar</h2>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))} className="p-2 hover:bg-neutral-100 rounded-lg">
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <span className="font-bold text-lg">{currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-            <button onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))} className="p-2 hover:bg-neutral-100 rounded-lg">
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[2rem] border border-neutral-100 p-6">
-          <div className="grid grid-cols-7 gap-2 mb-4">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center text-xs font-bold text-neutral-400 py-2">{day}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-2">
-            {days.map((day, i) => (
-              <div key={i} className={`aspect-square flex items-center justify-center rounded-lg ${day ? 'bg-neutral-50 hover:bg-neutral-100 cursor-pointer' : ''
-                } ${bookedDates.includes(day!) ? 'bg-green-100 font-bold text-green-700' : ''}`}>
-                {day}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden">
-          <div className="p-6 border-b border-neutral-100">
-            <h3 className="font-bold text-lg">Booking Requests</h3>
-          </div>
-          <div className="divide-y divide-neutral-50">
-            {consultations.map((booking) => (
-              <div key={booking.id} className="p-6 flex justify-between items-center hover:bg-neutral-50">
-                <div>
-                  <p className="font-bold">{booking.client_name}</p>
-                  <p className="text-sm text-neutral-500">{booking.client_email}</p>
-                  <p className="text-xs text-neutral-400 mt-1">{new Date(booking.requested_date).toLocaleString()}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${booking.status === 'scheduled' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                    {booking.status.replace('_', ' ')}
-                  </span>
-                  {booking.status === 'pending_approval' && (
-                    <button
-                      onClick={() => approveConsultation(booking.id)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700"
-                    >
-                      Approve
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderOrders = () => {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-3xl font-bold">Order Management</h2>
-        <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-neutral-50 border-b border-neutral-100">
-              <tr>
-                <th className="p-4 text-xs font-black uppercase text-neutral-400">Order ID</th>
-                <th className="p-4 text-xs font-black uppercase text-neutral-400">Client</th>
-                <th className="p-4 text-xs font-black uppercase text-neutral-400">Product</th>
-                <th className="p-4 text-xs font-black uppercase text-neutral-400">Status</th>
-                <th className="p-4 text-xs font-black uppercase text-neutral-400">Amount</th>
-                <th className="p-4 text-xs font-black uppercase text-neutral-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order: any) => (
-                <tr key={order.id} className="border-b border-neutral-50 hover:bg-neutral-50">
-                  <td className="p-4 font-mono text-xs">{order.id.slice(0, 8)}...</td>
-                  <td className="p-4">
-                    <div className="font-bold">{order.client_name}</div>
-                    <div className="text-xs text-neutral-400">{order.client_email}</div>
-                  </td>
-                  <td className="p-4 font-medium">{order.product_name}</td>
-                  <td className="p-4">
-                    <select
-                      value={order.status}
-                      onChange={async (e) => {
-                        const newStatus = e.target.value;
-                        await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
-                        fetchOrders(); // Refresh data
-                        fetchAnalytics(); // Refresh analytics
-                      }}
-                      className="bg-neutral-100 border-none rounded-lg text-xs font-bold py-1 px-2 cursor-pointer outline-none focus:ring-2 focus:ring-[#FF9900]"
-                    >
-                      {['Received by Agent', 'In Transit', 'Customs Clearance', 'Arrived in Nairobi', 'Ready for Pickup', 'Delivered'].map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-4 font-bold text-[#FF9900]">KES {order.total_cost_kes?.toLocaleString()}</td>
-                  <td className="p-4">
-                    <InvoiceGenerator order={order} />
-                  </td>
-                </tr>
-              ))}
-              {orders.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-neutral-400">No active orders found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
+      <table className="w-full text-left">
+        <thead className="bg-neutral-50">
+          <tr>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Order ID</th>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Customer</th>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Amount</th>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Status</th>
+            <th className="p-6 text-xs font-black uppercase text-neutral-400">Invoice</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-neutral-50">
+          {orders.map(order => (
+            <tr key={order.id} className="hover:bg-neutral-50">
+              <td className="p-6 font-mono text-xs font-bold">{order.id.slice(0, 8)}...</td>
+              <td className="p-6 font-bold">{order.client_name}</td>
+              <td className="p-6 font-bold text-[#FF9900]">KES {order.total_cost_kes?.toLocaleString()}</td>
+              <td className="p-6"><StatusBadge status={order.status} /></td>
+              <td className="p-6">
+                <InvoiceGenerator order={order} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
-    <div className="flex min-h-screen bg-neutral-50">
-      <aside className="w-72 bg-white border-r border-neutral-100 hidden lg:flex flex-col sticky top-0 h-screen">
-        <div className="p-10 flex items-center space-x-4">
-          <div className="bg-neutral-900 p-3 rounded-[1.2rem] text-white shadow-xl">
-            <LayoutDashboard className="w-5 h-5" />
+    <div className="flex min-h-screen bg-[#F8F9FB]">
+      <Sidebar />
+      <main className="ml-64 flex-1 p-10">
+        <header className="flex justify-between items-center mb-10">
+          <div>
+            <h1 className="text-3xl font-bold capitalize">{activeTab}</h1>
+            <p className="text-neutral-400">Welcome back, Admin</p>
           </div>
-          <span className="text-xl font-bold">Admin Hub</span>
-        </div>
-        <nav className="flex-1 px-6 py-4 space-y-2">
-          {[
-            { id: 'overview', name: 'Overview', icon: <TrendingUp className="w-4 h-4" /> },
-            { id: 'pricelist', name: 'Scraper Manager', icon: <RefreshCcw className="w-4 h-4" /> },
-            { id: 'shop', name: 'Shop Manager', icon: <ShoppingBag className="w-4 h-4" /> },
-            { id: 'consultancy', name: 'Consultancy', icon: <CalendarIcon className="w-4 h-4" /> },
-            { id: 'orders', name: 'Orders', icon: <Box className="w-4 h-4" /> },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id as any)}
-              className={`w-full flex items-center space-x-4 px-6 py-5 rounded-[2rem] text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === item.id
-                ? 'bg-neutral-900 text-white shadow-2xl translate-x-2'
-                : 'text-neutral-400 hover:bg-neutral-50'
-                }`}
-            >
-              {item.icon}
-              <span>{item.name}</span>
+          <div className="flex items-center gap-4">
+            <div className="bg-white p-2 rounded-xl shadow-sm border border-neutral-100">
+              <CalendarIcon className="w-5 h-5 text-neutral-400" />
+            </div>
+            <button className="bg-[#FF9900] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-orange-200">
+              Export Report
             </button>
-          ))}
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              window.location.reload();
-            }}
-            className="w-full flex items-center space-x-4 px-6 py-5 rounded-[2rem] text-[10px] font-bold uppercase tracking-widest text-red-400 hover:bg-red-50 mt-auto"
-          >
-            <Settings className="w-4 h-4" />
-            <span>Log Out</span>
-          </button>
-        </nav>
-      </aside>
-
-      <main className="flex-1 p-10 lg:p-20 overflow-y-auto">
-        <header className="mb-12">
-          <h1 className="text-3xl font-bold capitalize">{activeTab.replace('_', ' ')}</h1>
+          </div>
         </header>
-        {activeTab === 'overview' && renderOverview()}
-        {activeTab === 'shop' && renderShopManager()}
-        {activeTab === 'pricelist' && renderPricelistManager()}
-        {activeTab === 'consultancy' && renderConsultancy()}
-        {activeTab === 'orders' && renderOrders()}
+
+        {activeTab === 'dashboard' && <DashboardView />}
+        {activeTab === 'customers' && <ConsultationManager />}
+        {activeTab === 'content' && <BlogManager />}
+        {activeTab === 'invoices' && <InvoiceManager />}
+        {activeTab === 'orders' && <InvoiceManager />} {/* Reusing table for now */}
+        {/* Placeholder for other tabs if selected */}
+        {(['products', 'pricelist', 'store', 'transactions'].includes(activeTab)) && <div className="text-center py-20 text-neutral-400 font-bold">Module Loading...</div>}
       </main>
     </div>
   );
 };
 
-// Product Modal Component
-const ProductModal: React.FC<{ product: Product | null; onClose: () => void; onSubmit: (data: any) => void }> = ({ product, onClose, onSubmit }) => {
+// Utilities
+const StatCard = ({ title, value, trend, icon, color }: any) => (
+  <div className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm hover:shadow-md transition-all">
+    <div className="flex justify-between items-start mb-4">
+      <div>
+        <p className="text-neutral-400 text-xs font-bold uppercase tracking-wider mb-2">{title}</p>
+        <h3 className="text-3xl font-black text-neutral-900">{value}</h3>
+      </div>
+      <div className={`p-3 rounded-xl bg-${color}-50 text-${color}-500`}>
+        {icon}
+      </div>
+    </div>
+    <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-${color === 'red' ? 'red' : 'green'}-50 text-${color === 'red' ? 'red' : 'green'}-600`}>
+      {trend}
+    </div>
+  </div>
+);
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const styles: any = {
+    'pending_approval': 'bg-amber-100 text-amber-700',
+    'confirmed_waiting_payment': 'bg-blue-100 text-blue-700',
+    'scheduled': 'bg-green-100 text-green-700',
+    'Delivered': 'bg-green-100 text-green-700',
+    'SHIPPING': 'bg-purple-100 text-purple-700'
+  };
+  return (
+    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles[status] || 'bg-neutral-100 text-neutral-500'}`}>
+      {status?.replace(/_/g, ' ')}
+    </span>
+  );
+};
+
+// Icons helper
+const EyeBox = () => <div className="w-5 h-5 border-2 border-blue-500 rounded-md"></div>;
+
+// Blog Modal
+const BlogModal = ({ blog, onClose, onSubmit }: any) => {
   const [formData, setFormData] = useState({
-    name: product?.name || '',
-    priceKES: product?.priceKES || 0,
-    category: product?.category || 'Electronics & Gadgets',
-    stockStatus: product?.stockStatus || 'In Stock',
-    image: product?.image || '',
-    description: product?.description || '',
-    origin: product?.origin || Origin.USA
+    title: blog?.title || '',
+    excerpt: blog?.excerpt || '',
+    content: blog?.content || '',
+    image_url: blog?.image_url || ''
   });
 
-  const categories = [
-    'Electronics & Gadgets',
-    'Home Accessories',
-    'Business Suppliers',
-    'Machinery & Equipment',
-    'General Products'
-  ];
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white w-full max-w-2xl rounded-[2rem] p-8 animate-in zoom-in-95 duration-300">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">{product ? 'Edit Product' : 'Add Product'}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-lg transition-all">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white w-full max-w-2xl rounded-[2rem] p-8">
+        <h2 className="text-2xl font-bold mb-6">{blog ? 'Edit Post' : 'New Blog Post'}</h2>
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-neutral-600">Product Name</label>
-            <input
-              type="text"
-              placeholder="e.g., iPhone 15 Pro, Dell Monitor, Coffee Maker"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
-              required
-            />
+          <input type="text" placeholder="Title" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full p-4 bg-neutral-50 rounded-xl outline-none font-bold" required />
+          <input type="text" placeholder="Short Excerpt" value={formData.excerpt} onChange={e => setFormData({ ...formData, excerpt: e.target.value })} className="w-full p-4 bg-neutral-50 rounded-xl outline-none" required />
+          <input type="text" placeholder="Image URL (Unsplash etc.)" value={formData.image_url} onChange={e => setFormData({ ...formData, image_url: e.target.value })} className="w-full p-4 bg-neutral-50 rounded-xl outline-none" />
+          <textarea placeholder="Content..." value={formData.content} onChange={e => setFormData({ ...formData, content: e.target.value })} className="w-full p-4 bg-neutral-50 rounded-xl outline-none h-40 resize-none" required />
+          <div className="flex gap-4 pt-4">
+            <button type="button" onClick={onClose} className="flex-1 py-3 bg-neutral-100 rounded-xl font-bold">Cancel</button>
+            <button type="submit" className="flex-1 py-3 bg-[#FF9900] text-white rounded-xl font-bold">Save Post</button>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-neutral-600">Price (KES)</label>
-              <input
-                type="number"
-                placeholder="50000"
-                value={formData.priceKES}
-                onChange={(e) => setFormData({ ...formData, priceKES: Number(e.target.value) })}
-                className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-neutral-600">Category</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
-              >
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-neutral-600">Stock Status</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, stockStatus: 'In Stock' })}
-                className={`p-4 rounded-xl border-2 font-medium transition-all ${formData.stockStatus === 'In Stock'
-                  ? 'border-green-500 bg-green-50 text-green-700'
-                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                  }`}
-              >
-                ✓ In Stock
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, stockStatus: 'Import on Delivery' })}
-                className={`p-4 rounded-xl border-2 font-medium transition-all ${formData.stockStatus === 'Import on Delivery'
-                  ? 'border-amber-500 bg-amber-50 text-amber-700'
-                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
-                  }`}
-              >
-                ⏳ Import on Delivery
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-neutral-600">Image URL</label>
-            <input
-              type="text"
-              placeholder="https://example.com/image.jpg"
-              value={formData.image}
-              onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-              className="w-full p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-neutral-600">Description</label>
-            <textarea
-              placeholder="Brief description of the product..."
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full p-3 bg-neutral-50 rounded-xl h-24 border border-neutral-200 focus:border-[#FF9900] outline-none transition-all resize-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-3 bg-[#FF9900] text-white rounded-xl font-bold hover:bg-orange-600 transition-all hover:scale-105 active:scale-95"
-          >
-            {product ? 'Update Product' : 'Add Product'}
-          </button>
         </form>
       </div>
     </div>
