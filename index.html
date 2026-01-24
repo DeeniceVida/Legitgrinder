@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LegitGrinder | Kenya's Trusted Import Partner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..900;1,400..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --font-main: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-accent: 'Instrument Serif', serif;
+        --brand-accent: #FF9900;
+        --brand-accent-dark: #e68a00;
+      }
+      body {
+        font-family: var(--font-main);
+        background-color: #ffffff;
+        color: #1a1a1a;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+      }
+      .heading-accent {
+        font-family: var(--font-accent);
+      }
+      .tracking-tight-custom {
+        letter-spacing: -0.02em;
+      }
+      .tracking-wide-custom {
+        letter-spacing: 0.05em;
+      }
+      
+      /* Global Button Interaction Styles */
+      .btn-brand {
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+      }
+      .btn-brand:hover {
+        background-color: var(--brand-accent) !important;
+        color: white !important;
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 20px 40px -10px rgba(255, 153, 0, 0.3);
+      }
+      .btn-brand:active {
+        transform: translateY(0) scale(0.96);
+        background-color: var(--brand-accent-dark) !important;
+      }
+
+      /* Secondary Buttons */
+      .btn-secondary:hover {
+        border-color: var(--brand-accent) !important;
+        color: var(--brand-accent) !important;
+        transform: translateY(-2px);
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f8f9fa;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--brand-accent);
+      }
+      
+      /* Smooth transitions for high-end feel */
+      * {
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      @keyframes pulse-accent {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; transform: scale(1.05); }
+      }
+      .animate-pulse-accent {
+        animation: pulse-accent 2s infinite;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "recharts": "https://esm.sh/recharts@^3.7.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.38.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
