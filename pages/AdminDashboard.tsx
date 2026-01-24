@@ -8,6 +8,11 @@ import {
 import { PricelistItem, Product, Origin, Order, OrderStatus, ShippingMode, ProductVariant } from '../types';
 import { PHONE_MODELS_SCHEMA, STATUS_SEQUENCE } from '../constants';
 import { supabase } from '../src/lib/supabase';
+import InvoiceGenerator from '../components/InvoiceGenerator';
+
+interface AdminDashboardProps {
+  onLogout: () => void;
+}
 
 const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'shop' | 'pricelist' | 'consultancy'>('overview');
@@ -63,46 +68,40 @@ const AdminDashboard: React.FC = () => {
   };
 
   const fetchOrders = async () => {
-    // Mock for now - you can create an orders table later
-    setOrders([
-      {
-        id: 'LG-9821',
-        clientName: 'Munga Kamau',
-        clientPhone: '+254791873538',
-        clientEmail: 'mungakamau@gmail.com',
-        clientLocation: 'Westlands, Nairobi',
-        productName: 'iPhone 15 Pro Max 256GB',
-        buyingPriceKES: 165400,
-        shippingFeeKES: 8500,
-        serviceFeeKES: 4500,
-        totalCostKES: 178400,
-        status: OrderStatus.SHIPPING,
-        mode: ShippingMode.AIR,
-        origin: Origin.USA,
-        datePlaced: '2024-05-12',
-        isPaid: true,
-        weightKg: 0.5,
-        dimensions: '20x15x5 cm'
-      }
-    ]);
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (data) setOrders(data);
   };
 
   const fetchAnalytics = async () => {
-    // Calculate from orders (mock for now)
-    const totalRevenue = 1200000;
-    const activeOrders = 8;
-    const monthlyTrend = 12;
+    // Calculate from orders
+    let totalRevenue = 0;
 
-    const { count } = await supabase
+    const { data: ordersData } = await supabase.from('orders').select('total_cost_kes');
+    if (ordersData) {
+      totalRevenue = ordersData.reduce((acc, curr) => acc + (curr.total_cost_kes || 0), 0);
+    }
+
+    const { count: activeOrderCount } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .neq('status', 'Delivered');
+
+    const monthlyTrend = 12; // This would need real historical data
+
+    const { count: pendingConsultations } = await supabase
       .from('consultations')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending_approval');
 
     setAnalytics({
       totalRevenue,
-      activeOrders,
+      activeOrders: activeOrderCount || 0,
       monthlyTrend,
-      pendingConsultations: count || 0
+      pendingConsultations: pendingConsultations || 0
     });
   };
 
@@ -169,7 +168,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm">
           <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-4">Active Orders</p>
           <h3 className="text-4xl font-bold text-neutral-900">{analytics.activeOrders}</h3>
-          <p className="text-neutral-400 text-xs font-bold mt-4">2 Arriving this week</p>
+          <p className="text-neutral-400 text-xs font-bold mt-4">Across all regions</p>
         </div>
         <div className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm">
           <p className="text-[10px] font-black uppercase text-neutral-400 tracking-widest mb-4">Pending Consultations</p>
@@ -464,6 +463,65 @@ const AdminDashboard: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOrders = () => {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-3xl font-bold">Order Management</h2>
+        <div className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden">
+          <table className="w-full text-left">
+            <thead className="bg-neutral-50 border-b border-neutral-100">
+              <tr>
+                <th className="p-4 text-xs font-black uppercase text-neutral-400">Order ID</th>
+                <th className="p-4 text-xs font-black uppercase text-neutral-400">Client</th>
+                <th className="p-4 text-xs font-black uppercase text-neutral-400">Product</th>
+                <th className="p-4 text-xs font-black uppercase text-neutral-400">Status</th>
+                <th className="p-4 text-xs font-black uppercase text-neutral-400">Amount</th>
+                <th className="p-4 text-xs font-black uppercase text-neutral-400">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order: any) => (
+                <tr key={order.id} className="border-b border-neutral-50 hover:bg-neutral-50">
+                  <td className="p-4 font-mono text-xs">{order.id.slice(0, 8)}...</td>
+                  <td className="p-4">
+                    <div className="font-bold">{order.client_name}</div>
+                    <div className="text-xs text-neutral-400">{order.client_email}</div>
+                  </td>
+                  <td className="p-4 font-medium">{order.product_name}</td>
+                  <td className="p-4">
+                    <select
+                      value={order.status}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value;
+                        await supabase.from('orders').update({ status: newStatus }).eq('id', order.id);
+                        fetchOrders(); // Refresh data
+                        fetchAnalytics(); // Refresh analytics
+                      }}
+                      className="bg-neutral-100 border-none rounded-lg text-xs font-bold py-1 px-2 cursor-pointer outline-none focus:ring-2 focus:ring-[#FF9900]"
+                    >
+                      {['Received by Agent', 'In Transit', 'Customs Clearance', 'Arrived in Nairobi', 'Ready for Pickup', 'Delivered'].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="p-4 font-bold text-[#FF9900]">KES {order.total_cost_kes?.toLocaleString()}</td>
+                  <td className="p-4">
+                    <InvoiceGenerator order={order} />
+                  </td>
+                </tr>
+              ))}
+              {orders.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-neutral-400">No active orders found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     );
