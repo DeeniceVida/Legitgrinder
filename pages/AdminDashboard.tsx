@@ -242,6 +242,7 @@ const AdminDashboard: React.FC = () => {
                 <td className="p-6">
                   <input
                     type="number"
+                    id={`price-${item.id}`}
                     defaultValue={item.price_kes || 0}
                     className="bg-neutral-50 border border-neutral-100 p-2 rounded-lg w-28 text-sm outline-none focus:border-[#FF9900]"
                   />
@@ -249,13 +250,31 @@ const AdminDashboard: React.FC = () => {
                 <td className="p-6">
                   <input
                     type="text"
+                    id={`url-${item.id}`}
                     defaultValue={item.source_url || ''}
                     placeholder="Paste BackMarket Link"
                     className="bg-neutral-50 border border-neutral-100 p-2 rounded-lg w-full text-xs outline-none focus:border-[#3B8392]"
                   />
                 </td>
                 <td className="p-6 text-right">
-                  <button className="p-3 bg-[#3B8392]/10 text-[#3B8392] rounded-xl hover:bg-[#3B8392] hover:text-white transition-all"><Save className="w-4 h-4" /></button>
+                  <button
+                    onClick={async () => {
+                      const priceInput = document.getElementById(`price-${item.id}`) as HTMLInputElement;
+                      const urlInput = document.getElementById(`url-${item.id}`) as HTMLInputElement;
+                      const { error } = await supabase.from('product_variants').update({
+                        price_kes: Number(priceInput.value),
+                        source_url: urlInput.value,
+                        previous_price_kes: item.price_kes
+                      }).eq('id', item.id);
+                      if (!error) {
+                        alert('Updated successfully!');
+                        fetchPricelist();
+                      }
+                    }}
+                    className="p-3 bg-[#3B8392]/10 text-[#3B8392] rounded-xl hover:bg-[#3B8392] hover:text-white transition-all"
+                  >
+                    <Save className="w-4 h-4" />
+                  </button>
                 </td>
               </tr>
             ))}
