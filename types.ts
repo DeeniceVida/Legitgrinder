@@ -34,11 +34,22 @@ export interface Product {
 
 export interface CapacityPrice {
   capacity: string;
-  sourcePriceUSD: number | null; 
+  sourcePriceUSD: number | null;
   currentPriceKES: number;
   previousPriceKES: number;
   lastSynced: string;
   isManualOverride: boolean;
+}
+
+export interface ProductVariant {
+  id: number;
+  product_id: number;
+  capacity: string;
+  source_url: string | null;
+  price_usd: number | null;
+  price_kes: number | null;
+  last_updated: string | null;
+  status: 'active' | 'out_of_stock' | 'error';
 }
 
 export interface PricelistItem {
