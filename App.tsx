@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Pricelist from './pages/Pricelist';
 import Consultancy from './pages/Consultancy';
 import Collaboration from './pages/Collaboration';
+import MyOrders from './pages/MyOrders';
 import AIAssistant from './components/AIAssistant';
 import {
   Smartphone, Package, Globe, HelpCircle, Instagram, Youtube, Mail, MapPin,
@@ -113,7 +114,7 @@ const App: React.FC = () => {
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
       case 'pricelist': return <Pricelist />;
       case 'collaboration': return <Collaboration />;
-      case 'my-orders': return renderMyOrders();
+      case 'my-orders': return <MyOrders />;
       case 'shop': return (
         <div className="py-24 px-4 max-w-7xl mx-auto text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
           <div className="inline-flex items-center justify-center p-4 bg-[#FF9900]/5 rounded-[1.5rem] mb-8 border border-[#FF9900]/10">

@@ -178,38 +178,58 @@ const AdminDashboard: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {products.map((product) => (
-          <div key={product.id} className="bg-white rounded-[2rem] border border-neutral-100 p-6 hover:shadow-lg transition-all">
-            <div className="aspect-square bg-neutral-100 rounded-xl mb-4 overflow-hidden">
-              <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+      {products.length === 0 ? (
+        <div className="bg-white rounded-[2rem] border border-neutral-100 p-20 text-center">
+          <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-neutral-300" />
+          <h3 className="text-xl font-bold mb-2">No Products Yet</h3>
+          <p className="text-neutral-400 mb-6">Start by adding your first product to the catalog</p>
+          <button
+            onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
+            className="bg-[#FF9900] text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest inline-flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add Your First Product
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {products.map((product) => (
+            <div key={product.id} className="bg-white rounded-[2rem] border border-neutral-100 p-6 hover:shadow-lg transition-all">
+              <div className="aspect-square bg-neutral-100 rounded-xl mb-4 overflow-hidden">
+                {product.image ? (
+                  <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ImageIcon className="w-12 h-12 text-neutral-300" />
+                  </div>
+                )}
+              </div>
+              <h3 className="font-bold text-lg mb-2">{product.name}</h3>
+              <p className="text-sm text-neutral-500 mb-4">{product.category}</p>
+              <div className="flex justify-between items-center mb-4">
+                <span className="font-bold text-xl">KES {product.priceKES?.toLocaleString() || 0}</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${product.stockStatus === 'In Stock' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                  {product.stockStatus}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setEditingProduct(product); setShowProductModal(true); }}
+                  className="flex-1 py-2 bg-neutral-100 rounded-lg text-xs font-bold hover:bg-neutral-200"
+                >
+                  <Edit3 className="w-4 h-4 inline" /> Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteProduct(product.id)}
+                  className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100"
+                >
+                  <Trash2 className="w-4 h-4 inline" /> Delete
+                </button>
+              </div>
             </div>
-            <h3 className="font-bold text-lg mb-2">{product.name}</h3>
-            <p className="text-sm text-neutral-500 mb-4">{product.category}</p>
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-bold text-xl">KES {product.priceKES.toLocaleString()}</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold ${product.stockStatus === 'In Stock' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                }`}>
-                {product.stockStatus}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setEditingProduct(product); setShowProductModal(true); }}
-                className="flex-1 py-2 bg-neutral-100 rounded-lg text-xs font-bold hover:bg-neutral-200"
-              >
-                <Edit3 className="w-4 h-4 inline" /> Edit
-              </button>
-              <button
-                onClick={() => handleDeleteProduct(product.id)}
-                className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100"
-              >
-                <Trash2 className="w-4 h-4 inline" /> Delete
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {showProductModal && <ProductModal
         product={editingProduct}
@@ -402,8 +422,8 @@ const AdminDashboard: React.FC = () => {
               key={item.id}
               onClick={() => setActiveTab(item.id as any)}
               className={`w-full flex items-center space-x-4 px-6 py-5 rounded-[2rem] text-[10px] font-bold uppercase tracking-widest transition-all ${activeTab === item.id
-                  ? 'bg-neutral-900 text-white shadow-2xl translate-x-2'
-                  : 'text-neutral-400 hover:bg-neutral-50'
+                ? 'bg-neutral-900 text-white shadow-2xl translate-x-2'
+                : 'text-neutral-400 hover:bg-neutral-50'
                 }`}
             >
               {item.icon}
