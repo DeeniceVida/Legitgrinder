@@ -519,7 +519,7 @@ const AdminDashboard: React.FC = () => {
         {activeTab === 'shop' && renderShopManager()}
         {activeTab === 'pricelist' && renderPricelistManager()}
         {activeTab === 'consultancy' && renderConsultancy()}
-        {activeTab === 'orders' && <div className="text-neutral-400">Orders view (existing code)</div>}
+        {activeTab === 'orders' && renderOrders()}
       </main>
     </div>
   );
