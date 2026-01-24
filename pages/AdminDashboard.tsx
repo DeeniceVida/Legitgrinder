@@ -462,63 +462,120 @@ const ProductModal: React.FC<{ product: Product | null; onClose: () => void; onS
   const [formData, setFormData] = useState({
     name: product?.name || '',
     priceKES: product?.priceKES || 0,
-    category: product?.category || 'Electronics',
+    category: product?.category || 'Electronics & Gadgets',
     stockStatus: product?.stockStatus || 'In Stock',
     image: product?.image || '',
     description: product?.description || '',
     origin: product?.origin || Origin.USA
   });
 
+  const categories = [
+    'Electronics & Gadgets',
+    'Home Accessories',
+    'Business Suppliers',
+    'Machinery & Equipment',
+    'General Products'
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-2xl rounded-[2rem] p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-2xl rounded-[2rem] p-8 animate-in zoom-in-95 duration-300">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">{product ? 'Edit Product' : 'Add Product'}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-lg">
+          <button onClick={onClose} className="p-2 hover:bg-neutral-100 rounded-lg transition-all">
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Product Name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full p-3 bg-neutral-50 rounded-xl"
-            required
-          />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-neutral-600">Product Name</label>
             <input
-              type="number"
-              placeholder="Price (KES)"
-              value={formData.priceKES}
-              onChange={(e) => setFormData({ ...formData, priceKES: Number(e.target.value) })}
-              className="p-3 bg-neutral-50 rounded-xl"
+              type="text"
+              placeholder="e.g., iPhone 15 Pro, Dell Monitor, Coffee Maker"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
               required
             />
-            <select
-              value={formData.stockStatus}
-              onChange={(e) => setFormData({ ...formData, stockStatus: e.target.value as any })}
-              className="p-3 bg-neutral-50 rounded-xl"
-            >
-              <option>In Stock</option>
-              <option>Import on Order</option>
-            </select>
           </div>
-          <input
-            type="text"
-            placeholder="Image URL"
-            value={formData.image}
-            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-            className="w-full p-3 bg-neutral-50 rounded-xl"
-          />
-          <textarea
-            placeholder="Description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full p-3 bg-neutral-50 rounded-xl h-24"
-          />
-          <button type="submit" className="w-full py-3 bg-[#FF9900] text-white rounded-xl font-bold hover:bg-orange-600">
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-neutral-600">Price (KES)</label>
+              <input
+                type="number"
+                placeholder="50000"
+                value={formData.priceKES}
+                onChange={(e) => setFormData({ ...formData, priceKES: Number(e.target.value) })}
+                className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-neutral-600">Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
+              >
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-neutral-600">Stock Status</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, stockStatus: 'In Stock' })}
+                className={`p-4 rounded-xl border-2 font-medium transition-all ${formData.stockStatus === 'In Stock'
+                    ? 'border-green-500 bg-green-50 text-green-700'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  }`}
+              >
+                ✓ In Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, stockStatus: 'Import on Delivery' })}
+                className={`p-4 rounded-xl border-2 font-medium transition-all ${formData.stockStatus === 'Import on Delivery'
+                    ? 'border-amber-500 bg-amber-50 text-amber-700'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  }`}
+              >
+                ⏳ Import on Delivery
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-neutral-600">Image URL</label>
+            <input
+              type="text"
+              placeholder="https://example.com/image.jpg"
+              value={formData.image}
+              onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+              className="w-full p-3 bg-neutral-50 rounded-xl border border-neutral-200 focus:border-[#FF9900] outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-neutral-600">Description</label>
+            <textarea
+              placeholder="Brief description of the product..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full p-3 bg-neutral-50 rounded-xl h-24 border border-neutral-200 focus:border-[#FF9900] outline-none transition-all resize-none"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full py-3 bg-[#FF9900] text-white rounded-xl font-bold hover:bg-orange-600 transition-all hover:scale-105 active:scale-95"
+          >
             {product ? 'Update Product' : 'Add Product'}
           </button>
         </form>

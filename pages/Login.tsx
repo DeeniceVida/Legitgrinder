@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../src/lib/supabase';
 
 interface LoginProps {
@@ -9,6 +9,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,17 +27,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       if (error) throw error;
 
       if (data.session) {
-        // Optional: Check if user has admin role
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profile?.role !== 'admin') {
-          throw new Error('Access denied. Admin privileges required.');
-        }
-
         onLoginSuccess();
       }
     } catch (err: any) {
@@ -51,11 +41,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-[2.5rem] p-12 border border-neutral-100 shadow-xl animate-in zoom-in-95 duration-500">
         <div className="text-center mb-12">
-          <div className="inline-flex p-4 bg-neutral-900 rounded-[1.5rem] text-white mb-6 shadow-lg shadow-neutral-200">
+          <div className="inline-flex p-4 bg-[#FF9900] rounded-[1.5rem] text-white mb-6 shadow-lg">
             <Lock className="w-6 h-6" />
           </div>
-          <h1 className="text-3xl font-bold text-neutral-900 tracking-tight-custom mb-2">Admin Portal</h1>
-          <p className="text-neutral-400 font-light">Secure access for LegitGrinder team.</p>
+          <h1 className="text-3xl font-bold text-neutral-900 tracking-tight-custom mb-2">Welcome Back</h1>
+          <p className="text-neutral-400 font-light">Sign in to track your orders and manage imports</p>
         </div>
 
         {error && (
@@ -86,24 +76,42 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <div className="relative">
               <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 w-5 h-5" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full pl-16 pr-6 py-4 bg-neutral-50 border border-transparent rounded-[1.5rem] outline-none focus:bg-white focus:border-neutral-200 focus:shadow-lg transition-all"
+                className="w-full pl-16 pr-16 py-4 bg-neutral-50 border border-transparent rounded-[1.5rem] outline-none focus:bg-white focus:border-neutral-200 focus:shadow-lg transition-all"
                 placeholder="••••••••"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-5 bg-[#FF9900] text-white rounded-[1.5rem] font-bold uppercase tracking-widest hover:bg-black transition-colors shadow-xl shadow-[#FF9900]/20 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-3 mt-8"
+            className="w-full py-5 bg-[#FF9900] text-white rounded-[1.5rem] font-bold uppercase tracking-widest hover:bg-orange-600 transition-colors shadow-xl shadow-[#FF9900]/20 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-3 mt-8"
           >
             {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-            {loading ? 'Authenticating...' : 'Access Dashboard'}
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
+
+          <p className="text-center text-sm text-neutral-500 mt-6">
+            Don't have an account?{' '}
+            <button
+              type="button"
+              onClick={() => window.location.href = '/signup'}
+              className="text-[#FF9900] font-bold hover:underline"
+            >
+              Create Account
+            </button>
+          </p>
         </form>
       </div>
     </div>

@@ -6,6 +6,7 @@ import Calculators from './pages/Calculators';
 import Tracking from './pages/Tracking';
 import AdminDashboard from './pages/AdminDashboard';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Pricelist from './pages/Pricelist';
 import Consultancy from './pages/Consultancy';
 import Collaboration from './pages/Collaboration';
@@ -112,6 +113,7 @@ const App: React.FC = () => {
     switch (currentPage) {
       case 'home': return <Home onNavigate={setCurrentPage} />;
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
+      case 'signup': return <Signup onSignupSuccess={handleLoginSuccess} />;
       case 'pricelist': return <Pricelist />;
       case 'collaboration': return <Collaboration />;
       case 'my-orders': return <MyOrders />;
