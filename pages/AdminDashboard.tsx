@@ -291,15 +291,33 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          defaultValue={item.source_url || ''}
-                          onBlur={(e) => updateSourceUrl(item.id, e.target.value)}
+                          value={item.source_url || ''}
+                          onChange={(e) => {
+                            // Update local state immediately for UX
+                            setPricelist(prev => prev.map(p =>
+                              p.id === item.id ? { ...p, source_url: e.target.value } : p
+                            ));
+                          }}
+                          onBlur={(e) => {
+                            // Save to database on blur
+                            if (e.target.value) updateSourceUrl(item.id, e.target.value);
+                          }}
                           placeholder="Paste URL..."
-                          className="flex-1 px-3 py-2 bg-neutral-50 rounded-lg text-sm"
+                          className="flex-1 px-3 py-2 bg-neutral-50 rounded-lg text-sm border border-neutral-200 focus:border-[#FF9900] outline-none"
                         />
                         {item.source_url && (
-                          <a href={item.source_url} target="_blank" className="p-2 hover:text-[#FF9900]">
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
+                          <>
+                            <button
+                              onClick={() => updateSourceUrl(item.id, item.source_url!)}
+                              className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-all"
+                              title="Save URL"
+                            >
+                              <Save className="w-4 h-4" />
+                            </button>
+                            <a href={item.source_url} target="_blank" className="p-2 hover:text-[#FF9900]">
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </>
                         )}
                       </div>
                     </td>
@@ -532,8 +550,8 @@ const ProductModal: React.FC<{ product: Product | null; onClose: () => void; onS
                 type="button"
                 onClick={() => setFormData({ ...formData, stockStatus: 'In Stock' })}
                 className={`p-4 rounded-xl border-2 font-medium transition-all ${formData.stockStatus === 'In Stock'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  ? 'border-green-500 bg-green-50 text-green-700'
+                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
                   }`}
               >
                 ✓ In Stock
@@ -542,8 +560,8 @@ const ProductModal: React.FC<{ product: Product | null; onClose: () => void; onS
                 type="button"
                 onClick={() => setFormData({ ...formData, stockStatus: 'Import on Delivery' })}
                 className={`p-4 rounded-xl border-2 font-medium transition-all ${formData.stockStatus === 'Import on Delivery'
-                    ? 'border-amber-500 bg-amber-50 text-amber-700'
-                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                  ? 'border-amber-500 bg-amber-50 text-amber-700'
+                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
                   }`}
               >
                 ⏳ Import on Delivery

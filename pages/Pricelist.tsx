@@ -118,12 +118,13 @@ const Pricelist = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="px-6 py-4 font-semibold text-gray-600">Model</th>
-                <th className="px-6 py-4 font-semibold text-gray-600">Capacity</th>
-                <th className="px-6 py-4 font-semibold text-gray-600">Price (KES)</th>
-                <th className="px-6 py-4 font-semibold text-gray-600">Status</th>
-                <th className="px-6 py-4 font-semibold text-gray-600">Last Updated</th>
+              <tr className="border-b border-neutral-100">
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-neutral-400">Model</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-neutral-400">Capacity</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-neutral-400">Price (KES)</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-neutral-400">Action</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-neutral-400">Status</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase text-neutral-400">Last Updated</th>
               </tr>
             </thead>
             <tbody>
@@ -155,6 +156,23 @@ const Pricelist = () => {
                         </div>
                       ) : (
                         <span className="text-gray-400 italic">Pending...</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {item.priceKES ? (
+                        <button
+                          onClick={() => {
+                            // Navigate to contact/order form with pre-filled product info
+                            const productName = `${(item as any).products?.name} ${item.capacity}`;
+                            const price = item.priceKES;
+                            window.location.href = `/contact?product=${encodeURIComponent(productName)}&price=${price}`;
+                          }}
+                          className="px-4 py-2 bg-[#FF9900] text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-orange-600 transition-all hover:scale-105 active:scale-95"
+                        >
+                          Buy Now
+                        </button>
+                      ) : (
+                        <span className="text-xs text-neutral-400">Not Available</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
