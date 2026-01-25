@@ -22,6 +22,10 @@ export interface Product {
   id: string;
   name: string;
   priceKES: number;
+  discount_price?: number;
+  inventory_quantity: number;
+  variations: string[];
+  colors: string[];
   buyingPriceKES?: number;
   shippingFeeKES?: number;
   serviceFeeKES?: number;

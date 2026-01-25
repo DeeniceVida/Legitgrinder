@@ -87,9 +87,14 @@ const App: React.FC = () => {
               >
                 <div className="aspect-[4/5] bg-neutral-100 relative overflow-hidden rounded-[2.5rem] mb-6 shadow-sm group-hover:shadow-2xl transition-all duration-700">
                   <img src={product.image || `https://picsum.photos/seed/${product.id}/800/1000`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out" alt={product.name} />
-                  <div className={`absolute top-6 right-6 px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${product.stockStatus === 'In Stock' ? 'bg-[#3B8392] text-white' : 'bg-white text-neutral-900'}`}>
-                    {product.stockStatus || 'Verified Source'}
+                  <div className={`absolute top-6 right-6 px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${product.inventory_quantity > 0 ? 'bg-[#3B8392] text-white' : 'bg-red-500 text-white'}`}>
+                    {product.inventory_quantity > 0 ? `In Stock (${product.inventory_quantity})` : 'Out of Stock'}
                   </div>
+                  {product.discount_price > 0 && (
+                    <div className="absolute top-6 left-6 bg-[#FF9900] text-white px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
+                      Sale Impact
+                    </div>
+                  )}
                 </div>
                 <div className="px-2">
                   <div className="flex justify-between items-start mb-3">
@@ -100,7 +105,12 @@ const App: React.FC = () => {
                   <div className="flex justify-between items-end border-t border-neutral-50 pt-6">
                     <div>
                       <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest block mb-1">Buy Price</span>
-                      <span className="text-2xl font-black text-neutral-900">KES {product.priceKES?.toLocaleString()}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl font-black text-neutral-900">KES {(product.discount_price > 0 ? product.discount_price : product.priceKES)?.toLocaleString()}</span>
+                        {product.discount_price > 0 && (
+                          <span className="text-sm font-bold text-neutral-400 line-through decoration-red-400">KES {product.priceKES?.toLocaleString()}</span>
+                        )}
+                      </div>
                     </div>
                     <button className="btn-brand bg-neutral-900 text-white px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-neutral-100">Order Now</button>
                   </div>

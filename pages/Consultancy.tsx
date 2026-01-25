@@ -8,6 +8,7 @@ const Consultancy: React.FC = () => {
         name: '',
         email: '',
         phone: '',
+        whatsapp: '',
         date: '',
         time: '',
         notes: ''
@@ -26,6 +27,7 @@ const Consultancy: React.FC = () => {
                 client_name: formData.name,
                 client_email: formData.email,
                 client_phone: formData.phone,
+                client_whatsapp: formData.whatsapp,
                 requested_date: requestedDate.toISOString(),
                 notes: formData.notes,
                 status: 'pending_approval'
@@ -85,6 +87,16 @@ const Consultancy: React.FC = () => {
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-2">Email</label>
                                 <input required type="email" className="w-full p-4 bg-neutral-50 rounded-xl" onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                            </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-2">Phone Number</label>
+                                <input required type="tel" className="w-full p-4 bg-neutral-50 rounded-xl" onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-[#3B8392] tracking-widest pl-2">WhatsApp (For Payment Confirmation)</label>
+                                <input required type="tel" className="w-full p-4 bg-neutral-50 rounded-xl border border-[#3B8392]/20 shadow-sm" placeholder="e.g. +254..." onChange={e => setFormData({ ...formData, whatsapp: e.target.value })} />
                             </div>
                         </div>
                         <div className="grid md:grid-cols-2 gap-6">

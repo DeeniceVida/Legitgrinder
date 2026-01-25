@@ -8,22 +8,20 @@ interface HomeProps {
 
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const [blogs, setBlogs] = useState<any[]>([]);
+  const [faqs, setFaqs] = useState<any[]>([]);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   useEffect(() => {
-    const fetchBlogs = async () => {
-      const { data } = await supabase.from('blogs').select('*').limit(3).order('created_at', { ascending: false });
-      if (data) setBlogs(data);
+    const fetchContent = async () => {
+      const { data: b } = await supabase.from('blogs').select('*').limit(3).order('created_at', { ascending: false });
+      if (b) setBlogs(b);
+      const { data: f } = await supabase.from('faqs').select('*').order('created_at', { ascending: false });
+      if (f) setFaqs(f);
     };
-    fetchBlogs();
+    fetchContent();
   }, []);
 
-  const faqs = [
-    { q: "How long does shipping take from USA/China?", a: "Air shipping usually takes 7-14 days, while sea shipping takes 30-45 days depending on the origin." },
-    { q: "What are your service fees?", a: "Our fees are transparent: 3.5% to 5% of the buying price, covering inspection and local logistics." },
-    { q: "Do you offer doorstep delivery in Kenya?", a: "Yes! We deliver to your home or office across Kenya via our partner couriers." },
-    { q: "How can I track my order?", a: "Use our Tracking tool with your Invoice ID to see real-time progress from origin to destination." }
-  ];
+
 
   return (
     <div className="animate-in fade-in duration-1000">
@@ -158,12 +156,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                       onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
                       className="w-full px-8 py-6 text-left flex justify-between items-center group"
                     >
-                      <span className="font-bold text-neutral-700 group-hover:text-[#3B8392] transition-colors">{faq.q}</span>
+                      <span className="font-bold text-neutral-700 group-hover:text-[#3B8392] transition-colors">{faq.question}</span>
                       {expandedFaq === i ? <ChevronUp className="w-4 h-4 text-[#3B8392]" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
                     </button>
                     {expandedFaq === i && (
                       <div className="px-8 pb-8 text-neutral-400 font-light leading-relaxed animate-in slide-in-from-top-4 duration-300">
-                        {faq.a}
+                        {faq.answer}
                       </div>
                     )}
                   </div>

@@ -64,6 +64,7 @@ const AdminDashboard: React.FC = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
   const [blogs, setBlogs] = useState<any[]>([]);
+  const [faqs, setFaqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Modal States
@@ -110,6 +111,8 @@ const AdminDashboard: React.FC = () => {
       if (activeTab === 'content') {
         const { data: b } = await supabase.from('blogs').select('*').order('created_at', { ascending: false });
         if (b) setBlogs(b);
+        const { data: f } = await supabase.from('faqs').select('*').order('created_at', { ascending: false });
+        if (f) setFaqs(f);
       }
     } finally {
       setLoading(false);
@@ -127,7 +130,11 @@ const AdminDashboard: React.FC = () => {
       images: formData.images,
       description: formData.description,
       shop_variants: formData.shop_variants,
-      origin: formData.origin
+      origin: formData.origin,
+      inventory_quantity: formData.inventory_quantity,
+      discount_price: formData.discount_price,
+      variations: formData.variations,
+      colors: formData.colors
     };
 
     if (editingProduct) {
@@ -329,15 +336,23 @@ const AdminDashboard: React.FC = () => {
           <div key={p.id} className="bg-white rounded-[3rem] overflow-hidden border border-neutral-100 group hover:shadow-2xl transition-all duration-700">
             <div className="aspect-[4/3] relative">
               <img src={p.image || 'https://picsum.photos/400/300'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt={p.name} />
-              <div className={`absolute top-6 right-6 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${p.stockStatus === 'In Stock' ? 'bg-[#3B8392] text-white' : 'bg-[#FF9900] text-white'}`}>
-                {p.stockStatus}
+              <div className={`absolute top-6 right-6 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${(p as any).inventory_quantity > 0 ? 'bg-[#3B8392] text-white' : 'bg-red-500 text-white'}`}>
+                {(p as any).inventory_quantity > 0 ? `In Stock (${(p as any).inventory_quantity})` : 'Out of Stock'}
               </div>
+              {(p as any).discount_price > 0 && (
+                <div className="absolute top-6 left-6 bg-[#FF9900] text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-lg">
+                  On Sale
+                </div>
+              )}
             </div>
             <div className="p-10">
               <span className="text-[10px] font-black uppercase text-neutral-300 tracking-widest font-mono">{p.category}</span>
               <h3 className="text-xl font-bold mt-2 mb-6 line-clamp-1">{p.name}</h3>
               <div className="flex justify-between items-center">
-                <span className="text-xl font-black text-[#FF9900]">KES {p.priceKES?.toLocaleString()}</span>
+                <div className="flex flex-col">
+                  <span className="text-xl font-black text-[#FF9900]">KES {((p as any).discount_price > 0 ? (p as any).discount_price : p.priceKES)?.toLocaleString()}</span>
+                  {(p as any).discount_price > 0 && <span className="text-xs text-neutral-400 line-through">KES {p.priceKES?.toLocaleString()}</span>}
+                </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setEditingProduct(p); setShowProductModal(true); }} className="p-3 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"><Edit3 className="w-4 h-4" /></button>
                   <button onClick={async () => { if (confirm('Delete?')) { await supabase.from('products').delete().eq('id', p.id); fetchData(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
@@ -440,15 +455,18 @@ const AdminDashboard: React.FC = () => {
                     </button>
                   )}
                   {c.status === 'confirmed_waiting_payment' && (
-                    <button
-                      onClick={async () => {
-                        await supabase.from('consultations').update({ status: 'scheduled', payment_status: 'paid' }).eq('id', c.id);
-                        fetchData();
-                      }}
-                      className="flex-1 bg-[#3B8392] text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-[#3B8392]/20"
-                    >
-                      Approve Payment
-                    </button>
+                    <div className="flex flex-col gap-2 w-full">
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase">WA Number: {c.client_whatsapp || c.client_phone}</p>
+                      <button
+                        onClick={async () => {
+                          await supabase.from('consultations').update({ status: 'scheduled', payment_status: 'paid' }).eq('id', c.id);
+                          fetchData();
+                        }}
+                        className="flex-1 bg-[#3B8392] text-white py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-[#3B8392]/20"
+                      >
+                        Approve Payment
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -575,25 +593,70 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
             {activeTab === 'content' && (
-              <div className="space-y-10 animate-in fade-in">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">Blog Studio</h2>
-                  <button className="bg-neutral-900 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl"><Plus className="w-4 h-4 mr-2 inline" /> New Article</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {blogs.map(b => (
-                    <div key={b.id} className="bg-white rounded-[2.5rem] p-8 border border-neutral-100 shadow-sm relative overflow-hidden group">
-                      <div className="flex justify-between items-start mb-6">
-                        <h3 className="font-bold text-xl leading-snug max-w-[200px]">{b.title}</h3>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-2 bg-neutral-50 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                          <button className="p-2 bg-red-50 text-red-400 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+              <div className="space-y-16 animate-in fade-in">
+                {/* Blog Section */}
+                <div>
+                  <div className="flex justify-between items-center mb-10">
+                    <h2 className="text-2xl font-bold">Blog Studio</h2>
+                    <button className="bg-neutral-900 text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl"><Plus className="w-4 h-4 mr-2 inline" /> New Article</button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {blogs.map(b => (
+                      <div key={b.id} className="bg-white rounded-[2.5rem] p-8 border border-neutral-100 shadow-sm relative overflow-hidden group">
+                        <div className="flex justify-between items-start mb-6">
+                          <h3 className="font-bold text-xl leading-snug max-w-[200px]">{b.title}</h3>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="p-2 bg-neutral-50 rounded-lg"><Edit3 className="w-4 h-4" /></button>
+                            <button className="p-2 bg-red-50 text-red-400 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                          </div>
                         </div>
+                        <p className="text-neutral-400 text-sm line-clamp-2 font-light mb-6">{b.excerpt}</p>
+                        <StatusBadge status={b.is_published ? 'Published' : 'Draft'} />
                       </div>
-                      <p className="text-neutral-400 text-sm line-clamp-2 font-light mb-6">{b.excerpt}</p>
-                      <StatusBadge status={b.is_published ? 'Published' : 'Draft'} />
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+
+                {/* FAQ Section */}
+                <div>
+                  <div className="flex justify-between items-center mb-10">
+                    <h2 className="text-2xl font-bold">FAQ Hub</h2>
+                    <button
+                      onClick={async () => {
+                        const q = prompt('Question?');
+                        const a = prompt('Answer?');
+                        if (q && a) {
+                          await supabase.from('faqs').insert({ question: q, answer: a });
+                          fetchData();
+                        }
+                      }}
+                      className="bg-[#3B8392] text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl"
+                    >
+                      <Plus className="w-4 h-4 mr-2 inline" /> Add FAQ
+                    </button>
+                  </div>
+                  <div className="bg-white rounded-[2.5rem] border border-neutral-100 overflow-hidden shadow-sm">
+                    <table className="w-full text-left">
+                      <thead className="bg-neutral-50/50">
+                        <tr className="text-[10px] font-black uppercase text-neutral-400 tracking-widest font-mono border-b border-neutral-100">
+                          <th className="p-8">Question</th>
+                          <th className="p-8">Answer</th>
+                          <th className="p-8 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-50">
+                        {faqs.map((f: any) => (
+                          <tr key={f.id} className="hover:bg-neutral-50/20">
+                            <td className="p-8 font-bold">{f.question}</td>
+                            <td className="p-8 text-neutral-500 text-sm">{f.answer}</td>
+                            <td className="p-8 text-right">
+                              <button onClick={async () => { if (confirm('Delete?')) { await supabase.from('faqs').delete().eq('id', f.id); fetchData(); } }} className="p-3 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -614,11 +677,16 @@ const ProductModal: React.FC<{ product: Product | null; onClose: () => void; onS
     image: product?.image || '',
     description: product?.description || '',
     shop_variants: (product as any)?.shop_variants || [],
-    origin: product?.origin || Origin.USA
+    origin: product?.origin || Origin.USA,
+    inventory_quantity: (product as any)?.inventory_quantity || 0,
+    discount_price: (product as any)?.discount_price || 0,
+    variations: (product as any)?.variations || [],
+    colors: (product as any)?.colors || []
   });
 
   const [newImg, setNewImg] = useState('');
   const [newVar, setNewVar] = useState('');
+  const [newColor, setNewColor] = useState('');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
@@ -640,10 +708,26 @@ const ProductModal: React.FC<{ product: Product | null; onClose: () => void; onS
                 </label>
                 <input type="text" placeholder="Product Name (Real Items)" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="modal-input" required />
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="number" placeholder="Price (KES)" value={formData.priceKES} onChange={(e) => setFormData({ ...formData, priceKES: Number(e.target.value) })} className="modal-input" required />
-                  <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="modal-input appearance-none">
-                    {['Electronics & Gadgets', 'General Products', 'Machinery', 'Lifestyle', 'Business Tools'].map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  <div>
+                    <label className="text-[9px] font-bold text-neutral-400 uppercase ml-2 mb-1 block">Regular Price (KES)</label>
+                    <input type="number" placeholder="Regular Price" value={formData.priceKES} onChange={(e) => setFormData({ ...formData, priceKES: Number(e.target.value) })} className="modal-input" required />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-neutral-400 uppercase ml-2 mb-1 block">Discount Price (KES)</label>
+                    <input type="number" placeholder="Discount Price" value={formData.discount_price} onChange={(e) => setFormData({ ...formData, discount_price: Number(e.target.value) })} className="modal-input" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[9px] font-bold text-neutral-400 uppercase ml-2 mb-1 block">Inv. Quantity</label>
+                    <input type="number" placeholder="Quantity" value={formData.inventory_quantity} onChange={(e) => setFormData({ ...formData, inventory_quantity: Number(e.target.value) })} className="modal-input" required />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-neutral-400 uppercase ml-2 mb-1 block">Category</label>
+                    <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="modal-input appearance-none">
+                      {['Electronics & Gadgets', 'General Products', 'Machinery', 'Lifestyle', 'Business Tools'].map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -669,18 +753,35 @@ const ProductModal: React.FC<{ product: Product | null; onClose: () => void; onS
             <div className="space-y-8">
               <div className="space-y-3">
                 <label className="text-[10px] font-black uppercase tracking-widest text-[#3B8392] flex items-center gap-2">
-                  <Tag className="w-3 h-3" /> Variations & Colors
+                  <Tag className="w-3 h-3" /> Variations
                 </label>
                 <div className="flex gap-2 mb-3 flex-wrap min-h-[46px]">
-                  {formData.shop_variants.map((v: any, i: number) => (
-                    <span key={i} className="bg-neutral-900 text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-2 shadow-xl shadow-neutral-200">
-                      {v.name} <X className="w-3 h-3 cursor-pointer text-red-400" onClick={() => setFormData({ ...formData, shop_variants: formData.shop_variants.filter((_: any, idx: number) => idx !== i) })} />
+                  {formData.variations.map((v: string, i: number) => (
+                    <span key={i} className="bg-[#3B8392] text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-2 shadow-lg shadow-[#3B8392]/20">
+                      {v} <X className="w-3 h-3 cursor-pointer text-white/50 hover:text-white" onClick={() => setFormData({ ...formData, variations: formData.variations.filter((_: any, idx: number) => idx !== i) })} />
                     </span>
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <input type="text" placeholder="e.g. Navy Blue" value={newVar} onChange={e => setNewVar(e.target.value)} className="modal-input flex-1" />
-                  <button type="button" onClick={() => { if (newVar) { setFormData({ ...formData, shop_variants: [...formData.shop_variants, { name: newVar, type: 'variant' }] }); setNewVar(''); } }} className="px-5 bg-[#3B8392] text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-[#3B8392]/20">Tag</button>
+                  <input type="text" placeholder="e.g. 128GB, Pro, XL" value={newVar} onChange={e => setNewVar(e.target.value)} className="modal-input flex-1" />
+                  <button type="button" onClick={() => { if (newVar) { setFormData({ ...formData, variations: [...formData.variations, newVar] }); setNewVar(''); } }} className="px-5 bg-[#3B8392] text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-[#3B8392]/20">Add</button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-[#3B8392] flex items-center gap-2">
+                  <PenTool className="w-3 h-3" /> Color Options
+                </label>
+                <div className="flex gap-2 mb-3 flex-wrap min-h-[46px]">
+                  {formData.colors.map((c: string, i: number) => (
+                    <span key={i} className="bg-neutral-100 text-neutral-900 px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] flex items-center gap-2 border border-neutral-200">
+                      {c} <X className="w-3 h-3 cursor-pointer text-red-500" onClick={() => setFormData({ ...formData, colors: formData.colors.filter((_: any, idx: number) => idx !== i) })} />
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="e.g. Phantom Black" value={newColor} onChange={e => setNewColor(e.target.value)} className="modal-input flex-1" />
+                  <button type="button" onClick={() => { if (newColor) { setFormData({ ...formData, colors: [...formData.colors, newColor] }); setNewColor(''); } }} className="px-5 bg-neutral-900 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-neutral-200">Add</button>
                 </div>
               </div>
 
