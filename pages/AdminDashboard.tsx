@@ -712,12 +712,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ) : (
                       <div className="space-y-4">
                         {currentVariations.map((v, idx) => (
-                          <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-50 grid grid-cols-12 gap-4 items-center animate-in slide-in-from-right-4 duration-300">
-                            <div className="col-span-3">
+                          <div key={idx} className="bg-white p-4 rounded-[2rem] border border-neutral-100 flex items-center gap-4 animate-in slide-in-from-right-4 duration-300">
+                            <div className="w-[160px]">
                               <select
                                 value={v.type}
                                 onChange={(e) => handleUpdateVariation(idx, { type: e.target.value as any })}
-                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:ring-4 focus:ring-teal-100"
+                                className="w-full bg-white border border-neutral-100 rounded-2xl px-5 py-4 text-[11px] font-black uppercase tracking-widest focus:ring-4 focus:ring-teal-100 outline-none transition-all cursor-pointer"
                               >
                                 <option value="Color">Color</option>
                                 <option value="Capacity">Capacity</option>
@@ -726,40 +726,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <option value="Bundle">Bundle</option>
                               </select>
                             </div>
-                            <div className="col-span-3">
+                            <div className="flex-[2]">
                               <input
                                 placeholder="Variation Name"
                                 value={v.name}
                                 onChange={(e) => handleUpdateVariation(idx, { name: e.target.value })}
-                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-teal-100"
+                                className="w-full bg-white border border-neutral-100 rounded-2xl px-6 py-4 text-sm font-bold text-gray-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all"
                               />
                             </div>
-                            <div className="col-span-2">
+                            <div className="w-[100px]">
                               <input
                                 type="number"
-                                placeholder="+KES"
+                                placeholder="Price"
                                 value={v.priceKES || ''}
                                 onChange={(e) => handleUpdateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
-                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-teal-100"
+                                className="w-full bg-white border border-neutral-100 rounded-2xl px-6 py-4 text-sm font-black text-center text-gray-400 focus:ring-4 focus:ring-teal-100 outline-none transition-all"
                               />
                             </div>
-                            <div className="col-span-3">
+                            <div className="flex-1">
                               <input
-                                placeholder="Image URL (Optional)"
+                                placeholder="https://image-link.com"
                                 value={v.imageUrl || ''}
                                 onChange={(e) => handleUpdateVariation(idx, { imageUrl: e.target.value })}
-                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-[9px] font-medium focus:ring-4 focus:ring-teal-100"
+                                className="w-full bg-white border border-neutral-100 rounded-2xl px-6 py-4 text-[10px] font-medium text-gray-400 focus:ring-4 focus:ring-teal-100 outline-none transition-all"
                               />
                             </div>
-                            <div className="col-span-1 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveVariation(idx)}
-                                className="p-3 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveVariation(idx)}
+                              className="w-12 h-12 bg-rose-50 border border-rose-100 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
                           </div>
                         ))}
                       </div>
