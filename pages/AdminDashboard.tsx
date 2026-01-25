@@ -712,8 +712,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ) : (
                       <div className="space-y-4 overflow-x-auto pb-4 no-scrollbar">
                         {currentVariations.map((v, idx) => (
-                          <div key={idx} className="bg-white p-4 rounded-[3.5rem] border border-neutral-100 flex items-center gap-5 animate-in slide-in-from-right-4 duration-300 min-w-[900px]">
-                            <div className="w-[150px] flex-shrink-0">
+                          <div key={idx} className="bg-white p-5 rounded-[2.5rem] border border-neutral-100 grid grid-cols-1 md:grid-cols-12 gap-5 items-center animate-in slide-in-from-right-4 duration-300 min-w-[1000px]">
+                            <div className="md:col-span-2">
                               <select
                                 value={v.type}
                                 onChange={(e) => handleUpdateVariation(idx, { type: e.target.value as any })}
@@ -726,7 +726,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <option value="Bundle">Bundle</option>
                               </select>
                             </div>
-                            <div className="flex-[3] min-w-[200px]">
+                            <div className="md:col-span-4">
                               <input
                                 placeholder="Variation Name"
                                 value={v.name}
@@ -734,7 +734,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 className="w-full bg-white border border-neutral-100 rounded-2xl px-6 py-4 text-sm font-bold text-gray-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all"
                               />
                             </div>
-                            <div className="w-[120px] flex-shrink-0">
+                            <div className="md:col-span-2">
                               <input
                                 type="number"
                                 placeholder="Price"
@@ -743,7 +743,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 className="w-full bg-white border border-neutral-100 rounded-2xl px-6 py-4 text-sm font-black text-center text-gray-400 focus:ring-4 focus:ring-teal-100 outline-none transition-all"
                               />
                             </div>
-                            <div className="flex-[2] min-w-[250px]">
+                            <div className="md:col-span-3">
                               <input
                                 placeholder="https://image-link.com"
                                 value={v.imageUrl || ''}
@@ -751,13 +751,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 className="w-full bg-white border border-neutral-100 rounded-2xl px-6 py-4 text-[10px] font-medium text-gray-400 focus:ring-4 focus:ring-teal-100 outline-none transition-all"
                               />
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveVariation(idx)}
-                              className="w-12 h-12 flex-shrink-0 bg-rose-50 border border-rose-100 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
+                            <div className="md:col-span-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveVariation(idx)}
+                                className="w-12 h-12 flex-shrink-0 bg-rose-50 border border-rose-100 text-rose-500 rounded-2xl flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
