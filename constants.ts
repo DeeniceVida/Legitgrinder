@@ -4,6 +4,9 @@ import { ShippingMode, Origin, OrderStatus } from './types';
 export const KES_PER_USD = 135;
 export const WHATSAPP_NUMBER = '254791873538';
 
+// Foundation for Cloudflare Worker integration
+export const API_BASE_URL = 'https://api.legitgrinder.com'; 
+
 export const PHONE_MODELS_SCHEMA = {
   iphone: [
     { name: 'iPhone 11', capacities: ['64GB', '128GB', '256GB'], series: '11 Series' },
@@ -73,16 +76,7 @@ export const PHONE_MODELS_SCHEMA = {
   ]
 };
 
-export const AUTOMATION_SETTINGS = {
-  CYCLE_DAYS: 21,
-  MAX_PER_DAY: 15,
-  DELAY_MINUTES: 2,
-  OPERATING_HOURS: { START: 9, END: 18 },
-  SKIP_WEEKENDS: true
-};
-
 export const FEE_STRUCTURE = {
-  FIXED_USD: 8,
   SHIPPING_FLAT_USD: 20,
   SHIPPING_PERCENT: 0.035,
   SERVICE_FEE_FIXED_USD: 30,
@@ -90,7 +84,6 @@ export const FEE_STRUCTURE = {
   THRESHOLD_USD: 750
 };
 
-// Added STATUS_SEQUENCE as requested by Tracking component
 export const STATUS_SEQUENCE = [
   OrderStatus.RECEIVED_BY_AGENT,
   OrderStatus.LEFT_WAREHOUSE,

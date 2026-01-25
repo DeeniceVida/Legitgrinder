@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -5,190 +6,250 @@ import Calculators from './pages/Calculators';
 import Tracking from './pages/Tracking';
 import AdminDashboard from './pages/AdminDashboard';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
 import Pricelist from './pages/Pricelist';
-import Consultancy from './pages/Consultancy';
 import Collaboration from './pages/Collaboration';
-import MyOrders from './pages/MyOrders';
-import ProductDetails from './pages/ProductDetails';
-import Contact from './pages/Contact';
+// Fix: Aliased Consultation page component to ConsultationPage to avoid conflict with Consultation type from types.ts
+import ConsultationPage from './pages/Consultation';
+import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
-import { supabase } from './src/lib/supabase';
-import {
-  Smartphone, Package, Globe, HelpCircle, Instagram, Youtube, Mail, MapPin,
-  Plus, ArrowUpRight, Box, Clock, ChevronRight, CheckCircle2
+import { 
+  Instagram, Youtube, Globe
 } from 'lucide-react';
-import { STATUS_SEQUENCE } from './constants';
-import { OrderStatus } from './types';
+import { PHONE_MODELS_SCHEMA } from './constants';
+import { 
+  OrderStatus, Availability, Product, BlogPost, FAQItem, 
+  Client, Invoice, PricelistItem, Consultation, ConsultationStatus 
+} from './types';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('home');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [products, setProducts] = useState<any[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(true);
+
+  // --- GLOBAL STATE ---
+  
+  // Pricelist State
+  const [pricelist, setPricelist] = useState<PricelistItem[]>(() => {
+    const items: PricelistItem[] = [];
+    Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {
+      models.forEach((m, idx) => {
+        items.push({
+          id: `${brand}-${idx}`,
+          modelName: m.name,
+          brand: brand as 'iphone' | 'samsung' | 'pixel',
+          series: m.series,
+          syncAlert: false,
+          capacities: m.capacities.map(cap => ({
+            capacity: cap,
+            currentPriceKES: 120000 + Math.floor(Math.random() * 50000), // Mock initial prices
+            previousPriceKES: 0,
+            lastSynced: 'System Init',
+            sourcePriceUSD: 800,
+            isManualOverride: false
+          }))
+        });
+      });
+    });
+    return items;
+  });
+
+  // Shop Products
+  const [products, setProducts] = useState<Product[]>([
+    {
+      id: 'p1',
+      name: 'iPhone 15 Pro Max',
+      priceKES: 175000,
+      discountPriceKES: 168000,
+      imageUrls: ['https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800'],
+      variations: '256GB, 512GB, 1TB',
+      colors: 'Natural Titanium, Black, Blue',
+      availability: Availability.IMPORT,
+      shippingDuration: '2-3 Weeks Air',
+      description: 'The ultimate iPhone experience with titanium build and advanced zoom.',
+      category: 'Electronics'
+    },
+    {
+      id: 'p2',
+      name: 'Samsung S24 Ultra',
+      priceKES: 165000,
+      discountPriceKES: 158000,
+      imageUrls: ['https://images.unsplash.com/photo-1707055745727-465494191d57?auto=format&fit=crop&q=80&w=800'],
+      variations: '256GB, 512GB',
+      colors: 'Titanium Gray, Black',
+      availability: Availability.LOCAL,
+      shippingDuration: '2-3 Business Days',
+      description: 'Galaxy AI is here. Stunning 200MP camera and built-in S Pen.',
+      category: 'Electronics'
+    }
+  ]);
+
+  // Blogs and FAQs
+  const [blogs, setBlogs] = useState<BlogPost[]>([
+    {
+      id: 'b1',
+      title: 'How to Avoid Hidden Import Taxes in 2026',
+      excerpt: 'Navigating the latest Kenya Revenue Authority updates for tech imports.',
+      content: 'Importing tech into Kenya can be a minefield of unexpected costs. In this guide, we break down the VAT, Excise Duty, and Railway Development Levy...',
+      imageUrl: 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?auto=format&fit=crop&q=80&w=800',
+      category: 'Guides',
+      date: 'Jan 12, 2026',
+      author: 'LegitGrinder'
+    },
+    {
+      id: 'b2',
+      title: 'China vs USA: Which Source is Best for Your Business?',
+      excerpt: 'Comparing lead times, quality, and shipping rates across the two largest hubs.',
+      content: 'Choosing the right sourcing origin is the first step in building a successful import business...',
+      imageUrl: 'https://images.unsplash.com/photo-1494412574743-019485b78287?auto=format&fit=crop&q=80&w=800',
+      category: 'Sourcing',
+      date: 'Jan 15, 2026',
+      author: 'LegitGrinder'
+    }
+  ]);
+
+  const [faqs, setFaqs] = useState<FAQItem[]>([
+    { id: 'f1', question: 'How long does shipping really take?', answer: 'USA Air takes 2-3 weeks, while China Sea freight takes 45-50 days average.', category: 'Logistics' },
+    { id: 'f2', question: 'Do I pay for customs separately?', answer: 'No, all our quotes are all-inclusive of customs and handling to Nairobi CBD.', category: 'Pricing' }
+  ]);
+
+  // Clients
+  const [clients, setClients] = useState<Client[]>([
+    { 
+      id: 'u1', 
+      name: 'Munga Kamau', 
+      email: 'munga@legit.co.ke', 
+      phone: '+254 711 222 333', 
+      location: 'Nairobi, Westlands', 
+      joinedDate: '2025-06-12', 
+      totalSpentKES: 845000, 
+      orderCount: 5, 
+      lastOrderDate: '2026-01-05', 
+      interests: ['iPhones', 'USA Sourcing'],
+      purchasedItems: ['iPhone 15 Pro Max', 'MacBook Air M2'],
+      purchaseFrequency: 'High'
+    }
+  ]);
+
+  // Invoices/Tracking
+  const [invoices, setInvoices] = useState<Invoice[]>([
+    { id: 'inv-001', invoiceNumber: '4932', clientName: 'Munga Kamau', productName: 'iPhone 15 Pro Max', status: OrderStatus.SHIPPING, progress: 60, lastUpdate: '2 hours ago', isPaid: true }
+  ]);
+
+  // Consultations
+  const [consultations, setConsultations] = useState<Consultation[]>([
+    { id: 'c1', name: 'Brian Otieno', email: 'brian@example.com', phone: '+254 700 000 000', whatsapp: '+254 700 000 000', date: '2026-01-20', time: '14:30', topic: 'Sourcing 50 refurbished laptops.', status: ConsultationStatus.PENDING, feeUSD: 15 }
+  ]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-      if (data) setProducts(data);
-    };
-    fetchProducts();
-  }, []);
-
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {
     setIsLoggedIn(true);
+    setIsAdmin(isAdminLogin);
+    if (userData && !isAdminLogin) {
+      // Add new client if registering
+      const newClient: Client = {
+        id: `u-${Date.now()}`,
+        name: userData.name || 'New Member',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        location: userData.location || 'Nairobi',
+        joinedDate: new Date().toISOString().split('T')[0],
+        totalSpentKES: 0,
+        orderCount: 0,
+        lastOrderDate: 'Never',
+        interests: userData.interests || [],
+        purchasedItems: [],
+        purchaseFrequency: 'Low'
+      };
+      setClients(prev => [...prev, newClient]);
+    }
     setCurrentPage('home');
   };
-
-  const mockUserOrders = [
-    {
-      id: 'LG-9821',
-      product: 'iPhone 15 Pro Max',
-      status: OrderStatus.SHIPPING,
-      date: '2024-05-10',
-      updates: [
-        { status: OrderStatus.RECEIVED_BY_AGENT, date: '2024-05-10', location: 'USA Warehouse' },
-        { status: OrderStatus.SHIPPING, date: '2024-05-12', location: 'Transit to Kenya' }
-      ]
-    }
-  ];
 
   const renderPage = () => {
     switch (currentPage) {
       case 'home': return <Home onNavigate={setCurrentPage} />;
-      case 'login': return <Login onLoginSuccess={handleLoginSuccess} onNavigate={setCurrentPage} />;
-      case 'signup': return <Signup onSignupSuccess={handleLoginSuccess} />;
-      case 'pricelist': return <Pricelist />;
+      case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
+      case 'pricelist': return <Pricelist pricelist={pricelist} />;
       case 'collaboration': return <Collaboration />;
-      case 'my-orders': return <MyOrders />;
-      case 'contact': return <Contact />;
-      case 'blogs': return <Blogs onNavigate={setCurrentPage} />;
-      case 'product-details': return selectedProductId ? <ProductDetails productId={selectedProductId} onNavigate={setCurrentPage} /> : <Home onNavigate={setCurrentPage} />;
-      case 'shop': return (
-        <div className="py-24 px-4 max-w-7xl mx-auto text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <div className="inline-flex items-center justify-center p-4 bg-[#FF9900]/5 rounded-[1.5rem] mb-8 border border-[#FF9900]/10">
-            <Smartphone className="w-8 h-8 text-[#FF9900]" />
-          </div>
-          <h1 className="text-5xl md:text-7xl font-medium mb-6 tracking-tight-custom text-neutral-900 leading-tight">Elite <span className="italic heading-accent text-neutral-400">Inventory.</span></h1>
-          <p className="text-neutral-500 mb-20 max-w-xl mx-auto text-lg font-light leading-relaxed">Vetted tech and industrial machinery ready for deployment in Kenya.</p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-            {products.length > 0 ? products.map(product => (
-              <div
-                key={product.id}
-                className="group flex flex-col cursor-pointer text-left"
-                onClick={() => {
-                  setSelectedProductId(product.id);
-                  setCurrentPage('product-details');
-                }}
-              >
-                <div className="aspect-[4/5] bg-neutral-100 relative overflow-hidden rounded-[2.5rem] mb-6 shadow-sm group-hover:shadow-2xl transition-all duration-700">
-                  <img src={product.image || `https://picsum.photos/seed/${product.id}/800/1000`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out" alt={product.name} />
-                  <div className={`absolute top-6 right-6 px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${product.inventory_quantity > 0 ? 'bg-[#3B8392] text-white' : 'bg-red-500 text-white'}`}>
-                    {product.inventory_quantity > 0 ? `In Stock (${product.inventory_quantity})` : 'Out of Stock'}
-                  </div>
-                  {product.discount_price > 0 && (
-                    <div className="absolute top-6 left-6 bg-[#FF9900] text-white px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm">
-                      Sale Impact
-                    </div>
-                  )}
-                </div>
-                <div className="px-2">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="text-2xl font-medium text-neutral-900 group-hover:text-[#FF9900] transition-colors tracking-tight-custom">{product.name}</h3>
-                    <div className="p-2 bg-neutral-50 rounded-xl group-hover:bg-[#FF9900] group-hover:text-white transition-all"><ArrowUpRight className="w-4 h-4" /></div>
-                  </div>
-                  <p className="text-neutral-400 text-sm mb-6 font-light leading-relaxed line-clamp-2">{product.description || 'Direct import from verified vendors in the USA and China.'}</p>
-                  <div className="flex justify-between items-end border-t border-neutral-50 pt-6">
-                    <div>
-                      <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest block mb-1">Buy Price</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl font-black text-neutral-900">KES {(product.discount_price > 0 ? product.discount_price : product.priceKES)?.toLocaleString()}</span>
-                        {product.discount_price > 0 && (
-                          <span className="text-sm font-bold text-neutral-400 line-through decoration-red-400">KES {product.priceKES?.toLocaleString()}</span>
-                        )}
-                      </div>
-                    </div>
-                    <button className="btn-brand bg-neutral-900 text-white px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest shadow-lg shadow-neutral-100">Order Now</button>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="col-span-full py-20 text-neutral-400 font-light italic">No products available in the shop yet.</div>
-            )}
-          </div>
-        </div>
-      );
+      case 'consultation': return <ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />;
+      case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
       case 'calculators': return <Calculators />;
-      case 'tracking': return <Tracking />;
-      case 'consultancy': return <Consultancy />;
-      case 'admin': return <AdminDashboard />;
+      case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
+      case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
+      case 'admin': return (
+        <AdminDashboard 
+          blogs={blogs} 
+          faqs={faqs} 
+          onUpdateBlogs={setBlogs} 
+          onUpdateFaqs={setFaqs} 
+          pricelist={pricelist}
+          onUpdatePricelist={setPricelist}
+          clients={clients}
+          onUpdateClients={setClients}
+          invoices={invoices}
+          onUpdateInvoices={setInvoices}
+          products={products}
+          onUpdateProducts={setProducts}
+          consultations={consultations}
+          onUpdateConsultations={setConsultations}
+        />
+      );
       default: return <Home onNavigate={setCurrentPage} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <Navbar
-        currentPage={currentPage}
-        onNavigate={setCurrentPage}
-        isLoggedIn={isLoggedIn}
-      />
-
-      <main>
+    <div className="min-h-screen flex flex-col selection:bg-[#3D8593] selection:text-white">
+      <Navbar onNavigate={setCurrentPage} currentPage={currentPage} isAdmin={isAdmin} />
+      
+      <main className="flex-1 bg-white">
         {renderPage()}
       </main>
 
-      <footer className="bg-neutral-50 border-t border-neutral-100 py-24">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-16">
+      <footer className="bg-[#0f1a1c] text-white py-24 px-6 overflow-hidden relative">
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="grid md:grid-cols-4 gap-20 mb-24">
             <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="bg-[#3B8392] p-2 rounded-xl text-white shadow-lg shadow-[#3B8392]/20">
-                  <Smartphone className="w-6 h-6" />
-                </div>
-                <span className="font-bold text-2xl tracking-tighter">LegitGrinder.</span>
+              <div className="flex items-center mb-10">
+                <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg" className="h-10 w-auto mr-4 rounded-lg" alt="Logo" />
+                <span className="text-2xl font-bold tracking-tight">LegitGrinder</span>
               </div>
-              <p className="text-neutral-500 font-light text-lg mb-10 max-w-md">Premium gateway for tech and industrial imports. Bridging the gap between global markets and East Africa.</p>
-              <div className="flex gap-6">
-                {[Instagram, Youtube, Mail].map((Icon, i) => (
-                  <a key={i} href="#" className="p-3 bg-white border border-neutral-100 rounded-full hover:border-[#3B8392] hover:text-[#3B8392] transition-all shadow-sm">
+              <p className="text-gray-400 max-w-sm mb-12 text-lg font-light leading-relaxed">
+                The most reliable bridge between global tech markets and Kenyan importers. Powered by transparency.
+              </p>
+              <div className="flex space-x-4">
+                {[Instagram, Youtube, Globe].map((Icon, idx) => (
+                  <a key={idx} href="#" className="p-4 rounded-full border border-gray-800 hover:bg-[#3D8593] hover:border-[#3D8593] transition-all">
                     <Icon className="w-5 h-5" />
                   </a>
                 ))}
               </div>
             </div>
             <div>
-              <h4 className="font-bold text-neutral-900 mb-8 uppercase tracking-widest text-xs">Solutions</h4>
-              <ul className="space-y-4 text-neutral-500 font-light">
-                {['Shop Inventory', 'Price Calculator', 'Order Tracking', 'Consultancy'].map((item, i) => (
-                  <li key={i} className="hover:text-[#3B8392] cursor-pointer transition-colors">{item}</li>
-                ))}
+              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-10">Solutions</h4>
+              <ul className="space-y-4 text-gray-400 text-lg font-light">
+                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('shop')}>Shop</li>
+                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('blogs')}>Blogs & FAQ</li>
+                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('pricelist')}>Market Prices</li>
               </ul>
             </div>
             <div>
-              <h4 className="font-bold text-neutral-900 mb-8 uppercase tracking-widest text-xs">Contact</h4>
-              <ul className="space-y-4 text-neutral-500 font-light">
-                <li className="flex items-start gap-3"><MapPin className="w-5 h-5 text-neutral-300 mt-1" /> <span>Nairobi CBD, Kenya<br />Vision Plaza, Mombasa Rd</span></li>
-                <li className="flex items-center gap-3"><Mail className="w-5 h-5 text-neutral-300" /> <span>mungaimports@gmail.com</span></li>
+              <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-10">HQ</h4>
+              <ul className="space-y-6 text-gray-400 text-lg font-light">
+                <li>Nairobi CBD, Kenya</li>
+                <li className="text-white font-bold text-xl underline decoration-[#3D8593] underline-offset-8">+254 791 873 538</li>
               </ul>
             </div>
           </div>
-          <div className="mt-24 pt-12 border-t border-neutral-200 flex flex-col md:flex-row justify-between items-center gap-8">
-            <p className="text-neutral-400 text-sm">© 2024 LegitGrinder Logistics. All rights reserved.</p>
-            <div className="flex gap-8 text-neutral-400 text-sm">
-              <span className="hover:text-black cursor-pointer">Privacy Policy</span>
-              <span className="hover:text-black cursor-pointer">Terms of Service</span>
-            </div>
+          <div className="pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-gray-600 text-[10px] font-black uppercase tracking-[0.4em]">
+            <p>&copy; 2026 LegitGrinder Logistics. Precision Sourcing Hub.</p>
           </div>
         </div>
       </footer>
-
       <AIAssistant />
     </div>
   );

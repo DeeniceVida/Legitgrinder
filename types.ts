@@ -18,42 +18,88 @@ export enum OrderStatus {
   READY_FOR_COLLECTION = 'Ready to Collect'
 }
 
+export enum ConsultationStatus {
+  PENDING = 'Pending Review',
+  DOABLE = 'Confirmed Doable',
+  PAID = 'Paid & Scheduled',
+  RESCHEDULED = 'Rescheduled',
+  CANCELLED = 'Cancelled'
+}
+
+export interface Consultation {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  date: string;
+  time: string;
+  topic: string;
+  status: ConsultationStatus;
+  feeUSD: number;
+}
+
+export enum Availability {
+  LOCAL = 'Available Locally',
+  IMPORT = 'Import on Order'
+}
+
 export interface Product {
   id: string;
   name: string;
   priceKES: number;
-  discount_price?: number;
-  inventory_quantity: number;
-  variations: string[];
-  colors: string[];
-  buyingPriceKES?: number;
-  shippingFeeKES?: number;
-  serviceFeeKES?: number;
-  origin: Origin;
-  category: string;
-  image: string;
+  discountPriceKES?: number;
+  imageUrls: string[]; 
+  variations: string; 
+  colors: string; 
+  availability: Availability;
+  shippingDuration?: string;
   description: string;
-  stockStatus: 'In Stock' | 'Import on Order';
+  category: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  clientName: string;
+  productName: string;
+  status: OrderStatus;
+  progress: number;
+  lastUpdate: string;
+  isPaid: boolean;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  joinedDate: string;
+  totalSpentKES: number;
+  orderCount: number;
+  lastOrderDate: string;
+  interests: string[];
+  purchasedItems: string[];
+  purchaseFrequency: 'High' | 'Medium' | 'Low';
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  interests: string[];
 }
 
 export interface CapacityPrice {
   capacity: string;
-  sourcePriceUSD: number | null;
+  sourcePriceUSD: number | null; 
   currentPriceKES: number;
   previousPriceKES: number;
   lastSynced: string;
   isManualOverride: boolean;
-}
-
-export interface ProductVariant {
-  id: number;
-  product_id: number;
-  capacity: string;
-  source_url: string | null;
-  price_usd: number | null;
-  price_kes: number | null;
-  last_updated: string | null;
-  status: 'active' | 'out_of_stock' | 'error';
 }
 
 export interface PricelistItem {
@@ -66,27 +112,25 @@ export interface PricelistItem {
   sourceUrl?: string;
 }
 
-export interface Order {
+export interface BlogPost {
   id: string;
-  clientName: string;
-  clientPhone: string;
-  clientEmail: string;
-  clientLocation: string;
-  productName: string;
-  productUrl?: string;
-  buyingPriceKES: number;
-  shippingFeeKES: number;
-  serviceFeeKES: number;
-  totalCostKES: number;
-  status: OrderStatus;
-  mode: ShippingMode;
-  origin: Origin;
-  datePlaced: string;
-  isPaid: boolean;
-  weightKg?: number;
-  dimensions?: string; // e.g., "10x20x30 cm"
+  title: string;
+  excerpt: string;
+  content: string;
+  imageUrl: string;
+  category: string;
+  date: string;
+  author: string;
 }
 
+export interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+  category: string;
+}
+
+// Added CalculationResult interface to fix missing export error
 export interface CalculationResult {
   buyingPriceKES: number;
   shippingFeeKES: number;

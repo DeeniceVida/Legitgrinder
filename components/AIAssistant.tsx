@@ -6,7 +6,7 @@ import { askAssistant } from '../services/gemini';
 const AIAssistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant', content: string }[]>([
-    { role: 'assistant', content: "Hello! I'm the LegitGrinder AI. Ready to help you bring those global goods to Kenya. What's on your mind?" }
+    { role: 'assistant', content: "Jambo! I'm your LegitGrinder companion. Ask me anything about our logistics chain or current KES rates!" }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,57 +30,59 @@ const AIAssistant: React.FC = () => {
     setLoading(true);
 
     const reply = await askAssistant(userMsg);
-    setMessages(prev => [...prev, { role: 'assistant', content: reply || 'Sorry, I encountered an error.' }]);
+    setMessages(prev => [...prev, { role: 'assistant', content: reply || 'Sorry, my sensors are a bit hazy. Try again?' }]);
     setLoading(false);
   };
 
   return (
     <div className="fixed bottom-8 right-8 z-[60]">
       {isOpen ? (
-        <div className="bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] w-80 sm:w-[400px] flex flex-col h-[600px] border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+        <div className="bg-white rounded-[2.5rem] shadow-[0_32px_128px_-16px_rgba(79,70,229,0.3)] w-80 sm:w-[420px] flex flex-col h-[650px] border border-indigo-50 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
           {/* Header */}
-          <div className="bg-[#0a0a0a] p-6 flex justify-between items-center text-white shrink-0 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF9900]/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-            <div className="flex items-center space-x-3 relative z-10">
-              <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md border border-white/10">
-                <Bot className="w-5 h-5 text-[#FF9900]" />
+          <div className="bg-indigo-600 p-8 flex justify-between items-center text-white relative overflow-hidden shrink-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-800"></div>
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#FF9900]/20 rounded-full blur-3xl"></div>
+            
+            <div className="flex items-center space-x-4 relative z-10">
+              <div className="bg-white p-3 rounded-2xl shadow-xl">
+                <Bot className="w-6 h-6 text-indigo-600" />
               </div>
               <div>
-                <span className="font-bold block text-sm">LegitAssistant</span>
-                <span className="text-[10px] opacity-80 flex items-center">
-                  <span className="w-1.5 h-1.5 bg-[#FF9900] rounded-full mr-1 animate-pulse"></span>
-                  Online
+                <span className="font-black block text-sm uppercase tracking-widest">Legit.AI</span>
+                <span className="text-[10px] opacity-80 font-bold flex items-center">
+                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                  GLOBAL NETWORK ACTIVE
                 </span>
               </div>
             </div>
             <button 
               onClick={() => setIsOpen(false)}
-              className="p-2 hover:bg-white/10 rounded-full transition-colors relative z-10"
+              className="p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all relative z-10"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/50">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 bg-mesh">
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 duration-300`}>
-                <div className={`max-w-[85%] rounded-[1.5rem] p-4 text-sm leading-relaxed ${
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
+                <div className={`max-w-[85%] rounded-[1.8rem] p-5 text-sm leading-relaxed shadow-sm ${
                   m.role === 'user' 
-                  ? 'bg-[#0a0a0a] text-white rounded-br-none shadow-lg' 
-                  : 'bg-white text-gray-800 rounded-bl-none border border-gray-100 shadow-sm'
+                  ? 'bg-indigo-600 text-white rounded-br-none shadow-indigo-100' 
+                  : 'bg-white text-gray-800 rounded-bl-none border border-indigo-50 shadow-indigo-50/50'
                 }`}>
                   {m.content}
                 </div>
               </div>
             ))}
             {loading && (
-              <div className="flex justify-start animate-in fade-in duration-300">
-                <div className="bg-white border border-gray-100 rounded-[1.5rem] rounded-bl-none p-4 shadow-sm">
-                  <div className="flex space-x-1.5">
-                    <div className="w-2 h-2 bg-[#FF9900] rounded-full animate-bounce"></div>
+              <div className="flex justify-start">
+                <div className="bg-white border border-indigo-50 rounded-[1.8rem] p-5 shadow-sm">
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-[#FF9900] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                    <div className="w-2 h-2 bg-[#FF9900] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                   </div>
                 </div>
               </div>
@@ -88,28 +90,24 @@ const AIAssistant: React.FC = () => {
           </div>
 
           {/* Input */}
-          <div className="p-6 bg-white border-t border-gray-100 shrink-0">
+          <div className="p-8 bg-white border-t border-indigo-50 shrink-0">
             <div className="relative flex items-center">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Ask about shipping, fees, etc..."
-                className="w-full bg-gray-100 border-none rounded-2xl pl-5 pr-14 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF9900]/30 focus:bg-white transition-all"
+                placeholder="How long does USA air take?"
+                className="w-full bg-gray-50 border-2 border-transparent rounded-[1.5rem] pl-6 pr-14 py-4 text-sm focus:outline-none focus:border-indigo-600/20 focus:bg-white transition-all shadow-inner"
               />
               <button 
                 onClick={handleSend}
                 disabled={!input.trim() || loading}
-                className="absolute right-2 bg-[#FF9900] text-white p-2.5 rounded-xl hover:bg-black transition-all active:scale-90 disabled:opacity-50 shadow-lg shadow-[#FF9900]/20"
+                className="absolute right-2 bg-indigo-600 text-white p-3 rounded-xl hover:bg-[#FF9900] transition-all disabled:opacity-50 shadow-lg"
               >
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[10px] text-center text-gray-400 mt-3 flex items-center justify-center">
-              <Sparkles className="w-3 h-3 mr-1 text-[#FF9900]" />
-              LegitGrinder AI Engine
-            </p>
           </div>
         </div>
       ) : (
@@ -117,9 +115,9 @@ const AIAssistant: React.FC = () => {
           onClick={() => setIsOpen(true)}
           className="group relative"
         >
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#FF9900] to-[#e68a00] rounded-full blur opacity-30 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-          <div className="relative bg-[#FF9900] text-white p-5 rounded-full shadow-2xl hover:scale-110 transition-all duration-500 active:scale-90 flex items-center justify-center">
-            <MessageCircle className="w-7 h-7" />
+          <div className="absolute -inset-2 bg-gradient-to-r from-indigo-600 to-[#FF9900] rounded-full blur-xl opacity-40 group-hover:opacity-100 transition duration-1000"></div>
+          <div className="relative bg-indigo-600 text-white p-6 rounded-full shadow-2xl hover:scale-110 hover:rotate-6 transition-all duration-500 flex items-center justify-center">
+            <MessageCircle className="w-8 h-8" />
           </div>
         </button>
       )}

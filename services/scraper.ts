@@ -1,59 +1,55 @@
 
 import { calculateAutomatedPrice } from '../utils/priceCalculations';
 import { PricelistItem, CapacityPrice } from '../types';
+import { API_BASE_URL } from '../constants';
 
 /**
- * UPDATED SCRAPER LOGIC:
- * Now targets specifically items that have a 'sourceUrl'.
- * If a URL is provided, it simulates a deep scrape of that page.
- * If no URL is provided, the item remains in standby.
+ * AUTOMATION FRAMEWORK:
+ * 1. Cloudflare Worker fetches this function (or logic within it).
+ * 2. It identifies items with `sourceUrl` that ARE NOT in `isManualOverride` status.
+ * 3. It updates the prices based on the logic in `calculateAutomatedPrice`.
  */
 
 export async function syncBackMarketPrices(currentData: PricelistItem[]): Promise<PricelistItem[]> {
-  console.log("Initiating Targeted Scraper Sync...");
-  
-  // Simulate network delay for scraping the provided links
+  console.log("Initiating Global Marketplace Sync...");
+
+  // Framework for Cloudflare Worker integration:
+  // const response = await fetch(`${API_BASE_URL}/api/sync-prices`, { 
+  //   method: 'POST', 
+  //   headers: { 'Authorization': 'Bearer YOUR_SECRET' },
+  //   body: JSON.stringify(currentData) 
+  // });
+  // return await response.json();
+
+  // Simulated logic for now:
   await new Promise(resolve => setTimeout(resolve, 2000));
 
   return currentData.map(item => {
-    // Only scrape if a URL is provided
+    // Only sync if there is a URL and we aren't overriding it manually
     if (!item.sourceUrl) return item;
 
-    console.log(`Scraping target: ${item.sourceUrl}`);
-    
-    let hasSyncAlert = false;
     const updatedCapacities = item.capacities.map(cap => {
-      // SCRAPING LOGIC SIMULATION:
-      // For a specific URL, "Good" condition has a 10% chance of being OOS per capacity
-      const isGoodInStock = Math.random() > 0.1;
-      
-      let sourcePriceUSD: number | null = null;
-      let finalKES = cap.currentPriceKES;
+      // Respect manual overrides set in the Admin Dashboard
+      if (cap.isManualOverride) return cap;
 
-      if (isGoodInStock) {
-        // Realistic price range for US Tech imports
-        const base = 400 + (Math.random() * 600);
-        sourcePriceUSD = base;
-        finalKES = calculateAutomatedPrice(sourcePriceUSD);
-      } else {
-        hasSyncAlert = true; 
-        sourcePriceUSD = null; // Mark as OOS
-      }
+      // Simulate a price change found by the scraper
+      const priceDrift = (Math.random() - 0.5) * 50; // Random +/- $50
+      const newSourceUSD = (cap.sourcePriceUSD || 500) + priceDrift;
+      const newKES = calculateAutomatedPrice(newSourceUSD);
 
       return {
         ...cap,
-        sourcePriceUSD,
-        currentPriceKES: finalKES,
+        sourcePriceUSD: newSourceUSD,
+        currentPriceKES: newKES,
         previousPriceKES: cap.currentPriceKES,
-        lastSynced: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
-        isManualOverride: false
+        lastSynced: 'Synced ' + new Date().toLocaleTimeString() + ' (Auto)'
       };
     });
 
     return {
       ...item,
       capacities: updatedCapacities,
-      syncAlert: hasSyncAlert
+      syncAlert: false
     };
   });
 }

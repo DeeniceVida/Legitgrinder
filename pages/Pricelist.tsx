@@ -1,179 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, RefreshCw, Smartphone, CheckCircle, Clock, Link as LinkIcon, ExternalLink, Save, MessageCircle } from 'lucide-react';
-import { supabase } from '../src/lib/supabase';
-import { WHATSAPP_NUMBER } from '../constants';
 
-interface DisplayItem {
-  id: number;
-  name: string;
-  brand: string;
-  series: string;
-  capacity: string;
-  priceKES: number | null;
-  prevPrice: number | null;
-  lastUpdated: string | null;
-  status: string;
+import React, { useState, useMemo } from 'react';
+import { ShoppingCart, ShieldCheck, Zap, Package, Truck, Clock, CheckCircle2, Search, X } from 'lucide-react';
+import { WHATSAPP_NUMBER } from '../constants';
+import { PricelistItem } from '../types';
+
+interface PricelistProps {
+  pricelist: PricelistItem[];
 }
 
-const Pricelist = () => {
-  const [items, setItems] = useState<DisplayItem[]>([]);
-  const [loading, setLoading] = useState(true);
+const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
+  const [activeBrand, setActiveBrand] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedBrand, setSelectedBrand] = useState('all');
 
-  useEffect(() => {
-    fetchPricelist();
-  }, []);
+  const listTitle = "January 2026 Price List";
 
-  const fetchPricelist = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('product_variants')
-        .select(`*, products(id, name, series, brand)`)
-        .order('id', { ascending: true });
+  const filteredModels = useMemo(() => {
+    return pricelist.filter(item => 
+      item.brand === activeBrand &&
+      (item.modelName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+       item.series.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [activeBrand, searchTerm, pricelist]);
 
-      if (error) throw error;
-
-      if (data) {
-        setItems(data.map((variant: any) => ({
-          id: variant.id,
-          productId: variant.product_id,
-          name: variant.products?.name || 'Unknown',
-          brand: (variant.products?.brand || 'unknown').toLowerCase(),
-          series: variant.products?.series || '',
-          capacity: variant.capacity,
-          priceKES: variant.price_kes,
-          prevPrice: variant.previous_price_kes,
-          status: variant.status,
-          lastUpdated: variant.last_updated,
-        })));
-      }
-    } catch (err) {
-      console.error('Fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    if (selectedBrand === 'all') return matchesSearch;
-    const brand = item.brand.toLowerCase();
-    const name = item.name.toLowerCase();
-    if (selectedBrand === 'apple') return matchesSearch && (brand.includes('apple') || name.includes('iphone') || name.includes('macbook'));
-    if (selectedBrand === 'samsung') return matchesSearch && (brand.includes('samsung') || name.includes('galaxy'));
-    if (selectedBrand === 'pixel') return matchesSearch && (brand.includes('google') || name.includes('pixel'));
-    return matchesSearch && brand === selectedBrand;
-  });
-
-  const getPriceColor = (current: number | null, prev: number | null) => {
-    if (!current || !prev || current === prev) return 'text-[#3B8392]';
-    return current < prev ? 'text-green-600' : 'text-red-500';
-  };
-
-  const handleBuyNow = (item: DisplayItem) => {
-    const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${item.name} (${item.capacity}) for KES ${item.priceKES?.toLocaleString()}.`);
+  const handleBuy = (model: string, capacity: string, price: number) => {
+    const text = encodeURIComponent(`Hi LegitGrinder, I want to order the ${model} (${capacity}) - Refurbished (Good Condition). Listed Price: KES ${price.toLocaleString()}. I understand this is an all-inclusive price to Nairobi CBD.`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
 
-  const currentMonthYear = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
   return (
-    <div className="pt-24 pb-12 px-4 max-w-7xl mx-auto min-h-screen">
-      <div className="text-center mb-12 animate-in fade-in duration-1000">
-        <h1 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight-custom text-neutral-900 leading-tight">
-          Live Pricelist <span className="text-[#3B8392] italic">{currentMonthYear}</span>
-        </h1>
-        <p className="text-neutral-400 font-light max-w-2xl mx-auto text-lg leading-relaxed mb-8">
-          Daily market rates. <span className="text-green-600 font-bold">Green</span>: Price Drop. <span className="text-red-500 font-bold">Red</span>: Market Surge.
-        </p>
+    <div className="bg-mesh min-h-screen pt-32 md:pt-48 pb-32 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-12 md:mb-24 animate-in fade-in slide-in-from-top-8 duration-1000">
+          <h1 className="text-4xl md:text-8xl font-bold mb-4 md:mb-8 tracking-tighter text-gray-900 leading-none">
+            {listTitle}
+          </h1>
+          <div className="inline-flex items-center gap-2 md:gap-4 glass px-6 md:px-8 py-2 md:py-4 rounded-full border border-indigo-100 shadow-xl shadow-indigo-100/10">
+            <Zap className="w-3 md:w-4 h-3 md:h-4 text-indigo-600 fill-indigo-600" />
+            <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] text-indigo-600">Precision Global Sourcing</p>
+          </div>
+        </div>
 
-        <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-10">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-300 w-5 h-5" />
+        <div className="flex flex-col gap-6 mb-12">
+          <div className="w-full max-w-2xl mx-auto relative group">
+            <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
+            </div>
             <input
               type="text"
-              placeholder="Search devices..."
+              placeholder="Search model (e.g. 15 Pro Max)"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 bg-white border border-neutral-100 rounded-2xl outline-none focus:ring-4 focus:ring-[#3B8392]/5 transition-all text-sm"
+              className="w-full glass border-white/50 border shadow-2xl shadow-gray-100 rounded-[2rem] pl-14 pr-6 py-5 md:py-6 text-sm md:text-lg font-medium outline-none focus:ring-4 focus:ring-indigo-600/5 transition-all"
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 hide-scrollbar scroll-smooth">
-            {['all', 'apple', 'samsung', 'pixel'].map(brand => (
-              <button
-                key={brand}
-                onClick={() => setSelectedBrand(brand)}
-                className={`px-8 py-4 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all min-w-[100px] border ${selectedBrand === brand ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-400 border-neutral-100'
+
+          <div className="flex justify-center">
+            <div className="glass p-1.5 md:p-2 rounded-[2rem] md:rounded-[3rem] flex shadow-2xl shadow-gray-200/30 overflow-x-auto no-scrollbar max-w-full">
+              {(['iphone', 'samsung', 'pixel'] as const).map((brand) => (
+                <button
+                  key={brand}
+                  onClick={() => setActiveBrand(brand)}
+                  className={`whitespace-nowrap px-8 md:px-16 py-4 md:py-5 rounded-[1.8rem] md:rounded-[2.5rem] text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
+                    activeBrand === brand 
+                      ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-200' 
+                      : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
                   }`}
-              >
-                {brand}
-              </button>
-            ))}
+                >
+                  {brand}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="bg-white rounded-[2.5rem] border border-neutral-100 shadow-2xl shadow-neutral-200/50 overflow-hidden">
-        {/* Table View (Desktop) */}
-        <div className="hidden md:block">
-          <table className="w-full">
-            <thead className="bg-neutral-50/50">
-              <tr>
-                <th className="p-6 text-left text-[10px] font-black uppercase text-neutral-400 tracking-widest">Device Model</th>
-                <th className="p-6 text-left text-[10px] font-black uppercase text-neutral-400 tracking-widest text-center">Price Status</th>
-                <th className="p-6 text-right text-[10px] font-black uppercase text-neutral-400 tracking-widest">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {loading ? (
-                <tr><td colSpan={3} className="p-20 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto text-[#3B8392]/20" /></td></tr>
-              ) : filteredItems.map(item => (
-                <tr key={item.id} className="hover:bg-neutral-50/50 transition-colors group">
-                  <td className="p-6">
-                    <div className="font-bold text-neutral-900 group-hover:text-[#FF9900] transition-colors">{item.name}</div>
-                    <div className="text-[10px] font-bold text-neutral-400 mt-1 uppercase bg-neutral-100 px-2 py-0.5 rounded inline-block">{item.capacity}</div>
-                  </td>
-                  <td className="p-6 text-center">
-                    <div className={`font-black text-xl tracking-tighter ${getPriceColor(item.priceKES, item.prevPrice)}`}>
-                      KES {item.priceKES?.toLocaleString()}
-                    </div>
-                    {item.prevPrice && item.priceKES !== item.prevPrice && (
-                      <div className={`text-[10px] font-black uppercase tracking-tighter mt-1 ${item.priceKES < item.prevPrice ? 'text-green-500' : 'text-red-400'}`}>
-                        {item.priceKES < item.prevPrice ? '▼ Dropped' : '▲ Increased'}
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-6 text-right">
-                    <button onClick={() => handleBuyNow(item)} className="bg-[#FF9900] text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-orange-100 hover:bg-neutral-900 transition-all">Buy Now</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Card View (Mobile) */}
-        <div className="md:hidden divide-y divide-neutral-100">
-          {loading ? (
-            <div className="p-20 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto text-[#3B8392]/20" /></div>
-          ) : filteredItems.map(item => (
-            <div key={item.id} className="p-6 bg-white flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="font-bold text-neutral-900 leading-tight mb-1 text-lg">{item.name}</div>
-                  <div className="bg-neutral-100 px-2 py-0.5 rounded text-[10px] font-black text-neutral-400 uppercase tracking-widest inline-block">{item.capacity}</div>
+        {filteredModels.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
+            {filteredModels.map((item, idx) => (
+              <div key={item.id} className="glass p-6 md:p-10 rounded-[2.5rem] md:rounded-[3.5rem] border border-white shadow-xl">
+                <div className="mb-6 md:mb-10">
+                  <span className="text-[8px] md:text-[9px] font-black text-indigo-400 uppercase tracking-[0.4em] block mb-1 md:mb-2">{item.series}</span>
+                  <h3 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight leading-tight">{item.modelName}</h3>
                 </div>
-                <div className="text-right">
-                  <div className={`font-black text-lg ${getPriceColor(item.priceKES, item.prevPrice)}`}>KES {item.priceKES?.toLocaleString()}</div>
-                  <div className="text-[10px] font-bold text-neutral-300 uppercase mt-1">EST: 3 Weeks</div>
+
+                <div className="space-y-4">
+                  {item.capacities.map((cap, cIdx) => (
+                    <div key={cIdx} className="p-4 md:p-6 bg-white/60 rounded-[1.8rem] border border-white/60">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{cap.capacity}</span>
+                        <span className="text-lg md:text-xl font-bold text-gray-900">KES {cap.currentPriceKES.toLocaleString()}</span>
+                      </div>
+                      <button 
+                        onClick={() => handleBuy(item.modelName, cap.capacity, cap.currentPriceKES)}
+                        className="w-full py-4 bg-indigo-600 text-white rounded-2xl flex items-center justify-center gap-3 text-[9px] font-bold uppercase tracking-widest"
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5" /> Order Item
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <button onClick={() => handleBuyNow(item)} className="w-full bg-[#FF9900] text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-orange-100">Buy Now on WhatsApp</button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-24 text-center">
+            <h3 className="text-2xl font-bold text-gray-900">No models found</h3>
+          </div>
+        )}
       </div>
     </div>
   );

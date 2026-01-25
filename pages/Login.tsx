@@ -1,119 +1,98 @@
+
 import React, { useState } from 'react';
-import { Mail, Lock, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { supabase } from '../src/lib/supabase';
+import { ArrowRight, Mail, Lock, Phone, User, MapPin, Check, Eye, EyeOff, Sparkles, ShieldCheck, Globe } from 'lucide-react';
+import { Client } from '../types';
 
 interface LoginProps {
-  onLoginSuccess: () => void;
-  onNavigate: (page: string) => void;
+  onLoginSuccess: (isAdmin: boolean, userData?: Partial<Client>) => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigate }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const SOURCING_CATEGORIES = [
+  'General Products',
+  'Home Products',
+  'Business Supplies',
+  'Electronics and Gadgets'
+];
 
-  const handleLogin = async (e: React.FormEvent) => {
+const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    location: '',
+    password: '',
+  });
+
+  const toggleInterest = (interest: string) => {
+    setSelectedInterests(prev => 
+      prev.includes(interest) 
+        ? prev.filter(i => i !== interest) 
+        : [...prev, interest]
+    );
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    
+    const isAdmin = formData.email.toLowerCase().includes('admin');
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.session) {
-        onLoginSuccess();
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'Failed to sign in');
-    } finally {
+    setTimeout(() => {
       setLoading(false);
-    }
+      onLoginSuccess(isAdmin, {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        location: formData.location,
+        interests: selectedInterests
+      });
+    }, 1200);
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-[2.5rem] p-12 border border-neutral-100 shadow-xl animate-in zoom-in-95 duration-500">
-        <div className="text-center mb-12">
-          <div className="inline-flex p-4 bg-[#FF9900] rounded-[1.5rem] text-white mb-6 shadow-lg">
-            <Lock className="w-6 h-6" />
-          </div>
-          <h1 className="text-3xl font-bold text-neutral-900 tracking-tight-custom mb-2">Welcome Back</h1>
-          <p className="text-neutral-400 font-light">Sign in to track your orders and manage imports</p>
-        </div>
-
-        {error && (
-          <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 text-red-600">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <p className="text-sm font-medium">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-4">Email Address</label>
-            <div className="relative">
-              <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 w-5 h-5" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full pl-16 pr-6 py-4 bg-neutral-50 border border-transparent rounded-[1.5rem] outline-none focus:bg-white focus:border-neutral-200 focus:shadow-lg transition-all"
-                placeholder="admin@legitgrinder.site"
-              />
-            </div>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-mesh pt-32 pb-20">
+      <div className="w-full max-w-2xl">
+        <div className="bg-white rounded-[4rem] p-10 md:p-16 border border-neutral-100 shadow-2xl relative overflow-hidden">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50"></div>
+          <div className="text-center mb-12 relative z-10">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-neutral-900">
+              {isLogin ? 'Welcome back' : 'Elite Sourcing Hub'}
+            </h1>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-neutral-400 tracking-widest pl-4">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-neutral-300 w-5 h-5" />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full pl-16 pr-16 py-4 bg-neutral-50 border border-transparent rounded-[1.5rem] outline-none focus:bg-white focus:border-neutral-200 focus:shadow-lg transition-all"
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-6 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 transition-colors"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+          <div className="flex bg-neutral-50 p-2 rounded-3xl mb-12 relative z-10">
+            <button onClick={() => setIsLogin(true)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Member Login</button>
+            <button onClick={() => setIsLogin(false)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${!isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Join Elite</button>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-5 bg-[#FF9900] text-white rounded-[1.5rem] font-bold uppercase tracking-widest hover:bg-orange-600 transition-colors shadow-xl shadow-[#FF9900]/20 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-3 mt-8"
-          >
-            {loading && <Loader2 className="w-5 h-5 animate-spin" />}
-            {loading ? 'Signing In...' : 'Sign In'}
-          </button>
+          <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
+            {!isLogin && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <input required className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input required className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" placeholder="Location" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+              </div>
+            )}
+            <input type="email" required placeholder="Email Address" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+            <input type={showPassword ? 'text' : 'password'} required placeholder="Password" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+            
+            {!isLogin && (
+              <div className="grid grid-cols-2 gap-3">
+                {SOURCING_CATEGORIES.map(cat => (
+                  <button key={cat} type="button" onClick={() => toggleInterest(cat)} className={`px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border ${selectedInterests.includes(cat) ? 'bg-indigo-600 text-white' : 'bg-white text-neutral-400 border-neutral-100'}`}>{cat}</button>
+                ))}
+              </div>
+            )}
 
-          <p className="text-center text-sm text-neutral-500 mt-6">
-            Don't have an account?{' '}
-            <button
-              type="button"
-              onClick={() => onNavigate('signup')}
-              className="text-[#FF9900] font-bold hover:underline"
-            >
-              Create Account
+            <button type="submit" disabled={loading} className="w-full btn-vibrant-teal py-5 rounded-full font-bold uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 shadow-2xl">
+              {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <>{isLogin ? 'Access Dashboard' : 'Confirm Registration'} <ArrowRight className="w-4 h-4" /></>}
             </button>
-          </p>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

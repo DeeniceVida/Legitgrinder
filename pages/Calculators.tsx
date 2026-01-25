@@ -6,7 +6,7 @@ import { CalculationResult } from '../types';
 
 const Calculators: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'us-phone' | 'general'>('us-phone');
-
+  
   const [phonePriceUSD, setPhonePriceUSD] = useState<string>('');
   const [phoneUrl, setPhoneUrl] = useState<string>('');
   const [usPhoneResult, setUsPhoneResult] = useState<CalculationResult | null>(null);
@@ -46,14 +46,6 @@ const Calculators: React.FC = () => {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
 
-  const handleManualQuoteRequest = () => {
-    const text = encodeURIComponent(
-      "Hi LegitGrinder, I'd like to request a manual quotation for a general import item. " +
-      "Please let me know what details you require from my end."
-    );
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
-  };
-
   return (
     <div className="max-w-5xl mx-auto p-6 py-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center mb-20">
@@ -63,13 +55,13 @@ const Calculators: React.FC = () => {
 
       <div className="flex justify-center mb-16">
         <div className="bg-neutral-50 p-1.5 rounded-full flex shadow-inner">
-          <button
+          <button 
             onClick={() => setActiveTab('us-phone')}
             className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'us-phone' ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-400 hover:text-[#FF9900]'}`}
           >
             US Tech
           </button>
-          <button
+          <button 
             onClick={() => setActiveTab('general')}
             className={`px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'general' ? 'bg-white shadow-sm text-neutral-900' : 'text-neutral-400 hover:text-[#FF9900]'}`}
           >
@@ -85,8 +77,8 @@ const Calculators: React.FC = () => {
             <div className="space-y-6">
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-3">Product Link</label>
-                <input
-                  type="url"
+                <input 
+                  type="url" 
                   placeholder="eBay, Backmarket, etc."
                   className="w-full bg-neutral-50 border border-transparent rounded-2xl px-6 py-5 focus:bg-white focus:border-[#FF9900]/30 focus:ring-4 focus:ring-[#FF9900]/5 outline-none transition-all text-neutral-900 placeholder:text-neutral-300"
                   value={phoneUrl}
@@ -95,8 +87,8 @@ const Calculators: React.FC = () => {
               </div>
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-3">Item Value ($ USD)</label>
-                <input
-                  type="number"
+                <input 
+                  type="number" 
                   placeholder="0.00"
                   className="w-full bg-neutral-50 border border-transparent rounded-2xl px-6 py-6 focus:bg-white focus:border-[#FF9900]/30 focus:ring-4 focus:ring-[#FF9900]/5 outline-none transition-all text-3xl font-medium text-neutral-900"
                   value={phonePriceUSD}
@@ -131,7 +123,7 @@ const Calculators: React.FC = () => {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <button
+                  <button 
                     onClick={() => handleShareWhatsApp('US Order', usPhoneResult)}
                     className="btn-brand w-full bg-white text-black py-5 rounded-full font-bold flex items-center justify-center gap-3"
                   >
@@ -153,12 +145,7 @@ const Calculators: React.FC = () => {
           <Package className="w-12 h-12 mx-auto mb-8 text-neutral-300 group-hover:text-[#FF9900] transition-colors" />
           <h2 className="text-2xl font-medium mb-4 group-hover:text-neutral-900 transition-colors">Manual Quotation Required</h2>
           <p className="text-neutral-500 font-light mb-10 leading-relaxed px-12">General imports depend on volume (CBM/CBF) and weight. Our team will provide a custom quote within 2 hours.</p>
-          <button
-            onClick={handleManualQuoteRequest}
-            className="btn-brand bg-neutral-900 text-white px-12 py-5 rounded-full font-medium shadow-xl hover:bg-[#FF9900] transition-colors"
-          >
-            Request Manual Quote
-          </button>
+          <button className="btn-brand bg-neutral-900 text-white px-12 py-5 rounded-full font-medium shadow-xl">Request Manual Quote</button>
         </div>
       )}
     </div>

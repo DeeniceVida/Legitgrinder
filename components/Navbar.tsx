@@ -1,125 +1,79 @@
-import React, { useState, useEffect } from 'react';
-import { Menu, X, ShoppingBag, Calculator, Package, User, HelpCircle, LayoutDashboard, Tag, Handshake } from 'lucide-react';
+
+import React, { useState } from 'react';
+import { Menu, X, User } from 'lucide-react';
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
   currentPage: string;
+  isAdmin?: boolean;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
+const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = false }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Define checkAdmin outside useEffect so it can be called directly and by the listener
-  const checkAdmin = async () => {
-    try {
-      // Import supabase here to ensure it's available when checkAdmin is called
-      const { supabase } = await import('../src/lib/supabase');
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        setIsAdmin(false);
-        return;
-      }
-
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-
-      if (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-        return;
-      }
-
-      setIsAdmin(profile?.role === 'admin');
-    } catch (err) {
-      console.error('Admin check error:', err);
-      setIsAdmin(false);
-    }
-  };
-
-  useEffect(() => {
-    checkAdmin(); // Initial check on component mount
-
-    let authListener: any; // Declare authListener here
-
-    // Set up auth state change listener
-    const setupAuthListener = async () => {
-      const { supabase } = await import('../src/lib/supabase');
-      const { data } = supabase.auth.onAuthStateChange(() => {
-        checkAdmin(); // Re-check admin status on auth state change
-      });
-      authListener = data;
-    };
-
-    setupAuthListener();
-
-    // Cleanup function to unsubscribe from the listener
-    return () => {
-      authListener?.subscription.unsubscribe();
-    };
-  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
   const navLinks = [
     { name: 'Shop', id: 'shop' },
     { name: 'Pricelist', id: 'pricelist' },
     { name: 'Calculators', id: 'calculators' },
+    { name: 'Blogs', id: 'blogs' },
     { name: 'Tracking', id: 'tracking' },
-    { name: 'Collaboration', id: 'collaboration' },
-    { name: 'Consultancy', id: 'consultancy' },
+    { name: 'Consult', id: 'consultation' },
   ];
 
-  // Only show Admin if user is logged in as admin
+  // Add Admin link only if isAdmin is true
   if (isAdmin) {
     navLinks.push({ name: 'Admin', id: 'admin' });
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100 h-20 flex items-center">
-      <div className="max-w-7xl mx-auto px-6 w-full flex justify-between items-center">
+    <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-7xl">
+      <div className="glass rounded-[1.8rem] px-6 py-3 flex justify-between items-center shadow-xl shadow-teal-900/5 border-white/50">
         <div className="flex items-center cursor-pointer group" onClick={() => onNavigate('home')}>
-          <img
-            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg"
-            alt="Logo"
-            className="h-8 w-auto rounded-lg grayscale group-hover:grayscale-0 transition-all duration-500"
+          <img 
+            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg" 
+            className="h-10 w-auto rounded-lg transition-transform group-hover:scale-110" 
+            alt="LegitGrinder Logo" 
           />
-          <span className="ml-3 text-lg font-semibold text-neutral-900 tracking-tight-custom">LegitGrinder</span>
+          <div className="ml-3 flex flex-col">
+            <span className="text-sm font-black text-gray-900 tracking-tight leading-none">LEGIT GRINDER</span>
+            <span className="text-[8px] font-bold text-[#3D8593] uppercase tracking-[0.3em] mt-1">Global Logistics</span>
+          </div>
         </div>
 
-        {/* Desktop */}
-        <div className="hidden md:flex space-x-10">
+        {/* Desktop Links */}
+        <div className="hidden lg:flex space-x-1 bg-gray-50/50 p-1.5 rounded-full">
           {navLinks.map((link) => (
             <button
               key={link.id}
               onClick={() => onNavigate(link.id)}
-              className={`text-xs font-bold uppercase tracking-widest transition-all duration-300 ${currentPage === link.id ? 'text-[#3B8392]' : 'text-neutral-400 hover:text-[#3B8392]'
-                }`}
+              className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                currentPage === link.id 
+                  ? 'bg-white text-[#3D8593] shadow-md shadow-teal-900/5' 
+                  : 'text-gray-400 hover:text-[#FF9900]'
+              }`}
             >
               {link.name}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center space-x-6">
-          <button
+        <div className="flex items-center space-x-3">
+          <button 
             onClick={() => onNavigate('login')}
-            className="hidden md:block text-xs font-bold uppercase tracking-widest bg-neutral-900 text-white px-8 py-3.5 rounded-full hover:bg-[#3B8392] transition-all shadow-xl shadow-neutral-100"
+            className="hidden md:flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
           >
-            Account
+            <User className="w-3.5 h-3.5" /> Account
           </button>
-          <button className="md:hidden p-2 text-neutral-900" onClick={() => setIsOpen(!isOpen)}>
+          <button className="lg:hidden p-2 text-gray-900" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile */}
+      {/* Mobile Menu */}
       {isOpen && (
-        <div className="absolute top-20 left-0 w-full bg-white border-b border-neutral-100 p-8 md:hidden animate-in slide-in-from-top-2">
-          <div className="flex flex-col space-y-6">
+        <div className="absolute top-20 left-0 w-full glass rounded-[2rem] p-6 lg:hidden animate-in slide-in-from-top-4 shadow-2xl border-teal-100">
+          <div className="flex flex-col space-y-2">
             {navLinks.map((link) => (
               <button
                 key={link.id}
@@ -127,20 +81,13 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
                   onNavigate(link.id);
                   setIsOpen(false);
                 }}
-                className={`text-2xl font-medium text-left ${currentPage === link.id ? 'text-neutral-900' : 'text-neutral-400'}`}
+                className={`text-xl font-bold p-4 rounded-2xl text-left transition-all ${
+                  currentPage === link.id ? 'bg-teal-50 text-[#3D8593]' : 'text-gray-400 hover:text-[#FF9900]'
+                }`}
               >
                 {link.name}
               </button>
             ))}
-            <button
-              onClick={() => {
-                onNavigate('login');
-                setIsOpen(false);
-              }}
-              className="text-lg font-medium text-blue-600 text-left"
-            >
-              Login / Sign Up
-            </button>
           </div>
         </div>
       )}

@@ -1,192 +1,160 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowRight, Globe, TrendingUp, ShieldCheck, Truck, Smartphone, Handshake, HelpCircle, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
-import { supabase } from '../src/lib/supabase';
+
+import React from 'react';
+import { ArrowRight, Smartphone, Truck, Package, Sparkles, Zap, Globe, ShieldCheck, Search, Handshake, Box } from 'lucide-react';
 
 interface HomeProps {
   onNavigate: (page: string) => void;
 }
 
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
-  const [blogs, setBlogs] = useState<any[]>([]);
-  const [faqs, setFaqs] = useState<any[]>([]);
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-
-  useEffect(() => {
-    const fetchContent = async () => {
-      const { data: b } = await supabase.from('blogs').select('*').limit(3).order('created_at', { ascending: false });
-      if (b) setBlogs(b);
-      const { data: f } = await supabase.from('faqs').select('*').order('created_at', { ascending: false });
-      if (f) setFaqs(f);
-    };
-    fetchContent();
-  }, []);
-
-
-
   return (
-    <div className="animate-in fade-in duration-1000">
+    <div className="bg-mesh min-h-screen">
       {/* Hero Section */}
-      <section className="relative h-screen min-h-[700px] flex items-center overflow-hidden bg-white">
-        <div className="absolute inset-0 z-0 opacity-5">
-          <img
-            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg"
-            className="w-full h-full object-cover scale-110"
-            alt="Logistics"
-          />
-        </div>
-
-        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 w-full">
-          <div className="max-w-4xl">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#3B8392]/5 border border-[#3B8392]/10 rounded-full mb-8">
-              <div className="w-1.5 h-1.5 bg-[#3B8392] rounded-full animate-pulse"></div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#3B8392]">Elite Logistics Mastery</span>
+      <section className="pt-48 pb-32 px-6">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center">
+          <div className="animate-in fade-in slide-in-from-left-8 duration-1000">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-teal-50 border border-teal-100 rounded-full mb-8">
+              <Sparkles className="w-3.5 h-3.5 text-[#3D8593]" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">Elite Concierge Sourcing</span>
             </div>
-            <h1 className="text-6xl md:text-8xl font-medium mb-10 tracking-tight-custom text-neutral-900 leading-[1.02]">
-              Global logistics <br />
-              <span className="text-neutral-300 italic font-light">Simplified.</span>
+            <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tighter text-gray-900 leading-[0.95] overflow-visible">
+              Your Private <br/>
+              <span className="text-[#3D8593] italic font-light heading-accent">Sourcing Agent.</span>
             </h1>
-            <p className="text-xl md:text-2xl max-w-xl mb-12 text-neutral-500 font-light leading-relaxed">
-              LegitGrinder is a premium gateway for Kenyans to source high-end tech, machinery, and general items from China and the USA.
+            <p className="text-xl md:text-2xl max-w-lg mb-12 text-gray-500 font-light leading-relaxed">
+              I bridge the gap between your vision and global suppliers. From negotiation to doorstep delivery in Kenya, I handle the complexity so you don't have to.
             </p>
-            <div className="flex flex-col sm:flex-row gap-6">
-              <button
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button 
                 onClick={() => onNavigate('shop')}
-                className="bg-neutral-900 text-white px-12 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center group hover:bg-[#3B8392] transition-all"
+                className="btn-vibrant-orange px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
               >
-                Browse Shop <ArrowRight className="ml-3 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                View Inventory <ArrowRight className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => onNavigate('calculators')}
-                className="bg-white border border-neutral-100 text-neutral-900 px-12 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:border-[#3B8392] transition-all shadow-xl shadow-neutral-100"
+              <button 
+                onClick={() => onNavigate('consultation')}
+                className="bg-white border-2 border-teal-50 text-[#3D8593] px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest hover:bg-teal-50 transition-all shadow-sm"
               >
-                Get a Quote
+                Book Strategy Session
               </button>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Stats/Trust - Teal Accent */}
-      <section className="py-32 border-y border-neutral-50 bg-[#f8fcfd]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
-            {[
-              { label: 'Verified Partners', value: '200+' },
-              { label: 'Happy Clients', value: '2k+' },
-              { label: 'Kenya Delivery', value: 'Doorstep' },
-              { label: 'Support', value: '24/7' }
-            ].map((stat, i) => (
-              <div key={i} className="group cursor-default">
-                <p className="text-4xl font-black mb-3 text-neutral-900 group-hover:text-[#3B8392] transition-colors tracking-tighter">{stat.value}</p>
-                <p className="text-[9px] uppercase font-black tracking-[0.2em] text-neutral-400 group-hover:text-neutral-500">{stat.label}</p>
-              </div>
-            ))}
+          <div className="relative animate-in fade-in zoom-in-95 duration-1000 delay-300">
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#FF9900]/20 to-[#3D8593]/20 rounded-[4.5rem] rotate-2 opacity-50 blur-2xl"></div>
+            <img 
+              src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg" 
+              className="relative z-10 w-full h-[650px] object-cover rounded-[3.5rem] shadow-2xl border-4 border-white"
+              alt="Import Hub"
+            />
           </div>
         </div>
       </section>
 
-      {/* Feature Section - Teal Theme */}
-      <section className="py-40 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 gap-32 items-center">
-            <div className="relative aspect-[4/5] rounded-[4rem] overflow-hidden shadow-2xl group">
-              <img
-                src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg"
-                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                alt="Productivity"
-              />
-              <div className="absolute inset-0 bg-neutral-900/5 group-hover:bg-transparent transition-all"></div>
-            </div>
-            <div className="space-y-12">
-              <h2 className="text-5xl font-medium tracking-tight-custom leading-tight">Precision sourcing <br />for professional needs.</h2>
-              <div className="space-y-10">
-                {[
-                  { title: 'Source Anywhere', desc: 'Direct access to Alibaba, eBay, Backmarket, and Amazon.', icon: <Globe className="w-6 h-6" /> },
-                  { title: 'Vetted Quality', desc: 'We verify every supplier to ensure your investment is safe.', icon: <ShieldCheck className="w-6 h-6" /> },
-                  { title: 'Real-time Updates', desc: 'Linked to Invoices for perfect tracking transparency.', icon: <Truck className="w-6 h-6" /> }
-                ].map((f, i) => (
-                  <div key={i} className="flex gap-8 group">
-                    <div className="shrink-0 w-16 h-16 rounded-[1.5rem] bg-neutral-50 flex items-center justify-center text-neutral-400 group-hover:bg-[#3B8392] group-hover:text-white transition-all duration-500 shadow-sm">
-                      {f.icon}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold mb-3 text-neutral-900">{f.title}</h3>
-                      <p className="text-neutral-400 font-light leading-relaxed text-lg">{f.desc}</p>
-                    </div>
-                  </div>
-                ))}
+      {/* Sourcing Process Section */}
+      <section className="py-32 px-6 bg-white">
+        <div className="max-w-7xl mx-auto text-center mb-24">
+          <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">How I Work <span className="text-[#3D8593] italic heading-accent font-light">For You</span></h2>
+          <p className="text-gray-500 text-lg font-light max-w-2xl mx-auto">A high-touch sourcing model designed for transparency and reliability.</p>
+        </div>
+        
+        <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-8">
+          {[
+            { step: '01', title: 'Consult', desc: 'Tell me your needs—whether it\'s elite tech, industrial tools, or bulk supplies.', icon: <Search /> },
+            { step: '02', title: 'Liaise', desc: 'I talk directly to verified suppliers in China and USA to secure best quality and rates.', icon: <Handshake /> },
+            { step: '03', title: 'Ship', desc: 'I consolidate your items and manage the freight, customs, and global logistics.', icon: <Globe /> },
+            { step: '04', title: 'Distribute', desc: 'Your items arrive in Nairobi for CBD pickup or doorstep courier delivery.', icon: <Box /> }
+          ].map((item, i) => (
+            <div key={i} className="group p-10 rounded-[3rem] bg-neutral-50 border border-transparent hover:border-teal-100 hover:bg-white transition-all duration-500">
+              <span className="text-4xl font-black text-teal-100 group-hover:text-[#3D8593]/20 transition-colors block mb-6">{item.step}</span>
+              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#3D8593] shadow-sm mb-6 group-hover:scale-110 transition-transform">
+                {React.cloneElement(item.icon as React.ReactElement, { size: 24 })}
               </div>
+              <h3 className="text-xl font-bold mb-4">{item.title}</h3>
+              <p className="text-gray-500 text-sm font-light leading-relaxed">{item.desc}</p>
             </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* Resources & Insights Section */}
-      <section className="py-40 bg-neutral-50/50 border-y border-neutral-100">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-5xl font-bold tracking-tight mb-6">Resources & Insights</h2>
-            <p className="text-neutral-400 text-lg max-w-2xl mx-auto">Market insights, helpful guides, and answers to your questions.</p>
-          </div>
-          <div className="flex flex-col md:flex-row gap-20">
-            {/* Blog Section */}
-            <div className="flex-1">
-              <div className="flex items-center gap-4 mb-12">
-                <div className="p-3 bg-white rounded-2xl shadow-sm text-[#3B8392]"><BookOpen className="w-6 h-6" /></div>
-                <h3 className="text-3xl font-bold tracking-tight">Market Insights</h3>
-              </div>
-              <div className="space-y-8">
-                {blogs.map((b, i) => (
-                  <div key={i} className="bg-white p-8 rounded-[2.5rem] border border-neutral-100 shadow-sm hover:shadow-xl transition-all group cursor-pointer" onClick={() => onNavigate('blogs')}>
-                    <span className="text-[10px] font-black uppercase text-[#3B8392] tracking-widest">{new Date(b.created_at).toLocaleDateString()}</span>
-                    <h3 className="text-xl font-bold mt-2 mb-4 group-hover:text-[#3B8392] transition-colors">{b.title}</h3>
-                    <p className="text-neutral-400 font-light text-sm line-clamp-2 leading-relaxed">{b.excerpt}</p>
-                  </div>
-                ))}
-                {blogs.length === 0 && <p className="text-neutral-400 italic">Insights coming soon...</p>}
-              </div>
-            </div>
+      {/* Premium Trust Section */}
+      <section className="py-40 px-6 relative overflow-hidden">
+        {/* Decorative background for premium feel */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] border-[1px] border-neutral-100 rounded-full"></div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] border-[1px] border-neutral-100 rounded-full"></div>
+        </div>
 
-            {/* FAQ Section */}
-            <div className="flex-1">
-              <div className="flex items-center gap-4 mb-12">
-                <div className="p-3 bg-white rounded-2xl shadow-sm text-[#3B8392]"><HelpCircle className="w-6 h-6" /></div>
-                <h3 className="text-3xl font-bold tracking-tight">Helpful FAQ</h3>
-              </div>
-              <div className="space-y-4">
-                {faqs.map((faq, i) => (
-                  <div key={i} className="bg-white rounded-[2rem] border border-neutral-100 overflow-hidden shadow-sm">
-                    <button
-                      onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
-                      className="w-full px-8 py-6 text-left flex justify-between items-center group"
-                    >
-                      <span className="font-bold text-neutral-700 group-hover:text-[#3B8392] transition-colors">{faq.question}</span>
-                      {expandedFaq === i ? <ChevronUp className="w-4 h-4 text-[#3B8392]" /> : <ChevronDown className="w-4 h-4 text-neutral-400" />}
-                    </button>
-                    {expandedFaq === i && (
-                      <div className="px-8 pb-8 text-neutral-400 font-light leading-relaxed animate-in slide-in-from-top-4 duration-300">
-                        {faq.answer}
-                      </div>
-                    )}
-                  </div>
-                ))}
+        <div className="max-w-5xl mx-auto text-center relative z-10">
+          <div className="flex justify-center mb-12">
+            <div className="flex -space-x-4">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="w-16 h-16 rounded-full border-4 border-white bg-neutral-100 overflow-hidden shadow-xl">
+                  <img src={`https://i.pravatar.cc/150?u=${i + 10}`} alt="User" />
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-10 leading-[1.1]">
+            Trusted by <span className="text-[#3D8593] italic heading-accent font-light">2,000+ Importers</span> <br/>
+            Across East Africa.
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mt-20">
+            <div className="space-y-2">
+              <p className="text-5xl font-black text-gray-900 tracking-tighter">98.4%</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#3D8593]">Successful Fulfillment</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-5xl font-black text-gray-900 tracking-tighter">KES 40M+</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#3D8593]">Value Handled in 2025</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-5xl font-black text-gray-900 tracking-tighter">14 Days</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#3D8593]">Avg Delivery Window</p>
+            </div>
+          </div>
+
+          <div className="mt-24 p-12 glass rounded-[4rem] border-white/50 text-left relative overflow-hidden shadow-2xl">
+            <div className="absolute -top-10 -right-10 opacity-10">
+              <ShieldCheck size={200} className="text-[#3D8593]" />
+            </div>
+            <div className="relative z-10 max-w-2xl">
+              <p className="text-2xl italic font-light heading-accent text-gray-700 leading-relaxed mb-8">
+                "Finding a sourcing agent who understands the balance between global standards and local Kenyan realities is rare. LegitGrinder is that bridge."
+              </p>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center font-bold text-[#3D8593]">MK</div>
+                <div>
+                  <p className="font-bold text-gray-900">Munga Kamau</p>
+                  <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Enterprise Tech Importer</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section - Teal Theme */}
-      <section className="py-40 px-6">
-        <div className="max-w-6xl mx-auto bg-neutral-900 rounded-[5rem] p-16 md:p-32 text-center text-white relative overflow-hidden shadow-2xl">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#3B8392]/20 rounded-full blur-[120px]"></div>
-          <div className="relative z-10">
-            <h2 className="text-5xl md:text-7xl font-medium mb-10 tracking-tight-custom leading-tight">Start your import <br />journey today.</h2>
-            <p className="text-neutral-400 text-lg md:text-xl mb-16 max-w-2xl mx-auto font-light leading-relaxed tracking-wide">Join 2,000+ happy clients sourcing globally with LegitGrinder. Professional, transparent, and reliable.</p>
-            <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
-              <button onClick={() => onNavigate('shop')} className="w-full sm:w-auto bg-[#3B8392] text-white px-16 py-6 rounded-[2.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-[#3B8392]/30 hover:scale-105 transition-all">Get Started</button>
-              <a href="https://wa.me/254791873538" target="_blank" className="font-black text-[10px] uppercase tracking-widest text-neutral-300 hover:text-white border-b-2 border-neutral-800 hover:border-[#3B8392] transition-all pb-2">Chat with us</a>
-            </div>
+      {/* Final Call to Action */}
+      <section className="py-24 bg-[#3D8593] rounded-[4.5rem] mx-6 mb-32 relative overflow-hidden shadow-2xl shadow-teal-900/20">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        <div className="max-w-7xl mx-auto px-12 text-center text-white relative z-10">
+          <h2 className="text-5xl md:text-7xl font-bold mb-10 tracking-tight leading-none">Ready to Source?</h2>
+          <p className="text-teal-50 text-xl font-light mb-16 max-w-2xl mx-auto">Skip the middleman and the guesswork. Let's get your products from the global warehouse to your hands.</p>
+          <div className="flex flex-col sm:flex-row gap-6 justify-center">
+            <button 
+              onClick={() => onNavigate('calculators')}
+              className="bg-white text-[#3D8593] px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-teal-50 transition-all shadow-xl"
+            >
+              Get a Free Quote
+            </button>
+            <button 
+              onClick={() => onNavigate('collaboration')}
+              className="border-2 border-white/30 text-white px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-white/10 transition-all"
+            >
+              Collaborate
+            </button>
           </div>
         </div>
       </section>
