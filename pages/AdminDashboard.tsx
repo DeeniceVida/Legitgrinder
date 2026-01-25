@@ -1,21 +1,21 @@
 
 import React, { useState, useMemo } from 'react';
-import { 
-  LayoutDashboard, ShoppingBag, Users, Plus, RefreshCcw, Calendar, Clock, Box, 
-  MessageSquare, CreditCard, Trash2, Edit3, 
-  Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search, 
+import {
+  LayoutDashboard, ShoppingBag, Users, Plus, RefreshCcw, Calendar, Clock, Box, Package,
+  MessageSquare, CreditCard, Trash2, Edit3,
+  Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft
 } from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
 import { syncBackMarketPrices } from '../services/scraper';
-import { 
-  PricelistItem, Product, OrderStatus, 
-  Consultation, ConsultationStatus, Availability, Invoice, 
-  BlogPost, FAQItem, Client 
+import {
+  PricelistItem, Product, OrderStatus,
+  Consultation, ConsultationStatus, Availability, Invoice,
+  BlogPost, FAQItem, Client
 } from '../types';
 
 const REVENUE_DATA = [
@@ -50,8 +50,8 @@ interface AdminDashboardProps {
   onUpdateConsultations: (consults: Consultation[]) => void;
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
-  blogs, onUpdateBlogs, 
+const AdminDashboard: React.FC<AdminDashboardProps> = ({
+  blogs, onUpdateBlogs,
   pricelist, onUpdatePricelist,
   clients, onUpdateClients,
   invoices, onUpdateInvoices,
@@ -62,10 +62,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [syncing, setSyncing] = useState(false);
   const [syncBrandFilter, setSyncBrandFilter] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
-  const [editingPrice, setEditingPrice] = useState<{plId: string, capIdx: number} | null>(null);
-  
+  const [editingPrice, setEditingPrice] = useState<{ plId: string, capIdx: number } | null>(null);
+
   // Product Management State
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
+  const [currentVariations, setCurrentVariations] = useState<ProductVariation[]>([]);
+
+  React.useEffect(() => {
+    if (editingProduct && typeof editingProduct === 'object') {
+      setCurrentVariations(editingProduct.variations || []);
+    } else {
+      setCurrentVariations([]);
+    }
+  }, [editingProduct]);
+
+  const handleAddVariation = () => {
+    setCurrentVariations([...currentVariations, { type: 'Color', name: '', priceKES: 0 }]);
+  };
+
+  const handleUpdateVariation = (index: number, updates: Partial<ProductVariation>) => {
+    const updated = [...currentVariations];
+    updated[index] = { ...updated[index], ...updates };
+    setCurrentVariations(updated);
+  };
+
+  const handleRemoveVariation = (index: number) => {
+    setCurrentVariations(currentVariations.filter((_, i) => i !== index));
+  };
 
   const tabs = [
     { id: 'overview', name: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
@@ -78,7 +101,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   ] as const;
 
   const filteredClients = useMemo(() => {
-    return clients.filter(c => 
+    return clients.filter(c =>
       c.name.toLowerCase().includes(adminSearchTerm.toLowerCase()) ||
       c.email.toLowerCase().includes(adminSearchTerm.toLowerCase()) ||
       c.location.toLowerCase().includes(adminSearchTerm.toLowerCase())
@@ -100,15 +123,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSaveProduct = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const productData: Product = {
       id: typeof editingProduct === 'object' ? editingProduct.id : `prod-${Date.now()}`,
       name: formData.get('name') as string,
       priceKES: parseInt(formData.get('priceKES') as string),
       discountPriceKES: formData.get('discountPriceKES') ? parseInt(formData.get('discountPriceKES') as string) : undefined,
       imageUrls: [(formData.get('imageUrl') as string) || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'],
-      variations: formData.get('variations') as string,
-      colors: formData.get('colors') as string,
+      variations: currentVariations,
       availability: formData.get('availability') as Availability,
       shippingDuration: formData.get('shippingDuration') as string,
       description: formData.get('description') as string,
@@ -137,9 +159,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`whitespace-nowrap flex items-center gap-2 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
-              activeTab === item.id ? 'bg-[#3D8593] text-white shadow-lg shadow-teal-100' : 'bg-gray-50 text-gray-400'
-            }`}
+            className={`whitespace-nowrap flex items-center gap-2 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-[#3D8593] text-white shadow-lg shadow-teal-100' : 'bg-gray-50 text-gray-400'
+              }`}
           >
             {item.icon}
             {item.name}
@@ -159,9 +180,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-4 px-6 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                activeTab === item.id ? 'bg-teal-50 text-[#3D8593] shadow-sm' : 'text-gray-400 hover:text-[#3D8593]'
-              }`}
+              className={`w-full flex items-center space-x-4 px-6 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-teal-50 text-[#3D8593] shadow-sm' : 'text-gray-400 hover:text-[#3D8593]'
+                }`}
             >
               {item.icon}
               <span>{item.name}</span>
@@ -183,7 +203,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             )}
             {activeTab === 'products' && (
-              <button 
+              <button
                 onClick={() => setEditingProduct('new')}
                 className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
               >
@@ -195,381 +215,381 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
-           <div className="space-y-12 animate-in fade-in duration-1000">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {[
-                  { label: 'Total Revenue', val: 'KES 5.8M', trend: '+14.2%', icon: <DollarSign className="text-emerald-500" />, bg: 'bg-emerald-50' },
-                  { label: 'Gross Profit', val: 'KES 1.1M', trend: '+18.5%', icon: <TrendingUp className="text-[#3D8593]" />, bg: 'bg-teal-50' },
-                  { label: 'Active Clients', val: clients.length.toString(), trend: '+5.4%', icon: <Activity className="text-[#FF9900]" />, bg: 'bg-orange-50' },
-                  { label: 'Pending Shipments', val: invoices.filter(i => i.status !== OrderStatus.READY_FOR_COLLECTION).length.toString(), trend: 'High Priority', icon: <Truck className="text-indigo-500" />, bg: 'bg-indigo-50' }
-                ].map((stat, i) => (
-                  <div key={i} className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-neutral-100 relative group">
-                     <div className={`w-14 h-14 ${stat.bg} rounded-2xl flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform`}>
-                        {stat.icon}
-                     </div>
-                     <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">{stat.label}</p>
-                     <h2 className="text-4xl font-black text-gray-900 tracking-tighter">{stat.val}</h2>
-                     <div className="mt-4 flex items-center gap-2">
-                        <span className="text-[9px] font-bold text-emerald-500 px-2 py-0.5 bg-emerald-50 rounded-lg">{stat.trend}</span>
-                        <span className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Growth Rate</span>
-                     </div>
+          <div className="space-y-12 animate-in fade-in duration-1000">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {[
+                { label: 'Total Revenue', val: 'KES 5.8M', trend: '+14.2%', icon: <DollarSign className="text-emerald-500" />, bg: 'bg-emerald-50' },
+                { label: 'Gross Profit', val: 'KES 1.1M', trend: '+18.5%', icon: <TrendingUp className="text-[#3D8593]" />, bg: 'bg-teal-50' },
+                { label: 'Active Clients', val: clients.length.toString(), trend: '+5.4%', icon: <Activity className="text-[#FF9900]" />, bg: 'bg-orange-50' },
+                { label: 'Pending Shipments', val: invoices.filter(i => i.status !== OrderStatus.READY_FOR_COLLECTION).length.toString(), trend: 'High Priority', icon: <Truck className="text-indigo-500" />, bg: 'bg-indigo-50' }
+              ].map((stat, i) => (
+                <div key={i} className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-neutral-100 relative group">
+                  <div className={`w-14 h-14 ${stat.bg} rounded-2xl flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform`}>
+                    {stat.icon}
                   </div>
-                ))}
-              </div>
+                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">{stat.label}</p>
+                  <h2 className="text-4xl font-black text-gray-900 tracking-tighter">{stat.val}</h2>
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-emerald-500 px-2 py-0.5 bg-emerald-50 rounded-lg">{stat.trend}</span>
+                    <span className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Growth Rate</span>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-              <div className="grid lg:grid-cols-3 gap-10">
-                <div className="lg:col-span-2 bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
-                  <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-10">Revenue Velocity</h3>
-                  <div className="h-[350px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={REVENUE_DATA}>
-                        <defs>
-                          <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3D8593" stopOpacity={0.4}/>
-                            <stop offset="95%" stopColor="#3D8593" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f0f0f0" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#9ca3af'}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#9ca3af'}} />
-                        <Tooltip contentStyle={{ borderRadius: '2rem', border: 'none', boxShadow: '0 25px 60px rgba(0,0,0,0.15)' }} />
-                        <Area type="monotone" dataKey="revenue" stroke="#3D8593" strokeWidth={5} fillOpacity={1} fill="url(#colorRev)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                <div className="bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
-                  <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-2">Category Split</h3>
-                  <div className="flex-1 min-h-[300px] w-full flex items-center justify-center">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={CATEGORY_DATA} innerRadius={80} outerRadius={120} paddingAngle={10} dataKey="value" stroke="none">
-                          {CATEGORY_DATA.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-4 mt-8">
-                     {CATEGORY_DATA.map((c, i) => (
-                       <div key={i} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: c.color}}></div>
-                            <span className="text-gray-400">{c.name}</span>
-                          </div>
-                          <span className="text-gray-900">{((c.value/940)*100).toFixed(1)}%</span>
-                       </div>
-                     ))}
-                  </div>
+            <div className="grid lg:grid-cols-3 gap-10">
+              <div className="lg:col-span-2 bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-10">Revenue Velocity</h3>
+                <div className="h-[350px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={REVENUE_DATA}>
+                      <defs>
+                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3D8593" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#3D8593" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
+                      <Tooltip contentStyle={{ borderRadius: '2rem', border: 'none', boxShadow: '0 25px 60px rgba(0,0,0,0.15)' }} />
+                      <Area type="monotone" dataKey="revenue" stroke="#3D8593" strokeWidth={5} fillOpacity={1} fill="url(#colorRev)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
-           </div>
+              <div className="bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-2">Category Split</h3>
+                <div className="flex-1 min-h-[300px] w-full flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={CATEGORY_DATA} innerRadius={80} outerRadius={120} paddingAngle={10} dataKey="value" stroke="none">
+                        {CATEGORY_DATA.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-4 mt-8">
+                  {CATEGORY_DATA.map((c, i) => (
+                    <div key={i} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }}></div>
+                        <span className="text-gray-400">{c.name}</span>
+                      </div>
+                      <span className="text-gray-900">{((c.value / 940) * 100).toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* CLIENTS CRM TAB */}
         {activeTab === 'clients' && (
           <div className="space-y-10 animate-in fade-in duration-700">
-             <div className="relative group max-w-2xl">
-                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-                <input 
-                  type="text" 
-                  placeholder="Search by name, email, or location..."
-                  className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-medium shadow-2xl focus:ring-8 focus:ring-[#3D8593]/5 outline-none transition-all"
-                  value={adminSearchTerm}
-                  onChange={(e) => setAdminSearchTerm(e.target.value)}
-                />
-             </div>
+            <div className="relative group max-w-2xl">
+              <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or location..."
+                className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-medium shadow-2xl focus:ring-8 focus:ring-[#3D8593]/5 outline-none transition-all"
+                value={adminSearchTerm}
+                onChange={(e) => setAdminSearchTerm(e.target.value)}
+              />
+            </div>
 
-             <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto no-scrollbar">
-                <table className="w-full text-left">
-                   <thead>
-                      <tr className="bg-neutral-50/50 border-b border-neutral-100">
-                         <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Identity</th>
-                         <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">HQ & Region</th>
-                         <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Financial Value</th>
-                         <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Buying Pulse</th>
-                         <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">CRM Actions</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-neutral-50">
-                      {filteredClients.map(client => (
-                        <tr key={client.id} className="hover:bg-neutral-50/30 transition-colors group">
-                           <td className="px-12 py-10">
-                              <div className="flex items-center gap-6">
-                                 <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-indigo-50 rounded-[1.8rem] flex items-center justify-center text-[#3D8593] font-black text-2xl border border-white group-hover:scale-110 transition-transform">
-                                    {client.name.charAt(0)}
-                                 </div>
-                                 <div>
-                                    <p className="font-black text-gray-900 text-xl tracking-tight leading-none">{client.name}</p>
-                                    <p className="text-[11px] text-gray-400 font-bold mt-2 lowercase">{client.email}</p>
-                                    <p className="text-[10px] text-[#3D8593] font-bold mt-1 uppercase tracking-widest">{client.phone}</p>
-                                 </div>
-                              </div>
-                           </td>
-                           <td className="px-10 py-10">
-                              <p className="font-bold text-sm flex items-center gap-2 text-gray-900"><MapPin className="w-4 h-4 text-[#3D8593]" /> {client.location}</p>
-                              <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Member since {client.joinedDate}</p>
-                           </td>
-                           <td className="px-10 py-10">
-                              <p className="text-xl font-black text-gray-900 tracking-tighter">KES {client.totalSpentKES.toLocaleString()}</p>
-                              <div className="flex items-center gap-2 mt-2">
-                                 <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${client.purchaseFrequency === 'High' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
-                                    {client.purchaseFrequency} Frequency
-                                 </span>
-                              </div>
-                           </td>
-                           <td className="px-10 py-10">
-                              <div className="flex flex-wrap gap-1.5 mb-2">
-                                 {client.purchasedItems.slice(0, 2).map((item, i) => (
-                                    <span key={i} className="px-2.5 py-1 bg-white border border-neutral-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-500">{item}</span>
-                                 ))}
-                                 {client.purchasedItems.length > 2 && (
-                                    <span className="px-2 py-1 bg-neutral-100 rounded-lg text-[8px] font-black uppercase tracking-widest text-gray-400">+{client.purchasedItems.length - 2} More</span>
-                                 )}
-                              </div>
-                              <p className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Last Activity: {client.lastOrderDate}</p>
-                           </td>
-                           <td className="px-12 py-10 text-right">
-                              <div className="flex justify-end gap-3">
-                                 <button title="Marketing Blast" className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"><Mail className="w-4 h-4" /></button>
-                                 <button title="Full Audit Log" className="p-4 bg-neutral-900 text-white rounded-2xl hover:bg-black transition-all"><History className="w-4 h-4" /></button>
-                              </div>
-                           </td>
-                        </tr>
-                      ))}
-                   </tbody>
-                </table>
-             </div>
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto no-scrollbar">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-neutral-50/50 border-b border-neutral-100">
+                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Identity</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">HQ & Region</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Financial Value</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Buying Pulse</th>
+                    <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">CRM Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-50">
+                  {filteredClients.map(client => (
+                    <tr key={client.id} className="hover:bg-neutral-50/30 transition-colors group">
+                      <td className="px-12 py-10">
+                        <div className="flex items-center gap-6">
+                          <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-indigo-50 rounded-[1.8rem] flex items-center justify-center text-[#3D8593] font-black text-2xl border border-white group-hover:scale-110 transition-transform">
+                            {client.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-black text-gray-900 text-xl tracking-tight leading-none">{client.name}</p>
+                            <p className="text-[11px] text-gray-400 font-bold mt-2 lowercase">{client.email}</p>
+                            <p className="text-[10px] text-[#3D8593] font-bold mt-1 uppercase tracking-widest">{client.phone}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-10">
+                        <p className="font-bold text-sm flex items-center gap-2 text-gray-900"><MapPin className="w-4 h-4 text-[#3D8593]" /> {client.location}</p>
+                        <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Member since {client.joinedDate}</p>
+                      </td>
+                      <td className="px-10 py-10">
+                        <p className="text-xl font-black text-gray-900 tracking-tighter">KES {client.totalSpentKES.toLocaleString()}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${client.purchaseFrequency === 'High' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
+                            {client.purchaseFrequency} Frequency
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-10 py-10">
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {client.purchasedItems.slice(0, 2).map((item, i) => (
+                            <span key={i} className="px-2.5 py-1 bg-white border border-neutral-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-500">{item}</span>
+                          ))}
+                          {client.purchasedItems.length > 2 && (
+                            <span className="px-2 py-1 bg-neutral-100 rounded-lg text-[8px] font-black uppercase tracking-widest text-gray-400">+{client.purchasedItems.length - 2} More</span>
+                          )}
+                        </div>
+                        <p className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Last Activity: {client.lastOrderDate}</p>
+                      </td>
+                      <td className="px-12 py-10 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button title="Marketing Blast" className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"><Mail className="w-4 h-4" /></button>
+                          <button title="Full Audit Log" className="p-4 bg-neutral-900 text-white rounded-2xl hover:bg-black transition-all"><History className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* INVOICES MANAGEMENT TAB */}
         {activeTab === 'invoices' && (
           <div className="space-y-10 animate-in fade-in duration-700">
-             <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
-                <table className="w-full text-left">
-                   <thead>
-                      <tr className="bg-neutral-50/50 border-b border-neutral-100">
-                         <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Order/Invoice</th>
-                         <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Status</th>
-                         <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Logistics Phase</th>
-                         <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Management</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-neutral-50">
-                      {invoices.map(inv => (
-                        <tr key={inv.id} className="hover:bg-neutral-50/30 transition-colors">
-                           <td className="px-12 py-10">
-                              <p className="font-black text-gray-900 text-xl tracking-tight leading-none">#{inv.invoiceNumber}</p>
-                              <p className="text-[10px] text-[#3D8593] font-black uppercase tracking-widest mt-2">{inv.productName}</p>
-                           </td>
-                           <td className="px-10 py-10">
-                              <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                 <span className={`w-2 h-2 rounded-full ${inv.isPaid ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                                 <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">{inv.isPaid ? 'Transaction Paid' : 'Payment Pending'}</p>
-                              </div>
-                           </td>
-                           <td className="px-10 py-10">
-                              <select 
-                                value={inv.status}
-                                onChange={(e) => updateInvoiceStatus(inv.id, e.target.value as OrderStatus)}
-                                className="bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100"
-                              >
-                                {Object.values(OrderStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                              </select>
-                           </td>
-                           <td className="px-12 py-10 text-right">
-                              <div className="flex justify-end gap-3">
-                                 <button className="p-4 bg-neutral-900 text-white rounded-2xl"><ExternalLink className="w-4 h-4" /></button>
-                              </div>
-                           </td>
-                        </tr>
-                      ))}
-                   </tbody>
-                </table>
-             </div>
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-neutral-50/50 border-b border-neutral-100">
+                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Order/Invoice</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Status</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Logistics Phase</th>
+                    <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Management</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-50">
+                  {invoices.map(inv => (
+                    <tr key={inv.id} className="hover:bg-neutral-50/30 transition-colors">
+                      <td className="px-12 py-10">
+                        <p className="font-black text-gray-900 text-xl tracking-tight leading-none">#{inv.invoiceNumber}</p>
+                        <p className="text-[10px] text-[#3D8593] font-black uppercase tracking-widest mt-2">{inv.productName}</p>
+                      </td>
+                      <td className="px-10 py-10">
+                        <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`w-2 h-2 rounded-full ${inv.isPaid ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                          <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">{inv.isPaid ? 'Transaction Paid' : 'Payment Pending'}</p>
+                        </div>
+                      </td>
+                      <td className="px-10 py-10">
+                        <select
+                          value={inv.status}
+                          onChange={(e) => updateInvoiceStatus(inv.id, e.target.value as OrderStatus)}
+                          className="bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100"
+                        >
+                          {Object.values(OrderStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-12 py-10 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button className="p-4 bg-neutral-900 text-white rounded-2xl"><ExternalLink className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* INVENTORY TAB */}
         {activeTab === 'products' && (
           <div className="space-y-10 animate-in fade-in duration-700">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                {products.map(p => (
-                  <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">
-                    <div className="aspect-square rounded-[2.5rem] overflow-hidden mb-8 relative border border-neutral-50">
-                      <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                      <div className={`absolute top-6 left-6 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-emerald-500 text-white' : 'bg-[#FF9900] text-white'}`}>
-                        {p.availability}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{p.name}</h4>
-                        <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]">{p.category}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mb-8">
-                       <div>
-                          <p className="text-2xl font-black text-[#3D8593] tracking-tighter">KES {p.priceKES.toLocaleString()}</p>
-                          {p.discountPriceKES && (
-                            <p className="text-[10px] text-gray-400 line-through">KES {p.discountPriceKES.toLocaleString()}</p>
-                          )}
-                       </div>
-                       <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{p.shippingDuration || 'Standard Shipping'}</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <button 
-                        onClick={() => setEditingProduct(p)}
-                        className="flex-1 py-5 bg-neutral-900 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all"
-                      >
-                        <Edit3 className="w-4 h-4" /> Edit Specs
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="p-5 bg-rose-50 text-rose-500 rounded-[1.8rem] hover:bg-rose-500 hover:text-white transition-all"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+              {products.map(p => (
+                <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">
+                  <div className="aspect-square rounded-[2.5rem] overflow-hidden mb-8 relative border border-neutral-50">
+                    <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                    <div className={`absolute top-6 left-6 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-emerald-500 text-white' : 'bg-[#FF9900] text-white'}`}>
+                      {p.availability}
                     </div>
                   </div>
-                ))}
-                <button 
-                  onClick={() => setEditingProduct('new')}
-                  className="flex flex-col items-center justify-center border-4 border-dashed border-neutral-100 rounded-[3.5rem] p-12 text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group min-h-[500px]"
-                >
-                   <Plus className="w-16 h-16 mb-6 group-hover:scale-125 transition-transform" />
-                   <span className="font-black uppercase text-[12px] tracking-widest">Stock Global Unit</span>
-                </button>
-             </div>
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{p.name}</h4>
+                      <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]">{p.category}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <p className="text-2xl font-black text-[#3D8593] tracking-tighter">KES {p.priceKES.toLocaleString()}</p>
+                      {p.discountPriceKES && (
+                        <p className="text-[10px] text-gray-400 line-through">KES {p.discountPriceKES.toLocaleString()}</p>
+                      )}
+                    </div>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{p.shippingDuration || 'Standard Shipping'}</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setEditingProduct(p)}
+                      className="flex-1 py-5 bg-neutral-900 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all"
+                    >
+                      <Edit3 className="w-4 h-4" /> Edit Specs
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProduct(p.id)}
+                      className="p-5 bg-rose-50 text-rose-500 rounded-[1.8rem] hover:bg-rose-500 hover:text-white transition-all"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => setEditingProduct('new')}
+                className="flex flex-col items-center justify-center border-4 border-dashed border-neutral-100 rounded-[3.5rem] p-12 text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group min-h-[500px]"
+              >
+                <Plus className="w-16 h-16 mb-6 group-hover:scale-125 transition-transform" />
+                <span className="font-black uppercase text-[12px] tracking-widest">Stock Global Unit</span>
+              </button>
+            </div>
           </div>
         )}
 
         {/* SYNC TOOLS TAB */}
         {activeTab === 'pricelist' && (
           <div className="space-y-12 animate-in fade-in duration-700">
-             <div className="flex flex-col gap-10">
-                <div className="flex justify-center">
-                  <div className="glass p-2 rounded-[3rem] flex shadow-2xl overflow-x-auto no-scrollbar max-w-full">
-                    {(['iphone', 'samsung', 'pixel'] as const).map((brand) => (
-                      <button key={brand} onClick={() => setSyncBrandFilter(brand)} className={`whitespace-nowrap px-10 py-5 rounded-[2.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${syncBrandFilter === brand ? 'bg-[#3D8593] text-white' : 'text-gray-400 hover:text-[#3D8593]'}`}>
-                        {brand}
-                      </button>
+            <div className="flex flex-col gap-10">
+              <div className="flex justify-center">
+                <div className="glass p-2 rounded-[3rem] flex shadow-2xl overflow-x-auto no-scrollbar max-w-full">
+                  {(['iphone', 'samsung', 'pixel'] as const).map((brand) => (
+                    <button key={brand} onClick={() => setSyncBrandFilter(brand)} className={`whitespace-nowrap px-10 py-5 rounded-[2.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${syncBrandFilter === brand ? 'bg-[#3D8593] text-white' : 'text-gray-400 hover:text-[#3D8593]'}`}>
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="relative max-w-2xl mx-auto w-full group">
+                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-[#3D8593] transition-colors" />
+                <input type="text" placeholder="Search Master Pricelist Registry..." className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-black uppercase tracking-widest outline-none focus:ring-8 focus:ring-[#3D8593]/5 transition-all shadow-xl" value={adminSearchTerm} onChange={(e) => setAdminSearchTerm(e.target.value)} />
+              </div>
+              <div className="flex justify-center flex-col items-center gap-4">
+                <button onClick={runSync} disabled={syncing} className="btn-vibrant-teal px-12 py-6 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
+                  {syncing ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
+                  {syncing ? 'Global Pulse Sync In Progress...' : 'Force Global Price Sync'}
+                </button>
+                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Connected to Cloudflare Worker (legit-sync-master)</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50">
+              {pricelist.filter(item => item.brand === syncBrandFilter && item.modelName.toLowerCase().includes(adminSearchTerm.toLowerCase())).map(item => (
+                <div key={item.id} className="p-12 hover:bg-neutral-50/50 transition-all">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
+                    <div>
+                      <h4 className="text-3xl font-black text-gray-900 tracking-tight">{item.modelName}</h4>
+                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.4em] mt-2">{item.series}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {item.capacities.map((cap, idx) => (
+                      <div key={idx} className={`p-8 rounded-[3rem] border transition-all relative ${cap.isManualOverride ? 'bg-orange-50 border-orange-100' : 'bg-white border-neutral-100 hover:border-teal-100 shadow-sm'}`}>
+                        <div className="flex justify-between items-center mb-8">
+                          <span className="px-4 py-2 bg-neutral-900 text-white text-[9px] font-black rounded-xl uppercase tracking-widest">{cap.capacity}</span>
+                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">{cap.lastSynced}</span>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-3">Live KES Strategy Price</label>
+                          <div className="flex justify-between items-end">
+                            <p className="text-3xl font-black text-gray-900 tracking-tighter">KES {cap.currentPriceKES.toLocaleString()}</p>
+                            <button onClick={() => setEditingPrice({ plId: item.id, capIdx: idx })} className="p-4 bg-neutral-50 rounded-2xl text-gray-300 hover:text-[#3D8593] shadow-inner">
+                              <Edit3 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
-                <div className="relative max-w-2xl mx-auto w-full group">
-                  <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-[#3D8593] transition-colors" />
-                  <input type="text" placeholder="Search Master Pricelist Registry..." className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-black uppercase tracking-widest outline-none focus:ring-8 focus:ring-[#3D8593]/5 transition-all shadow-xl" value={adminSearchTerm} onChange={(e) => setAdminSearchTerm(e.target.value)} />
-                </div>
-                <div className="flex justify-center flex-col items-center gap-4">
-                  <button onClick={runSync} disabled={syncing} className="btn-vibrant-teal px-12 py-6 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
-                    {syncing ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
-                    {syncing ? 'Global Pulse Sync In Progress...' : 'Force Global Price Sync'}
-                  </button>
-                  <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Connected to Cloudflare Worker (legit-sync-master)</p>
-                </div>
-             </div>
-
-             <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50">
-                {pricelist.filter(item => item.brand === syncBrandFilter && item.modelName.toLowerCase().includes(adminSearchTerm.toLowerCase())).map(item => (
-                  <div key={item.id} className="p-12 hover:bg-neutral-50/50 transition-all">
-                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
-                        <div>
-                           <h4 className="text-3xl font-black text-gray-900 tracking-tight">{item.modelName}</h4>
-                           <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.4em] mt-2">{item.series}</p>
-                        </div>
-                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {item.capacities.map((cap, idx) => (
-                          <div key={idx} className={`p-8 rounded-[3rem] border transition-all relative ${cap.isManualOverride ? 'bg-orange-50 border-orange-100' : 'bg-white border-neutral-100 hover:border-teal-100 shadow-sm'}`}>
-                             <div className="flex justify-between items-center mb-8">
-                                <span className="px-4 py-2 bg-neutral-900 text-white text-[9px] font-black rounded-xl uppercase tracking-widest">{cap.capacity}</span>
-                                <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">{cap.lastSynced}</span>
-                             </div>
-                             <div>
-                                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-3">Live KES Strategy Price</label>
-                                <div className="flex justify-between items-end">
-                                   <p className="text-3xl font-black text-gray-900 tracking-tighter">KES {cap.currentPriceKES.toLocaleString()}</p>
-                                   <button onClick={() => setEditingPrice({plId: item.id, capIdx: idx})} className="p-4 bg-neutral-50 rounded-2xl text-gray-300 hover:text-[#3D8593] shadow-inner">
-                                     <Edit3 className="w-5 h-5" />
-                                   </button>
-                                </div>
-                             </div>
-                          </div>
-                        ))}
-                     </div>
-                  </div>
-                ))}
-             </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* CONSULTATIONS REGISTRY */}
         {activeTab === 'consultations' && (
-           <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50 animate-in fade-in duration-700">
-              <div className="p-12 bg-neutral-50/30 flex justify-between items-center">
-                 <h3 className="text-2xl font-black tracking-tight text-gray-900">Expert Booking Pipeline</h3>
-                 <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-4 py-1.5 rounded-full">{consultations.length} Active Requests</span>
-              </div>
-              {consultations.map(c => (
-                <div key={c.id} className="p-12 flex flex-col xl:flex-row gap-12 hover:bg-neutral-50/20 transition-all">
-                   <div className="flex-1">
-                      <div className="flex items-center gap-6 mb-8">
-                         <div className="w-20 h-20 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center text-indigo-600 shadow-sm border border-white">
-                            <User className="w-10 h-10" />
-                         </div>
-                         <div>
-                            <h4 className="text-3xl font-black text-gray-900 tracking-tight leading-none">{c.name}</h4>
-                            <p className="text-[11px] text-gray-400 font-bold mt-4 uppercase tracking-[0.2em]">{c.whatsapp} • {c.email}</p>
-                         </div>
-                      </div>
-                      <div className="bg-white/80 p-10 rounded-[2.5rem] border border-neutral-100 shadow-sm">
-                         <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-4">Strategic Objective</p>
-                         <p className="text-lg font-bold text-gray-600 leading-relaxed italic">"{c.topic}"</p>
-                      </div>
-                   </div>
-                   <div className="w-full xl:w-80 flex flex-col justify-center gap-6">
-                      <div className="grid grid-cols-2 gap-3">
-                         {[ConsultationStatus.PENDING, ConsultationStatus.DOABLE, ConsultationStatus.PAID, ConsultationStatus.CANCELLED].map(s => (
-                           <button key={s} onClick={() => onUpdateConsultations(consultations.map(item => item.id === c.id ? {...item, status: s} : item))} className={`px-4 py-4 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all ${c.status === s ? 'bg-[#3D8593] text-white shadow-xl' : 'bg-white border border-neutral-100 text-gray-400'}`}>
-                              {s.split(' ')[0]}
-                           </button>
-                         ))}
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 p-6 rounded-2xl">
-                         <span>Phase: {c.status}</span>
-                         <span className="text-[#3D8593]">Fee: ${c.feeUSD}</span>
-                      </div>
-                   </div>
+          <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50 animate-in fade-in duration-700">
+            <div className="p-12 bg-neutral-50/30 flex justify-between items-center">
+              <h3 className="text-2xl font-black tracking-tight text-gray-900">Expert Booking Pipeline</h3>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-4 py-1.5 rounded-full">{consultations.length} Active Requests</span>
+            </div>
+            {consultations.map(c => (
+              <div key={c.id} className="p-12 flex flex-col xl:flex-row gap-12 hover:bg-neutral-50/20 transition-all">
+                <div className="flex-1">
+                  <div className="flex items-center gap-6 mb-8">
+                    <div className="w-20 h-20 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center text-indigo-600 shadow-sm border border-white">
+                      <User className="w-10 h-10" />
+                    </div>
+                    <div>
+                      <h4 className="text-3xl font-black text-gray-900 tracking-tight leading-none">{c.name}</h4>
+                      <p className="text-[11px] text-gray-400 font-bold mt-4 uppercase tracking-[0.2em]">{c.whatsapp} • {c.email}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white/80 p-10 rounded-[2.5rem] border border-neutral-100 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-4">Strategic Objective</p>
+                    <p className="text-lg font-bold text-gray-600 leading-relaxed italic">"{c.topic}"</p>
+                  </div>
                 </div>
-              ))}
-           </div>
+                <div className="w-full xl:w-80 flex flex-col justify-center gap-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {[ConsultationStatus.PENDING, ConsultationStatus.DOABLE, ConsultationStatus.PAID, ConsultationStatus.CANCELLED].map(s => (
+                      <button key={s} onClick={() => onUpdateConsultations(consultations.map(item => item.id === c.id ? { ...item, status: s } : item))} className={`px-4 py-4 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all ${c.status === s ? 'bg-[#3D8593] text-white shadow-xl' : 'bg-white border border-neutral-100 text-gray-400'}`}>
+                        {s.split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 p-6 rounded-2xl">
+                    <span>Phase: {c.status}</span>
+                    <span className="text-[#3D8593]">Fee: ${c.feeUSD}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {/* CONTENT MANAGER */}
         {activeTab === 'content' && (
-           <div className="grid md:grid-cols-2 gap-12 animate-in fade-in duration-700">
-              {blogs.map(b => (
-                <div key={b.id} className="bg-white rounded-[4rem] p-10 border border-neutral-100 shadow-2xl group relative overflow-hidden">
-                   <div className="aspect-video rounded-[2.5rem] overflow-hidden mb-8 relative">
-                      <img src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                      <div className="absolute top-6 right-6 flex gap-3">
-                         <button className="p-4 bg-white/90 backdrop-blur rounded-2xl shadow-xl"><Edit3 className="w-5 h-5" /></button>
-                         <button className="p-4 bg-rose-500 text-white rounded-2xl shadow-xl"><Trash2 className="w-5 h-5" /></button>
-                      </div>
-                   </div>
-                   <span className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest bg-teal-50 px-4 py-2 rounded-full">{b.category}</span>
-                   <h3 className="text-3xl font-black text-gray-900 mt-6 mb-4 leading-tight">{b.title}</h3>
-                   <p className="text-gray-400 text-sm font-medium leading-relaxed line-clamp-3 mb-8">{b.excerpt}</p>
+          <div className="grid md:grid-cols-2 gap-12 animate-in fade-in duration-700">
+            {blogs.map(b => (
+              <div key={b.id} className="bg-white rounded-[4rem] p-10 border border-neutral-100 shadow-2xl group relative overflow-hidden">
+                <div className="aspect-video rounded-[2.5rem] overflow-hidden mb-8 relative">
+                  <img src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                  <div className="absolute top-6 right-6 flex gap-3">
+                    <button className="p-4 bg-white/90 backdrop-blur rounded-2xl shadow-xl"><Edit3 className="w-5 h-5" /></button>
+                    <button className="p-4 bg-rose-500 text-white rounded-2xl shadow-xl"><Trash2 className="w-5 h-5" /></button>
+                  </div>
                 </div>
-              ))}
-              <button className="aspect-video border-4 border-dashed border-neutral-100 rounded-[4rem] flex flex-col items-center justify-center text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group">
-                 <Plus className="w-16 h-16 mb-4 group-hover:rotate-90 transition-transform duration-500" />
-                 <span className="font-black uppercase text-[12px] tracking-widest">New Intelligence Piece</span>
-              </button>
-           </div>
+                <span className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest bg-teal-50 px-4 py-2 rounded-full">{b.category}</span>
+                <h3 className="text-3xl font-black text-gray-900 mt-6 mb-4 leading-tight">{b.title}</h3>
+                <p className="text-gray-400 text-sm font-medium leading-relaxed line-clamp-3 mb-8">{b.excerpt}</p>
+              </div>
+            ))}
+            <button className="aspect-video border-4 border-dashed border-neutral-100 rounded-[4rem] flex flex-col items-center justify-center text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group">
+              <Plus className="w-16 h-16 mb-4 group-hover:rotate-90 transition-transform duration-500" />
+              <span className="font-black uppercase text-[12px] tracking-widest">New Intelligence Piece</span>
+            </button>
+          </div>
         )}
       </main>
 
@@ -579,59 +599,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="absolute inset-0 bg-[#0f1a1c]/60 backdrop-blur-sm" onClick={() => setEditingProduct(null)}></div>
           <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-500">
             <header className="px-10 py-8 bg-neutral-50 border-b border-neutral-100 flex justify-between items-center shrink-0">
-               <div>
-                  <h3 className="text-3xl font-black tracking-tight text-gray-900">
-                    {editingProduct === 'new' ? 'New Global Stock Unit' : 'Refine Stock Specifications'}
-                  </h3>
-                  <p className="text-[10px] font-black uppercase text-[#3D8593] tracking-[0.3em] mt-1">Inventory Management Suite</p>
-               </div>
-               <button onClick={() => setEditingProduct(null)} className="p-3 hover:bg-white rounded-2xl transition-all">
-                  <X className="w-6 h-6 text-gray-400" />
-               </button>
+              <div>
+                <h3 className="text-3xl font-black tracking-tight text-gray-900">
+                  {editingProduct === 'new' ? 'New Global Stock Unit' : 'Refine Stock Specifications'}
+                </h3>
+                <p className="text-[10px] font-black uppercase text-[#3D8593] tracking-[0.3em] mt-1">Inventory Management Suite</p>
+              </div>
+              <button onClick={() => setEditingProduct(null)} className="p-3 hover:bg-white rounded-2xl transition-all">
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
             </header>
-            
+
             <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-10 space-y-10">
               <div className="grid md:grid-cols-2 gap-10">
                 <div className="space-y-6">
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Smartphone className="w-3.5 h-3.5" /> Product Name</label>
-                    <input 
-                      required 
+                    <input
+                      required
                       name="name"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.name : ''} 
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" 
+                      defaultValue={typeof editingProduct === 'object' ? editingProduct.name : ''}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
                       placeholder="e.g. iPhone 15 Pro Max"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><DollarSign className="w-3.5 h-3.5" /> Price (KES)</label>
-                      <input 
-                        required 
+                      <input
+                        required
                         type="number"
                         name="priceKES"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.priceKES : ''} 
-                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" 
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.priceKES : ''}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
                         placeholder="120000"
                       />
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><TrendingUp className="w-3.5 h-3.5" /> Old Price (Optional)</label>
-                      <input 
+                      <input
                         type="number"
                         name="discountPriceKES"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.discountPriceKES : ''} 
-                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" 
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.discountPriceKES : ''}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
                         placeholder="135000"
                       />
                     </div>
                   </div>
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><ImageIcon className="w-3.5 h-3.5" /> Hero Image URL</label>
-                    <input 
+                    <input
                       name="imageUrl"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.imageUrls[0] : ''} 
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs" 
+                      defaultValue={typeof editingProduct === 'object' ? editingProduct.imageUrls[0] : ''}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
                       placeholder="https://images.unsplash.com/..."
                     />
                   </div>
@@ -640,17 +660,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="space-y-6">
                   <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Tag className="w-3.5 h-3.5" /> Global Category</label>
-                    <input 
-                      required 
+                    <input
+                      required
                       name="category"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.category : 'Electronics'} 
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" 
+                      defaultValue={typeof editingProduct === 'object' ? editingProduct.category : 'Electronics'}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><RefreshCcw className="w-3.5 h-3.5" /> Availability</label>
-                      <select 
+                      <select
                         name="availability"
                         defaultValue={typeof editingProduct === 'object' ? editingProduct.availability : Availability.IMPORT}
                         className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
@@ -661,54 +681,114 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Truck className="w-3.5 h-3.5" /> Shipping ETA</label>
-                      <input 
+                      <input
                         name="shippingDuration"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.shippingDuration : '2-3 Weeks Air'} 
-                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" 
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.shippingDuration : '2-3 Weeks Air'}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><List className="w-3.5 h-3.5" /> Variations & Colors</label>
-                    <div className="flex gap-2">
-                       <input 
-                         name="variations"
-                         placeholder="Capacities"
-                         defaultValue={typeof editingProduct === 'object' ? editingProduct.variations : ''} 
-                         className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold" 
-                       />
-                       <input 
-                         name="colors"
-                         placeholder="Colors"
-                         defaultValue={typeof editingProduct === 'object' ? editingProduct.colors : ''} 
-                         className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold" 
-                       />
+                  <div className="md:col-span-2 bg-[#F9FAFB] rounded-[2.5rem] p-10 border border-neutral-100">
+                    <div className="flex justify-between items-center mb-8">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-[#3D8593]/10 p-2 rounded-xl text-[#3D8593]">
+                          <Package className="w-5 h-5" />
+                        </div>
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0f1a1c]">Market Variations</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddVariation}
+                        className="w-10 h-10 bg-white border border-neutral-100 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#3D8593] hover:border-[#3D8593] transition-all shadow-sm"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
                     </div>
+
+                    {currentVariations.length === 0 ? (
+                      <div className="py-20 border-2 border-dashed border-neutral-200 rounded-[2rem] flex flex-col items-center justify-center text-neutral-400 group">
+                        <p className="text-[10px] font-black uppercase tracking-widest">No variations defined. Click + to add.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {currentVariations.map((v, idx) => (
+                          <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-neutral-50 grid grid-cols-12 gap-4 items-center animate-in slide-in-from-right-4 duration-300">
+                            <div className="col-span-3">
+                              <select
+                                value={v.type}
+                                onChange={(e) => handleUpdateVariation(idx, { type: e.target.value as any })}
+                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest focus:ring-4 focus:ring-teal-100"
+                              >
+                                <option value="Color">Color</option>
+                                <option value="Capacity">Capacity</option>
+                                <option value="Design">Design</option>
+                                <option value="Size">Size</option>
+                                <option value="Bundle">Bundle</option>
+                              </select>
+                            </div>
+                            <div className="col-span-3">
+                              <input
+                                placeholder="Variation Name"
+                                value={v.name}
+                                onChange={(e) => handleUpdateVariation(idx, { name: e.target.value })}
+                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-teal-100"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <input
+                                type="number"
+                                placeholder="+KES"
+                                value={v.priceKES || ''}
+                                onChange={(e) => handleUpdateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
+                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-xs font-bold focus:ring-4 focus:ring-teal-100"
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <input
+                                placeholder="Image URL (Optional)"
+                                value={v.imageUrl || ''}
+                                onChange={(e) => handleUpdateVariation(idx, { imageUrl: e.target.value })}
+                                className="w-full bg-neutral-50 border-none rounded-xl px-4 py-3 text-[9px] font-medium focus:ring-4 focus:ring-teal-100"
+                              />
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveVariation(idx)}
+                                className="p-3 text-rose-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><AlignLeft className="w-3.5 h-3.5" /> Detailed Strategic Description</label>
-                <textarea 
-                  required 
+                <textarea
+                  required
                   name="description"
-                  defaultValue={typeof editingProduct === 'object' ? editingProduct.description : ''} 
-                  rows={4} 
-                  className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none" 
+                  defaultValue={typeof editingProduct === 'object' ? editingProduct.description : ''}
+                  rows={4}
+                  className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none"
                   placeholder="The most premium device featuring AI capabilities and titanium structure..."
                 />
               </div>
 
               <div className="flex gap-4 pt-4 shrink-0">
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-black transition-all"
                 >
                   Confirm Stock Update
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setEditingProduct(null)}
                   className="px-10 py-6 bg-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[11px] tracking-widest hover:bg-neutral-200 transition-all"
                 >

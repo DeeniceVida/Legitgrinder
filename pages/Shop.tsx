@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Availability, Product } from '../types';
+import { Availability, Product, ProductVariation } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 
 interface ShopProps {
@@ -14,16 +14,19 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [activeAccordion, setActiveAccordion] = useState<string | null>('description');
+  const [selectedVariations, setSelectedVariations] = useState<Record<string, ProductVariation>>({});
 
   const handleBuyNow = (p: Product) => {
-    const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}. (Availability: ${p.availability}). Price: KES ${p.discountPriceKES?.toLocaleString() || p.priceKES.toLocaleString()}`);
+    const varsString = Object.values(selectedVariations).map(v => `${v.type}: ${v.name}`).join(', ');
+    const totalPrice = (p.discountPriceKES || p.priceKES) + Object.values(selectedVariations).reduce((sum, v) => sum + v.priceKES, 0);
+    const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}. ${varsString ? `(${varsString})` : ''} - (Availability: ${p.availability}). Total Price: KES ${totalPrice.toLocaleString()}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
 
   if (selectedProduct) {
     const p = selectedProduct;
     const isLocal = p.availability === Availability.LOCAL;
-    
+
     return (
       <div className="bg-white min-h-screen pt-32 pb-32 px-6">
         <div className="max-w-7xl mx-auto">
@@ -54,8 +57,52 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
             <div className="flex flex-col">
               <h1 className="text-5xl font-bold text-gray-900 mb-4">{p.name}</h1>
+
+              {/* Variation Selection */}
+              <div className="space-y-8 mb-8 mt-4">
+                {Object.entries(p.variations.reduce((acc, v) => {
+                  if (!acc[v.type]) acc[v.type] = [];
+                  acc[v.type].push(v);
+                  return acc;
+                }, {} as Record<string, ProductVariation[]>)).map(([type, items]) => (
+                  <div key={type}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4">{type}</p>
+                    <div className="flex flex-wrap gap-3">
+                      {items.map((item, idx) => {
+                        const isSelected = selectedVariations[type]?.name === item.name;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setSelectedVariations(prev => ({ ...prev, [type]: item }));
+                              if (item.imageUrl) {
+                                // Find if this image URL exists in imageUrls, if so set index
+                                const imgIdx = p.imageUrls.indexOf(item.imageUrl);
+                                if (imgIdx !== -1) setSelectedImageIdx(imgIdx);
+                              }
+                            }}
+                            className={`px-6 py-3 rounded-xl text-xs font-bold transition-all border-2 ${isSelected
+                                ? 'bg-[#3D8593] border-[#3D8593] text-white shadow-lg shadow-teal-100'
+                                : 'bg-white border-neutral-100 text-gray-500 hover:border-[#3D8593]/30'
+                              }`}
+                          >
+                            {item.name}
+                            {item.priceKES > 0 && <span className="opacity-60 ml-2">+ {item.priceKES.toLocaleString()}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <div className="flex items-end gap-3 mb-6">
-                <span className="text-3xl font-black text-gray-900">KES {(p.discountPriceKES || p.priceKES).toLocaleString()}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] block mb-2">Total Strategy Investment</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black text-gray-900">
+                    KES {((p.discountPriceKES || p.priceKES) + Object.values(selectedVariations).reduce((sum, v) => sum + v.priceKES, 0)).toLocaleString()}
+                  </span>
+                </div>
               </div>
 
               <div className={`mb-8 p-5 rounded-3xl flex items-center gap-4 ${isLocal ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>

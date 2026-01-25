@@ -44,14 +44,20 @@ export enum Availability {
   IMPORT = 'Import on Order'
 }
 
+export interface ProductVariation {
+  type: 'Size' | 'Design' | 'Color' | 'Bundle' | 'Capacity';
+  name: string;
+  priceKES: number; // Override or additional cost
+  imageUrl?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
   priceKES: number;
   discountPriceKES?: number;
-  imageUrls: string[]; 
-  variations: string; 
-  colors: string; 
+  imageUrls: string[];
+  variations: ProductVariation[];
   availability: Availability;
   shippingDuration?: string;
   description: string;
@@ -95,7 +101,7 @@ export interface UserProfile {
 
 export interface CapacityPrice {
   capacity: string;
-  sourcePriceUSD: number | null; 
+  sourcePriceUSD: number | null;
   currentPriceKES: number;
   previousPriceKES: number;
   lastSynced: string;

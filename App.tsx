@@ -13,13 +13,13 @@ import ConsultationPage from './pages/Consultation';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
-import { 
+import {
   Instagram, Youtube, Globe
 } from 'lucide-react';
 import { PHONE_MODELS_SCHEMA } from './constants';
-import { 
-  OrderStatus, Availability, Product, BlogPost, FAQItem, 
-  Client, Invoice, PricelistItem, Consultation, ConsultationStatus 
+import {
+  OrderStatus, Availability, Product, BlogPost, FAQItem,
+  Client, Invoice, PricelistItem, Consultation, ConsultationStatus
 } from './types';
 
 const App: React.FC = () => {
@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(true);
 
   // --- GLOBAL STATE ---
-  
+
   // Pricelist State
   const [pricelist, setPricelist] = useState<PricelistItem[]>(() => {
     const items: PricelistItem[] = [];
@@ -62,8 +62,14 @@ const App: React.FC = () => {
       priceKES: 175000,
       discountPriceKES: 168000,
       imageUrls: ['https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800'],
-      variations: '256GB, 512GB, 1TB',
-      colors: 'Natural Titanium, Black, Blue',
+      variations: [
+        { type: 'Capacity', name: '256GB', priceKES: 0 },
+        { type: 'Capacity', name: '512GB', priceKES: 15000 },
+        { type: 'Capacity', name: '1TB', priceKES: 30000 },
+        { type: 'Color', name: 'Natural Titanium', priceKES: 0 },
+        { type: 'Color', name: 'Black', priceKES: 0 },
+        { type: 'Color', name: 'Blue', priceKES: 0 }
+      ],
       availability: Availability.IMPORT,
       shippingDuration: '2-3 Weeks Air',
       description: 'The ultimate iPhone experience with titanium build and advanced zoom.',
@@ -75,8 +81,12 @@ const App: React.FC = () => {
       priceKES: 165000,
       discountPriceKES: 158000,
       imageUrls: ['https://images.unsplash.com/photo-1707055745727-465494191d57?auto=format&fit=crop&q=80&w=800'],
-      variations: '256GB, 512GB',
-      colors: 'Titanium Gray, Black',
+      variations: [
+        { type: 'Capacity', name: '256GB', priceKES: 0 },
+        { type: 'Capacity', name: '512GB', priceKES: 12000 },
+        { type: 'Color', name: 'Titanium Gray', priceKES: 0 },
+        { type: 'Color', name: 'Black', priceKES: 0 }
+      ],
       availability: Availability.LOCAL,
       shippingDuration: '2-3 Business Days',
       description: 'Galaxy AI is here. Stunning 200MP camera and built-in S Pen.',
@@ -115,16 +125,16 @@ const App: React.FC = () => {
 
   // Clients
   const [clients, setClients] = useState<Client[]>([
-    { 
-      id: 'u1', 
-      name: 'Munga Kamau', 
-      email: 'munga@legit.co.ke', 
-      phone: '+254 711 222 333', 
-      location: 'Nairobi, Westlands', 
-      joinedDate: '2025-06-12', 
-      totalSpentKES: 845000, 
-      orderCount: 5, 
-      lastOrderDate: '2026-01-05', 
+    {
+      id: 'u1',
+      name: 'Munga Kamau',
+      email: 'munga@legit.co.ke',
+      phone: '+254 711 222 333',
+      location: 'Nairobi, Westlands',
+      joinedDate: '2025-06-12',
+      totalSpentKES: 845000,
+      orderCount: 5,
+      lastOrderDate: '2026-01-05',
       interests: ['iPhones', 'USA Sourcing'],
       purchasedItems: ['iPhone 15 Pro Max', 'MacBook Air M2'],
       purchaseFrequency: 'High'
@@ -181,11 +191,11 @@ const App: React.FC = () => {
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
       case 'admin': return (
-        <AdminDashboard 
-          blogs={blogs} 
-          faqs={faqs} 
-          onUpdateBlogs={setBlogs} 
-          onUpdateFaqs={setFaqs} 
+        <AdminDashboard
+          blogs={blogs}
+          faqs={faqs}
+          onUpdateBlogs={setBlogs}
+          onUpdateFaqs={setFaqs}
           pricelist={pricelist}
           onUpdatePricelist={setPricelist}
           clients={clients}
@@ -205,7 +215,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col selection:bg-[#3D8593] selection:text-white">
       <Navbar onNavigate={setCurrentPage} currentPage={currentPage} isAdmin={isAdmin} />
-      
+
       <main className="flex-1 bg-white">
         {renderPage()}
       </main>
