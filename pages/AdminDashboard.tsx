@@ -712,7 +712,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ) : (
                       <div className="space-y-4 overflow-x-auto pb-4">
                         {currentVariations.map((v, idx) => (
-                          <div key={idx} className="bg-white p-5 rounded-[2.5rem] border border-neutral-100 grid grid-cols-1 md:grid-cols-12 gap-5 items-center animate-in slide-in-from-right-4 duration-300 min-w-[1400px]">
+                          <div key={idx} className="bg-white p-5 rounded-[2.5rem] border border-neutral-100 grid grid-cols-1 md:grid-cols-12 gap-5 items-center animate-in slide-in-from-right-4 duration-300 min-w-[850px]">
                             <div className="md:col-span-2">
                               <select
                                 value={v.type}
