@@ -12,6 +12,7 @@ import Collaboration from './pages/Collaboration';
 import MyOrders from './pages/MyOrders';
 import ProductDetails from './pages/ProductDetails';
 import Contact from './pages/Contact';
+import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
 import { supabase } from './src/lib/supabase';
 import {
@@ -66,6 +67,7 @@ const App: React.FC = () => {
       case 'collaboration': return <Collaboration />;
       case 'my-orders': return <MyOrders />;
       case 'contact': return <Contact />;
+      case 'blogs': return <Blogs onNavigate={setCurrentPage} />;
       case 'product-details': return selectedProductId ? <ProductDetails productId={selectedProductId} onNavigate={setCurrentPage} /> : <Home onNavigate={setCurrentPage} />;
       case 'shop': return (
         <div className="py-24 px-4 max-w-7xl mx-auto text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
