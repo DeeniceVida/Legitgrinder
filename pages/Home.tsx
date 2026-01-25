@@ -121,15 +121,19 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* Integrated FAQ & Blogs Section */}
+      {/* Resources & Insights Section */}
       <section className="py-40 bg-neutral-50/50 border-y border-neutral-100">
         <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-5xl font-bold tracking-tight mb-6">Resources & Insights</h2>
+            <p className="text-neutral-400 text-lg max-w-2xl mx-auto">Market insights, helpful guides, and answers to your questions.</p>
+          </div>
           <div className="flex flex-col md:flex-row gap-20">
             {/* Blog Section */}
             <div className="flex-1">
               <div className="flex items-center gap-4 mb-12">
                 <div className="p-3 bg-white rounded-2xl shadow-sm text-[#3B8392]"><BookOpen className="w-6 h-6" /></div>
-                <h2 className="text-3xl font-bold tracking-tight">Market Insights</h2>
+                <h3 className="text-3xl font-bold tracking-tight">Market Insights</h3>
               </div>
               <div className="space-y-8">
                 {blogs.map((b, i) => (
@@ -147,7 +151,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <div className="flex-1">
               <div className="flex items-center gap-4 mb-12">
                 <div className="p-3 bg-white rounded-2xl shadow-sm text-[#3B8392]"><HelpCircle className="w-6 h-6" /></div>
-                <h2 className="text-3xl font-bold tracking-tight">Helpful FAQ</h2>
+                <h3 className="text-3xl font-bold tracking-tight">Helpful FAQ</h3>
               </div>
               <div className="space-y-4">
                 {faqs.map((faq, i) => (

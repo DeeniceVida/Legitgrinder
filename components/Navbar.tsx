@@ -70,7 +70,6 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage }) => {
     { name: 'Tracking', id: 'tracking' },
     { name: 'Collaboration', id: 'collaboration' },
     { name: 'Consultancy', id: 'consultancy' },
-    { name: 'FAQ', id: 'faq' },
   ];
 
   // Only show Admin if user is logged in as admin

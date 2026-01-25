@@ -172,8 +172,8 @@ const App: React.FC = () => {
             <div>
               <h4 className="font-bold text-neutral-900 mb-8 uppercase tracking-widest text-xs">Contact</h4>
               <ul className="space-y-4 text-neutral-500 font-light">
-                <li className="flex items-start gap-3"><MapPin className="w-5 h-5 text-neutral-300 mt-1" /> <span>Nairobi, Kenya<br />Vision Plaza, Mombasa Rd</span></li>
-                <li className="flex items-center gap-3"><Mail className="w-5 h-5 text-neutral-300" /> <span>hello@legitgrinder.com</span></li>
+                <li className="flex items-start gap-3"><MapPin className="w-5 h-5 text-neutral-300 mt-1" /> <span>Nairobi CBD, Kenya<br />Vision Plaza, Mombasa Rd</span></li>
+                <li className="flex items-center gap-3"><Mail className="w-5 h-5 text-neutral-300" /> <span>mungaimports@gmail.com</span></li>
               </ul>
             </div>
           </div>
