@@ -15,7 +15,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import {
   PricelistItem, Product, OrderStatus,
   Consultation, ConsultationStatus, Availability, Invoice,
-  BlogPost, FAQItem, Client
+  BlogPost, FAQItem, Client, ProductVariation
 } from '../types';
 
 const REVENUE_DATA = [
