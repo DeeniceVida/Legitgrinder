@@ -120,39 +120,53 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleProductSubmit = async (formData: any) => {
-    // Map UI names to DB names
-    const dbData = {
-      name: formData.name,
-      price_kes: formData.priceKES,
-      category: formData.category,
-      stock_status: formData.stockStatus,
-      image: formData.image,
-      images: formData.images,
-      description: formData.description,
-      shop_variants: formData.shop_variants,
-      origin: formData.origin,
-      inventory_quantity: formData.inventory_quantity,
-      discount_price: formData.discount_price,
-      variations: formData.variations,
-      colors: formData.colors
-    };
+    try {
+      // Map UI names to DB names - only include fields we're sure exist
+      const dbData: any = {
+        name: formData.name || 'Unnamed Product',
+        price_kes: formData.priceKES || 0,
+        category: formData.category || 'General Products',
+        stock_status: formData.stockStatus || 'In Stock',
+        description: formData.description || '',
+        origin: formData.origin || 'USA'
+      };
 
-    if (editingProduct) {
-      const { error } = await supabase.from('products').update(dbData).eq('id', editingProduct.id);
-      if (error) {
-        console.error('Update product error:', error);
-        alert(`Update failed: ${error.message}`);
+      // Only add optional fields if they have values
+      if (formData.image) dbData.image = formData.image;
+      if (formData.images && formData.images.length > 0) dbData.images = formData.images;
+      if (formData.shop_variants && formData.shop_variants.length > 0) dbData.shop_variants = formData.shop_variants;
+      if (formData.inventory_quantity !== undefined) dbData.inventory_quantity = formData.inventory_quantity;
+      if (formData.discount_price && formData.discount_price > 0) dbData.discount_price = formData.discount_price;
+      if (formData.variations && formData.variations.length > 0) dbData.variations = formData.variations;
+      if (formData.colors && formData.colors.length > 0) dbData.colors = formData.colors;
+
+      console.log('Submitting product data:', dbData);
+
+      if (editingProduct) {
+        const { data, error } = await supabase.from('products').update(dbData).eq('id', editingProduct.id).select();
+        if (error) {
+          console.error('Update product error:', error);
+          alert(`❌ Update failed: ${error.message}\n\nDetails: ${error.hint || 'Check console for more info'}`);
+          return;
+        }
+        alert('✅ Product updated successfully!');
+      } else {
+        const { data, error } = await supabase.from('products').insert(dbData).select();
+        if (error) {
+          console.error('Insert product error:', error);
+          alert(`❌ Failed to add product: ${error.message}\n\nDetails: ${error.hint || 'Check browser console for more info'}`);
+          return;
+        }
+        alert(`✅ Product "${formData.name}" added successfully!`);
       }
-    } else {
-      const { error } = await supabase.from('products').insert(dbData);
-      if (error) {
-        console.error('Insert product error:', error);
-        alert(`Insertion failed: ${error.message}. This might be a schema sync delay—try again in 5 seconds.`);
-      }
+
+      fetchData();
+      setShowProductModal(false);
+      setEditingProduct(null);
+    } catch (err: any) {
+      console.error('Unexpected error:', err);
+      alert(`❌ Unexpected error: ${err.message || 'Unknown error occurred'}`);
     }
-    fetchData();
-    setShowProductModal(false);
-    setEditingProduct(null);
   };
 
   const clearProducts = async () => {
