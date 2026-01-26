@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { syncBackMarketPrices } from '../services/scraper';
 import { bulkUpdateSourceLinks } from '../src/services/bulkSeedLinks';
+import { seedDatabaseProducts } from '../src/services/masterSeeder';
 import {
   PricelistItem, Product, OrderStatus,
   Consultation, ConsultationStatus, Availability, Invoice,
@@ -500,6 +501,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="px-6 py-3 bg-neutral-100 text-gray-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-neutral-200 transition-all"
                   >
                     Bulk Map Known Links
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (confirm('This will repopulate your entire product database and map all known links. Proceed?')) {
+                        setSyncing(true);
+                        await seedDatabaseProducts();
+                        await bulkUpdateSourceLinks();
+                        setSyncing(false);
+                        alert('Database seeded and links mapped successfully!');
+                      }
+                    }}
+                    className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all"
+                  >
+                    Restore & Seed All Data
                   </button>
                   <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest self-center">Connected to Cloudflare Worker (legit-sync-master)</p>
                 </div>
