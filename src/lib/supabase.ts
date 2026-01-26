@@ -8,4 +8,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase credentials missing. Check .env');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// Fallback to user-provided keys if env vars are missing (Critical for deployment stability)
+const FALLBACK_URL = 'https://birypkfferkwukogyhnb.supabase.co';
+const FALLBACK_KEY = 'sb_publishable_hDYAa8ljlY83Xmnf7xlc3Q_mA4cL7A0'; // User provided 2026-01-26
+
+export const supabase = createClient(
+  supabaseUrl || FALLBACK_URL,
+  supabaseAnonKey || FALLBACK_KEY
+);
