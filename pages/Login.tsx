@@ -19,7 +19,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -29,9 +29,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   });
 
   const toggleInterest = (interest: string) => {
-    setSelectedInterests(prev => 
-      prev.includes(interest) 
-        ? prev.filter(i => i !== interest) 
+    setSelectedInterests(prev =>
+      prev.includes(interest)
+        ? prev.filter(i => i !== interest)
         : [...prev, interest]
     );
   };
@@ -39,8 +39,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    const isAdmin = formData.email.toLowerCase().includes('admin');
+
+    const isAdmin = formData.email.toLowerCase() === 'admin@legitgrinder.com';
 
     setTimeout(() => {
       setLoading(false);
@@ -73,13 +73,13 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
             {!isLogin && (
               <div className="grid md:grid-cols-2 gap-6">
-                <input required className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                <input required className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" placeholder="Location" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+                <input required className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" placeholder="Full Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                <input required className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" placeholder="Location" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
               </div>
             )}
-            <input type="email" required placeholder="Email Address" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-            <input type={showPassword ? 'text' : 'password'} required placeholder="Password" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-            
+            <input type="email" required placeholder="Email Address" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+            <input type={showPassword ? 'text' : 'password'} required placeholder="Password" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+
             {!isLogin && (
               <div className="grid grid-cols-2 gap-3">
                 {SOURCING_CATEGORIES.map(cat => (

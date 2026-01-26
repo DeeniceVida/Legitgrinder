@@ -26,8 +26,8 @@ import {
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('home');
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // --- GLOBAL STATE ---
 
@@ -284,7 +284,7 @@ const App: React.FC = () => {
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-      case 'admin': return (
+      case 'admin': return isAdmin ? (
         <AdminDashboard
           blogs={blogs}
           faqs={faqs}
@@ -301,7 +301,7 @@ const App: React.FC = () => {
           consultations={consultations}
           onUpdateConsultations={setConsultations}
         />
-      );
+      ) : <Home onNavigate={setCurrentPage} />;
       default: return <Home onNavigate={setCurrentPage} />;
     }
   };
