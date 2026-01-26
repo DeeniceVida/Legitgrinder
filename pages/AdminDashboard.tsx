@@ -14,6 +14,7 @@ import {
 import { syncBackMarketPrices } from '../services/scraper';
 import { bulkUpdateSourceLinks } from '../src/services/bulkSeedLinks';
 import { seedDatabaseProducts } from '../src/services/masterSeeder';
+import { supabase } from '../src/lib/supabase';
 import {
   PricelistItem, Product, OrderStatus,
   Consultation, ConsultationStatus, Availability, Invoice,
