@@ -14,6 +14,7 @@ import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
 import { fetchPricelistData } from './src/services/supabaseData';
+import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
 } from 'lucide-react';
@@ -33,24 +34,36 @@ const App: React.FC = () => {
   // Pricelist State - Starting with mock data so the list is never empty
   const [pricelist, setPricelist] = useState<PricelistItem[]>(() => {
     const items: PricelistItem[] = [];
+
+    // Example mapping for iPhone 11 based on user provided links
+    const examples: Record<string, Record<string, number>> = {
+      "iPhone 11": { "64GB": 166, "128GB": 165, "256GB": 217 }
+    };
+
     Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {
       const typedModels = models as any[];
       typedModels.forEach((m, idx) => {
-        items.push({
+        const item: PricelistItem = {
           id: `${brand}-${idx}`,
           modelName: m.name,
           brand: brand as 'iphone' | 'samsung' | 'pixel',
           series: m.series,
           syncAlert: false,
-          capacities: m.capacities.map((cap: string) => ({
-            capacity: cap,
-            currentPriceKES: 120000 + Math.floor(Math.random() * 50000), // Random placeholder
-            previousPriceKES: 0,
-            lastSynced: 'Local Only',
-            sourcePriceUSD: 800,
-            isManualOverride: false
-          }))
-        });
+          capacities: m.capacities.map((cap: string) => {
+            const baseUSD = examples[m.name]?.[cap] || 800; // Use real baseline if it's the iPhone 11 example
+            const isExample = !!examples[m.name];
+
+            return {
+              capacity: cap,
+              currentPriceKES: isExample ? calculateAutomatedPrice(baseUSD) : 120000 + Math.floor(Math.random() * 50000),
+              previousPriceKES: 0,
+              lastSynced: isExample ? 'Verified Price' : 'Local Only',
+              sourcePriceUSD: baseUSD,
+              isManualOverride: false
+            };
+          })
+        };
+        items.push(item);
       });
     });
     return items;
