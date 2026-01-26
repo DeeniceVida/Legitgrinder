@@ -12,6 +12,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
 import { syncBackMarketPrices } from '../services/scraper';
+import { bulkUpdateSourceLinks } from '../src/services/bulkSeedLinks';
 import {
   PricelistItem, Product, OrderStatus,
   Consultation, ConsultationStatus, Availability, Invoice,
@@ -488,7 +489,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {syncing ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
                   {syncing ? 'Global Pulse Sync In Progress...' : 'Force Global Price Sync'}
                 </button>
-                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Connected to Cloudflare Worker (legit-sync-master)</p>
+                <div className="flex gap-4">
+                  <button
+                    onClick={async () => {
+                      if (confirm('This will map all known Back Market links to your database. Proceed?')) {
+                        await bulkUpdateSourceLinks();
+                        alert('Links mapped successfully!');
+                      }
+                    }}
+                    className="px-6 py-3 bg-neutral-100 text-gray-500 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-neutral-200 transition-all"
+                  >
+                    Bulk Map Known Links
+                  </button>
+                  <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest self-center">Connected to Cloudflare Worker (legit-sync-master)</p>
+                </div>
               </div>
             </div>
 
@@ -498,7 +512,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
                     <div>
                       <h4 className="text-3xl font-black text-gray-900 tracking-tight">{item.modelName}</h4>
-                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.4em] mt-2">{item.series}</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.4em]">{item.series}</p>
+                        <button
+                          onClick={() => window.open(`https://www.backmarket.com/en-us/search?q=${encodeURIComponent(item.modelName)}`, '_blank')}
+                          className="flex items-center gap-1.5 text-[9px] font-black text-[#3D8593] uppercase tracking-widest hover:underline"
+                        >
+                          <Search className="w-3 h-3" /> Find Link
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

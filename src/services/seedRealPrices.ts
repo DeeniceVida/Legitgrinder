@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { calculateAutomatedPrice } from '../utils/priceCalculations';
+import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 export const updateIPhone11Baseline = async () => {
     try {
