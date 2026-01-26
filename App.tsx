@@ -35,9 +35,9 @@ const App: React.FC = () => {
   const [pricelist, setPricelist] = useState<PricelistItem[]>(() => {
     const items: PricelistItem[] = [];
 
-    // Example mapping for iPhone 11 based on user provided links
+    // Example mapping for iPhone 11 based on user provided precise figures
     const examples: Record<string, Record<string, number>> = {
-      "iPhone 11": { "64GB": 166, "128GB": 165, "256GB": 217 }
+      "iPhone 11": { "64GB": 164, "128GB": 194, "256GB": 256 }
     };
 
     Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {

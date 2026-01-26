@@ -5,7 +5,7 @@ import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 // Real baseline USD prices from Back Market (Good condition) for initial seeding
 const REAL_BASELINES: Record<string, Record<string, number>> = {
-    "iPhone 11": { "64GB": 166, "128GB": 165, "256GB": 217 }
+    "iPhone 11": { "64GB": 164, "128GB": 194, "256GB": 256 }
 };
 
 export const seedDatabaseProducts = async () => {
