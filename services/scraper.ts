@@ -13,15 +13,42 @@ import { API_BASE_URL } from '../constants';
 export async function syncBackMarketPrices(currentData: PricelistItem[]): Promise<PricelistItem[]> {
   console.log("Initiating Global Marketplace Sync...");
 
-  // Framework for Cloudflare Worker integration:
-  // const response = await fetch(`${API_BASE_URL}/api/sync-prices`, { 
-  //   method: 'POST', 
-  //   headers: { 'Authorization': 'Bearer YOUR_SECRET' },
-  //   body: JSON.stringify(currentData) 
-  // });
-  // return await response.json();
+  // 1. Try to call the Cloudflare Worker if configured
+  const workerUrl = import.meta.env.VITE_WORKER_URL;
 
-  // Simulated logic for now:
+  if (workerUrl) {
+    try {
+      console.log(`Connecting to worker: ${workerUrl}`);
+      const response = await fetch(`${workerUrl}/api/sync-prices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trigger: 'admin_manual' })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("Worker sync successful:", result);
+        // In a real app, we would now re-fetch the fresh data from Supabase 
+        // because the worker updated the DB in the background.
+        // For this demo, we can return the currentData and let the UI refresh mechanism handle it,
+        // or simulating the immediate update in the UI state as well.
+        return currentData.map(item => ({
+          ...item,
+          capacities: item.capacities.map(cap => ({
+            ...cap,
+            lastSynced: 'Synced ' + new Date().toLocaleTimeString() + ' (Cloudflare)'
+          }))
+        }));
+      } else {
+        console.warn("Worker sync returned error:", await response.text());
+      }
+    } catch (err) {
+      console.error("Worker connection failed, falling back to local simulation:", err);
+    }
+  }
+
+  // 2. Fallback: Local Simulation (if no worker or worker fails)
+  console.log("Using local simulation logic...");
   await new Promise(resolve => setTimeout(resolve, 2000));
 
   return currentData.map(item => {
@@ -44,8 +71,8 @@ export async function syncBackMarketPrices(currentData: PricelistItem[]): Promis
 
       if (baseUSD === 0) baseUSD = 500; // Generic fallback
 
-      const priceDrift = (Math.random() - 0.5) * 20; // Reduce drift to +/- $20
-      const newSourceUSD = baseUSD + priceDrift;
+      const priceDrift = (Math.random() - 0.5) * 10; // Random +/- $5
+      const newSourceUSD = Math.max(50, Math.round(baseUSD + priceDrift));
       const newKES = calculateAutomatedPrice(newSourceUSD);
 
       return {
