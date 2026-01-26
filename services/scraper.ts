@@ -33,8 +33,19 @@ export async function syncBackMarketPrices(currentData: PricelistItem[]): Promis
       if (cap.isManualOverride) return cap;
 
       // Simulate a price change found by the scraper
-      const priceDrift = (Math.random() - 0.5) * 50; // Random +/- $50
-      const newSourceUSD = (cap.sourcePriceUSD || 500) + priceDrift;
+      let baseUSD = cap.sourcePriceUSD || 0;
+
+      // Patch for iPhone 11 to avoid ridiculous prices during simulation
+      if (item.modelName === 'iPhone 11' && baseUSD === 0) {
+        if (cap.capacity === '64GB') baseUSD = 166;
+        else if (cap.capacity === '128GB') baseUSD = 165;
+        else if (cap.capacity === '256GB') baseUSD = 217;
+      }
+
+      if (baseUSD === 0) baseUSD = 500; // Generic fallback
+
+      const priceDrift = (Math.random() - 0.5) * 20; // Reduce drift to +/- $20
+      const newSourceUSD = baseUSD + priceDrift;
       const newKES = calculateAutomatedPrice(newSourceUSD);
 
       return {
