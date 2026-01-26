@@ -35,7 +35,45 @@ const REAL_BASELINES: Record<string, Record<string, number>> = {
     "iPhone 16 Plus": { "128GB": 600, "256GB": 630, "512GB": 660 },
     "iPhone 16 Pro": { "128GB": 618, "256GB": 698, "512GB": 720, "1TB": 750 },
     "iPhone 16 Pro Max": { "256GB": 770, "512GB": 898, "1TB": 928 },
-    "iPhone 17 Pro Max": { "default": 1440 }
+    "iPhone 17 Pro Max": { "default": 1440 },
+
+    // Samsung
+    "S24 Ultra": { "256GB": 595, "512GB": 618, "1TB": 802 },
+    "S24+": { "256GB": 428, "512GB": 450 },
+    "S24": { "128GB": 365, "256GB": 450, "512GB": 480 },
+    "S23 Ultra": { "256GB": 391, "512GB": 428, "1TB": 642 },
+    "S23+": { "256GB": 350, "512GB": 380 },
+    "S23": { "128GB": 248, "256GB": 300, "512GB": 320 },
+    "S22 Ultra": { "128GB": 267, "256GB": 305, "512GB": 365, "1TB": 400 },
+    "S22+": { "128GB": 204, "256GB": 182 },
+    "S22": { "128GB": 193, "256GB": 192 },
+    "S21 Ultra": { "128GB": 281, "256GB": 265, "512GB": 365 },
+    "S21+": { "128GB": 190, "256GB": 210 },
+    "S21": { "128GB": 165, "256GB": 178 },
+    "S21 FE": { "128GB": 130, "256GB": 150 },
+    "S20 Ultra": { "128GB": 245, "512GB": 479 },
+    "S20+": { "128GB": 249, "512GB": 270 },
+    "S20": { "128GB": 166, "512GB": 190 },
+    "S20 FE": { "128GB": 180, "256GB": 290 },
+    "S10+": { "default": 140 },
+    "S10": { "default": 125 },
+    "S10e": { "default": 100 },
+
+    // Pixel
+    "Pixel 9": { "128GB": 390, "256GB": 390 },
+    "Pixel 9 Pro": { "128GB": 434, "256GB": 535, "512GB": 600, "1TB": 700 },
+    "Pixel 9 Pro XL": { "128GB": 439, "256GB": 556, "512GB": 619, "1TB": 700 },
+    "Pixel 9 Pro Fold": { "256GB": 900, "512GB": 1000 },
+    "Pixel 8a": { "128GB": 250, "256GB": 290 },
+    "Pixel 8": { "128GB": 269, "256GB": 322 },
+    "Pixel 8 Pro": { "128GB": 315, "256GB": 363, "512GB": 437, "1TB": 500 },
+    "Pixel 7a": { "default": 170 },
+    "Pixel 7": { "128GB": 191, "256GB": 210 },
+    "Pixel 7 Pro": { "128GB": 254, "256GB": 257, "512GB": 258 },
+    "Pixel Fold": { "256GB": 550, "512GB": 600 },
+    "Pixel 6a": { "default": 130 },
+    "Pixel 6": { "128GB": 140, "256GB": 163 },
+    "Pixel 6 Pro": { "128GB": 167, "256GB": 185, "512GB": 220 }
 };
 
 export const seedDatabaseProducts = async () => {
