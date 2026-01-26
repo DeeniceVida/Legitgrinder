@@ -13,6 +13,7 @@ import ConsultationPage from './pages/Consultation';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
+import { fetchPricelistData } from './src/services/supabaseData';
 import {
   Instagram, Youtube, Globe
 } from 'lucide-react';
@@ -29,30 +30,8 @@ const App: React.FC = () => {
 
   // --- GLOBAL STATE ---
 
-  // Pricelist State
-  const [pricelist, setPricelist] = useState<PricelistItem[]>(() => {
-    const items: PricelistItem[] = [];
-    Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {
-      models.forEach((m, idx) => {
-        items.push({
-          id: `${brand}-${idx}`,
-          modelName: m.name,
-          brand: brand as 'iphone' | 'samsung' | 'pixel',
-          series: m.series,
-          syncAlert: false,
-          capacities: m.capacities.map(cap => ({
-            capacity: cap,
-            currentPriceKES: 120000 + Math.floor(Math.random() * 50000), // Mock initial prices
-            previousPriceKES: 0,
-            lastSynced: 'System Init',
-            sourcePriceUSD: 800,
-            isManualOverride: false
-          }))
-        });
-      });
-    });
-    return items;
-  });
+  // Pricelist State initialized as empty, will be populated via useEffect
+  const [pricelist, setPricelist] = useState<PricelistItem[]>([]);
 
   // Shop Products
   const [products, setProducts] = useState<Product[]>([
@@ -154,6 +133,17 @@ const App: React.FC = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
+
+  // Fetch real pricelist on load
+  useEffect(() => {
+    const loadPricelist = async () => {
+      const data = await fetchPricelistData();
+      if (data.length > 0) {
+        setPricelist(data);
+      }
+    };
+    loadPricelist();
+  }, []);
 
   const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {
     setIsLoggedIn(true);
