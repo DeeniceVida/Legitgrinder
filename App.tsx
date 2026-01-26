@@ -30,8 +30,31 @@ const App: React.FC = () => {
 
   // --- GLOBAL STATE ---
 
-  // Pricelist State initialized as empty, will be populated via useEffect
-  const [pricelist, setPricelist] = useState<PricelistItem[]>([]);
+  // Pricelist State - Starting with mock data so the list is never empty
+  const [pricelist, setPricelist] = useState<PricelistItem[]>(() => {
+    const items: PricelistItem[] = [];
+    Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {
+      const typedModels = models as any[];
+      typedModels.forEach((m, idx) => {
+        items.push({
+          id: `${brand}-${idx}`,
+          modelName: m.name,
+          brand: brand as 'iphone' | 'samsung' | 'pixel',
+          series: m.series,
+          syncAlert: false,
+          capacities: m.capacities.map((cap: string) => ({
+            capacity: cap,
+            currentPriceKES: 120000 + Math.floor(Math.random() * 50000), // Random placeholder
+            previousPriceKES: 0,
+            lastSynced: 'Local Only',
+            sourcePriceUSD: 800,
+            isManualOverride: false
+          }))
+        });
+      });
+    });
+    return items;
+  });
 
   // Shop Products
   const [products, setProducts] = useState<Product[]>([
