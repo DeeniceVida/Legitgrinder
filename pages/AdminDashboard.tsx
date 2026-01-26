@@ -15,6 +15,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { bulkUpdateSourceLinks } from '../src/services/bulkSeedLinks';
 import { seedDatabaseProducts } from '../src/services/masterSeeder';
 import { supabase } from '../src/lib/supabase';
+import { calculateAutomatedPrice } from '../utils/priceCalculations';
 import {
   PricelistItem, Product, OrderStatus,
   Consultation, ConsultationStatus, Availability, Invoice,
@@ -794,6 +795,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const cap = item?.capacities[editingPrice.capIdx];
         if (!item || !cap) return null;
 
+        // Local state for the modal form to handle live updates
+        const [localUSD, setLocalUSD] = React.useState(cap.sourcePriceUSD);
+        const [localKES, setLocalKES] = React.useState(cap.currentPriceKES);
+
+        // Auto-calculate KES when USD changes
+        const handleUSDChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          const val = parseFloat(e.target.value);
+          setLocalUSD(val);
+          if (!isNaN(val)) {
+            setLocalKES(calculateAutomatedPrice(val));
+          }
+        };
+
         return (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
             <div className="absolute inset-0 bg-[#0f1a1c]/60 backdrop-blur-sm" onClick={() => setEditingPrice(null)}></div>
@@ -816,7 +830,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       name="priceUSD"
                       type="number"
                       step="0.01"
-                      defaultValue={cap.sourcePriceUSD}
+                      value={localUSD}
+                      onChange={handleUSDChange}
                       className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all text-lg"
                     />
                   </div>
@@ -825,7 +840,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <input
                       name="priceKES"
                       type="number"
-                      defaultValue={cap.currentPriceKES}
+                      value={localKES}
+                      onChange={(e) => setLocalKES(parseInt(e.target.value) || 0)}
                       className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all text-lg"
                     />
                   </div>
