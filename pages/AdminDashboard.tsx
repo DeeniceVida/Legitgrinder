@@ -197,6 +197,104 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditingPrice(null);
   };
 
+  const downloadPricelistCSV = () => {
+    // 1. Header Row
+    const headers = ['Brand,Model,Capacity,USD Price,Calculated KES Price'];
+
+    // 2. Data Rows
+    const rows = pricelist.flatMap(item =>
+      item.capacities.map(cap =>
+        `${item.brand},"${item.modelName}",${cap.capacity},${cap.sourcePriceUSD},${cap.currentPriceKES}`
+      )
+    );
+
+    // 3. Combine and Blob
+    const csvContent = [headers, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    // 4. Download Trigger
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `legitgrinder_pricelist_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const rows = text.split('\n').slice(1); // Skip header
+
+      let updateCount = 0;
+      setSyncing(true);
+
+      for (const row of rows) {
+        // Parse CSV row: Brand, "Model", Capacity, USD, KES
+        // Handle quotes around model name if present
+        const match = row.match(/^(.*?),"(.*?)",(.*?),(.*?),(.*?)$/) || row.split(',');
+
+        let modelName, capacity, usdPrice;
+
+        if (row.includes('"')) {
+          // Quoted model name
+          modelName = match[2];
+          capacity = match[3];
+          usdPrice = parseFloat(match[4]);
+        } else {
+          // Simple split
+          modelName = match[1];
+          capacity = match[2];
+          usdPrice = parseFloat(match[3]);
+        }
+
+        if (!modelName || !capacity || isNaN(usdPrice)) continue;
+
+        // 1. Find the product in local state to get ID
+        const product = pricelist.find(p => p.modelName === modelName.trim());
+        if (!product) continue;
+
+        // 2. Calculate new KES price
+        // Logic: Shipping ($20 + 3.5%) + Service ($30 or 4.5%) * Rate (135)
+        const shipping = 20 + (usdPrice * 0.035);
+        const service = usdPrice > 750 ? (usdPrice * 0.045) : 30;
+        const totalUSD = usdPrice + shipping + service;
+        const newKES = Math.ceil(totalUSD * 135);
+
+        // 3. Update Supabase
+        try {
+          const { error } = await supabase
+            .from('product_variants')
+            .update({
+              price_usd: usdPrice,
+              price_kes: newKES,
+              is_manual_override: true,
+              last_updated: new Date().toISOString()
+            })
+            .match({ product_id: product.id, capacity: capacity.trim() });
+
+          if (!error) updateCount++;
+        } catch (err) {
+          console.error(`Failed to update ${modelName} ${capacity}`, err);
+        }
+      }
+
+      setSyncing(false);
+      alert(`Successfully updated ${updateCount} prices from CSV! Refresh to see changes.`);
+
+      // Trigger a re-fetch of the pricelist
+      const updated = await syncBackMarketPrices(pricelist); // Re-fetch
+      onUpdatePricelist(updated);
+    };
+    reader.readAsText(file);
+  };
+
   const handleDeleteProduct = (id: string) => {
     if (confirm('Are you sure you want to remove this item from inventory?')) {
       onUpdateProducts(products.filter(p => p.id !== id));
@@ -566,6 +664,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     Restore & Seed All Data
                   </button>
+                  <button
+                    onClick={downloadPricelistCSV}
+                    className="px-6 py-3 bg-teal-50 text-teal-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-teal-100 transition-all flex items-center gap-2"
+                  >
+                    <Download className="w-3 h-3" /> Export CSV
+                  </button>
+                  <label className="px-6 py-3 bg-indigo-50 text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center gap-2 cursor-pointer">
+                    <input type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+                    <Package className="w-3 h-3" /> Import CSV
+                  </label>
                   <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest self-center">Connected to Cloudflare Worker (legit-sync-master)</p>
                 </div>
               </div>
