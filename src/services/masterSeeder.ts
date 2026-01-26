@@ -5,8 +5,37 @@ import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 // Real baseline USD prices from Back Market (Good condition) for initial seeding
 const REAL_BASELINES: Record<string, Record<string, number>> = {
+    "iPhone 7": { "default": 75 },
+    "iPhone 8": { "default": 101 },
+    "iPhone 8 Plus": { "default": 120 },
+    "iPhone XR": { "default": 117 },
+    "iPhone SE (2nd Gen)": { "default": 110 },
+    "iPhone SE (3rd Gen)": { "default": 137 },
     "iPhone 11": { "64GB": 164, "128GB": 194, "256GB": 256 },
-    "iPhone 12": { "64GB": 193, "128GB": 212, "256GB": 230 }
+    "iPhone 11 Pro": { "default": 203 },
+    "iPhone 11 Pro Max": { "default": 233 },
+    "iPhone 12 mini": { "default": 155 },
+    "iPhone 12": { "64GB": 184, "128GB": 212, "256GB": 230 },
+    "iPhone 12 Pro": { "default": 260 },
+    "iPhone 12 Pro Max": { "default": 299 },
+    "iPhone 13 mini": { "default": 231 },
+    "iPhone 13": { "default": 224 },
+    "iPhone 13 Pro": { "default": 315 },
+    "iPhone 13 Pro Max": { "default": 398 },
+    "iPhone 14": { "default": 266 },
+    "iPhone 14 Plus": { "default": 303 },
+    "iPhone 14 Pro": { "default": 394 },
+    "iPhone 14 Pro Max": { "default": 414 },
+    "iPhone 15": { "default": 394 },
+    "iPhone 15 Plus": { "default": 410 },
+    "iPhone 15 Pro": { "default": 446 },
+    "iPhone 15 Pro Max": { "default": 561 },
+    "iPhone 16e": { "default": 400 },
+    "iPhone 16": { "default": 511 },
+    "iPhone 16 Plus": { "default": 600 },
+    "iPhone 16 Pro": { "default": 618 },
+    "iPhone 16 Pro Max": { "default": 770 },
+    "iPhone 17 Pro Max": { "default": 1440 }
 };
 
 export const seedDatabaseProducts = async () => {
@@ -61,7 +90,7 @@ export const seedDatabaseProducts = async () => {
 
                 // 2. Insert variants (capacities) with real baseline logic
                 const variantRows = m.capacities.map((cap: string) => {
-                    const baseUSD = REAL_BASELINES[m.name]?.[cap] || 0;
+                    const baseUSD = REAL_BASELINES[m.name]?.[cap] || REAL_BASELINES[m.name]?.['default'] || 0;
                     return {
                         product_id: productId,
                         capacity: cap,
