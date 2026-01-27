@@ -13,8 +13,6 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = false, isAdmin = false, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  console.log('Navbar State:', { isLoggedIn, isAdmin, hasLogoutHandler: !!onLogout });
-
   const navLinks = [
     { name: 'Shop', id: 'shop' },
     { name: 'Pricelist', id: 'pricelist' },
@@ -100,27 +98,15 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = f
               </button>
             ))}
             <div className="h-px bg-gray-100 my-2"></div>
-            {isLoggedIn ? (
-              <button
-                onClick={() => {
-                  onLogout?.();
-                  setIsOpen(false);
-                }}
-                className="text-xl font-bold p-4 rounded-2xl text-left text-rose-500 flex items-center gap-3 w-full"
-              >
-                Logout Account
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  onNavigate('login');
-                  setIsOpen(false);
-                }}
-                className="text-xl font-bold p-4 rounded-2xl text-left text-[#3D8593] flex items-center gap-3"
-              >
-                <User className="w-5 h-5" /> Account / Login
-              </button>
-            )}
+            <button
+              onClick={() => {
+                onNavigate('login');
+                setIsOpen(false);
+              }}
+              className="text-xl font-bold p-4 rounded-2xl text-left text-[#3D8593] flex items-center gap-3"
+            >
+              <User className="w-5 h-5" /> Account / Login
+            </button>
           </div>
         </div>
       )}

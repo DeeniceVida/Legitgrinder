@@ -14,7 +14,7 @@ import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
 import { supabase } from './src/lib/supabase';
-import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase, fetchConsultationsData, fetchInvoicesData } from './src/services/supabaseData';
+import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase } from './src/services/supabaseData';
 import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
@@ -205,20 +205,14 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
-      const [plist, prods, clist, conlist, invlist] = await Promise.all([
+      const [plist, prods, clist] = await Promise.all([
         fetchPricelistData(),
         fetchInventoryProducts(),
-        fetchClientsData(),
-        // New: Dynamic Fetch
-        (await import('./src/services/supabaseData')).fetchConsultationsData(),
-        (await import('./src/services/supabaseData')).fetchInvoicesData()
+        fetchClientsData()
       ]);
-
       if (plist.length > 0) setPricelist(plist);
       if (prods.length > 0) setProducts(prods);
       if (clist.length > 0) setClients(clist);
-      if (conlist.length > 0) setConsultations(conlist);
-      if (invlist.length > 0) setInvoices(invlist);
     };
     loadAllData();
   }, []);
@@ -226,48 +220,18 @@ const App: React.FC = () => {
   // Auth State Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Supabase Auth Event:', event, session?.user?.email);
-
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
 
-        const currentEmail = session.user.email?.toLowerCase();
-        const isOwner = currentEmail === 'mungaimports@gmail.com';
+        // Check for admin role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
 
-        try {
-          // Fetch existing profile
-          let { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          // FALLBACK: Create profile if it doesn't exist
-          if (!profile) {
-            const { data: newProfile } = await supabase
-              .from('profiles')
-              .upsert({
-                id: session.user.id,
-                email: session.user.email,
-                role: isOwner ? 'admin' : 'user',
-                updated_at: new Date().toISOString()
-              })
-              .select()
-              .single();
-
-            profile = newProfile;
-          }
-
-          // Force Admin state if they are the owner OR the DB says admin
-          const hasAdminAccess = isOwner || profile?.role === 'admin';
-          setIsAdmin(hasAdminAccess);
-          console.log(`Auth Finalized: ${currentEmail} -> Admin: ${hasAdminAccess}`);
-
-        } catch (err) {
-          console.error('Critical Auth Error:', err);
-          if (isOwner) setIsAdmin(true);
-        }
+        setIsAdmin(profile?.role === 'admin');
       } else {
         setUser(null);
         setIsLoggedIn(false);
@@ -278,22 +242,15 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleLoginSuccess = (isAdminLogin: boolean = false) => {
+  const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {
     setIsLoggedIn(true);
     setIsAdmin(isAdminLogin);
-    setCurrentPage(isAdminLogin ? 'admin' : 'home');
+    setCurrentPage('home');
   };
 
   const handleLogout = async () => {
-    setUser(null);
-    setIsLoggedIn(false);
-    setIsAdmin(false);
-    try {
-      await supabase.auth.signOut();
-      window.location.href = '/';
-    } catch (err) {
-      window.location.reload();
-    }
+    await supabase.auth.signOut();
+    setCurrentPage('home');
   };
 
   const renderPage = () => {
@@ -302,15 +259,12 @@ const App: React.FC = () => {
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
       case 'pricelist': return <Pricelist pricelist={pricelist} />;
       case 'collaboration': return <Collaboration />;
-      case 'consultation': return <ConsultationPage onSubmit={async () => {
-        const updated = await fetchConsultationsData();
-        setConsultations(updated);
-      }} />;
+      case 'consultation': return <ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />;
       case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-      case 'admin': return (isAdmin || user?.email?.toLowerCase() === 'mungaimports@gmail.com') ? (
+      case 'admin': return isAdmin ? (
         <AdminDashboard
           blogs={blogs}
           faqs={faqs}
@@ -338,7 +292,7 @@ const App: React.FC = () => {
         onNavigate={setCurrentPage}
         currentPage={currentPage}
         isLoggedIn={isLoggedIn}
-        isAdmin={isAdmin || user?.email?.toLowerCase() === 'mungaimports@gmail.com'}
+        isAdmin={isAdmin}
         onLogout={handleLogout}
       />
 
@@ -387,16 +341,6 @@ const App: React.FC = () => {
         </div>
       </footer>
       <AIAssistant />
-
-      {/* Debug Overlay - Only visible when logged in to help us troubleshoot */}
-      {isLoggedIn && (
-        <div className="fixed bottom-4 left-4 z-[9999] bg-black/80 text-white text-[8px] font-mono p-4 rounded-2xl backdrop-blur-md border border-white/10 pointer-events-none">
-          <p className="text-teal-400 font-bold mb-1">AUTH DEBUG</p>
-          <p>Email: {user?.email}</p>
-          <p>Role: <span className={isAdmin ? "text-emerald-400" : "text-rose-400"}>{isAdmin ? 'ADMIN' : 'USER'}</span></p>
-          <p>Page: {currentPage}</p>
-        </div>
-      )}
     </div>
   );
 };

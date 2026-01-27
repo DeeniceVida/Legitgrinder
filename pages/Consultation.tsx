@@ -1,12 +1,9 @@
+
 import React, { useState } from 'react';
 import { Calendar, Clock, MessageSquare, ShieldCheck, User, Mail, Phone, MessageCircle, ArrowRight, Sparkles } from 'lucide-react';
-import { saveConsultationData } from '../src/services/supabaseData';
+import { WHATSAPP_NUMBER } from '../constants';
 
-interface ConsultationProps {
-  onSubmit?: (data: any) => void;
-}
-
-const Consultation: React.FC<ConsultationProps> = ({ onSubmit }) => {
+const Consultation: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,23 +14,10 @@ const Consultation: React.FC<ConsultationProps> = ({ onSubmit }) => {
     topic: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-      const { success, error } = await saveConsultationData(formData);
-      if (!success) throw error;
-
-      setIsSubmitted(true);
-      onSubmit?.(formData);
-    } catch (err: any) {
-      alert(`Failed to schedule: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    setIsSubmitted(true);
   };
 
   if (isSubmitted) {

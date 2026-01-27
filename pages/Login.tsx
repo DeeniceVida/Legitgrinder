@@ -42,45 +42,35 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        // --- LOGIN ---
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
 
-        if (error) throw error;
-
-        // Check if user has admin role
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-
-        onLoginSuccess(profile?.role === 'admin');
-      } else {
-        // --- SIGN UP ---
-        const { data, error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: formData.name,
-              location: formData.location,
-              phone: formData.phone,
-              interests: selectedInterests
-            }
-          }
-        });
-
-        if (error) throw error;
-
-        alert('Registration successful! Please check your email for verification (if enabled) or try logging in.');
-        setIsLogin(true); // Switch to login tab
+      if (error) {
+        alert(`Login failed: ${error.message}`);
+        setLoading(false);
+        return;
       }
+
+      // Check if user has admin role in profiles table
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      const isAdmin = profile?.role === 'admin';
+
+      onLoginSuccess(isAdmin, {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        location: formData.location,
+        interests: selectedInterests
+      });
     } catch (err: any) {
-      alert(`Authentication error: ${err.message}`);
+      alert(`Unexpected error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -100,32 +90,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <div className="flex bg-neutral-50 p-2 rounded-3xl mb-12 relative z-10">
             <button onClick={() => setIsLogin(true)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Member Login</button>
             <button onClick={() => setIsLogin(false)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${!isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Join Elite</button>
-          </div>
-
-          <div className="text-center mb-6 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => { supabase.auth.signOut().then(() => window.location.reload()) }}
-              className="text-[9px] font-bold text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-all underline underline-offset-4"
-            >
-              Session Stuck? Force Clear & Restart
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) return alert("System Status: Not logged into Supabase");
-                const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                if (error) {
-                  alert(`Diagnostic Report:\nStatus: Logged In\nID: ${session.user.id}\nProfile Error: ${error.message}\nAction: Ensure 'profiles' table exists!`);
-                } else {
-                  alert(`Diagnostic Report:\nRegistered ID: ${data.id}\nYour Session ID: ${session.user.id}\nEmail: ${data.email}\nRole: ${data.role}\nAdmin Access: ${data.role === 'admin' ? 'YES' : 'NO'}`);
-                }
-              }}
-              className="text-[9px] font-bold text-[#3D8593] uppercase tracking-widest hover:text-teal-600 transition-all underline underline-offset-4"
-            >
-              Diagnostic: Check My Role Status
-            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
