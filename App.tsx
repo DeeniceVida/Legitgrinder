@@ -380,6 +380,16 @@ const App: React.FC = () => {
         </div>
       </footer>
       <AIAssistant />
+
+      {/* Debug Overlay - Only visible when logged in to help us troubleshoot */}
+      {isLoggedIn && (
+        <div className="fixed bottom-4 left-4 z-[9999] bg-black/80 text-white text-[8px] font-mono p-4 rounded-2xl backdrop-blur-md border border-white/10 pointer-events-none">
+          <p className="text-teal-400 font-bold mb-1">AUTH DEBUG</p>
+          <p>Email: {user?.email}</p>
+          <p>Role: <span className={isAdmin ? "text-emerald-400" : "text-rose-400"}>{isAdmin ? 'ADMIN' : 'USER'}</span></p>
+          <p>Page: {currentPage}</p>
+        </div>
+      )}
     </div>
   );
 };
