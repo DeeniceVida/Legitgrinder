@@ -12,6 +12,13 @@ const AIAssistant: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const suggestedQuestions = [
+    "How long does USA air take?",
+    "China shipping rates?",
+    "iPhone 15 Pro price calculation",
+    "Where is your office?"
+  ];
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({
@@ -21,17 +28,24 @@ const AIAssistant: React.FC = () => {
     }
   }, [messages, loading]);
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  const handleSend = async (customMsg?: string) => {
+    const msgToSend = customMsg || input;
+    if (!msgToSend.trim() || loading) return;
 
-    const userMsg = input;
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
+    const newMessages = [...messages, { role: 'user' as const, content: msgToSend }];
+    setMessages(newMessages);
     setLoading(true);
 
-    const reply = await askAssistant(userMsg);
-    setMessages(prev => [...prev, { role: 'assistant', content: reply || 'Sorry, my sensors are a bit hazy. Try again?' }]);
-    setLoading(false);
+    try {
+      // Pass the history (excluding the very first greeting)
+      const reply = await askAssistant(msgToSend, messages.slice(1));
+      setMessages(prev => [...prev, { role: 'assistant', content: reply || 'Sorry, my sensors are a bit hazy. Try again?' }]);
+    } catch (error) {
+      console.error("Error in AIAssistant:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,7 +56,7 @@ const AIAssistant: React.FC = () => {
           <div className="bg-indigo-600 p-8 flex justify-between items-center text-white relative overflow-hidden shrink-0">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-indigo-800"></div>
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-[#FF9900]/20 rounded-full blur-3xl"></div>
-            
+
             <div className="flex items-center space-x-4 relative z-10">
               <div className="bg-white p-3 rounded-2xl shadow-xl">
                 <Bot className="w-6 h-6 text-indigo-600" />
@@ -55,7 +69,7 @@ const AIAssistant: React.FC = () => {
                 </span>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setIsOpen(false)}
               className="p-3 bg-white/10 hover:bg-white/20 rounded-xl transition-all relative z-10"
             >
@@ -67,12 +81,25 @@ const AIAssistant: React.FC = () => {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-8 bg-mesh">
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
-                <div className={`max-w-[85%] rounded-[1.8rem] p-5 text-sm leading-relaxed shadow-sm ${
-                  m.role === 'user' 
-                  ? 'bg-indigo-600 text-white rounded-br-none shadow-indigo-100' 
+                <div className={`max-w-[85%] rounded-[1.8rem] p-5 text-sm leading-relaxed shadow-sm ${m.role === 'user'
+                  ? 'bg-indigo-600 text-white rounded-br-none shadow-indigo-100'
                   : 'bg-white text-gray-800 rounded-bl-none border border-indigo-50 shadow-indigo-50/50'
-                }`}>
-                  {m.content}
+                  }`}>
+                  <div className="whitespace-pre-wrap">
+                    {m.content.split('\n').map((line, idx) => {
+                      const parts = line.split(/(\*\*.*?\*\*)/g);
+                      return (
+                        <p key={idx} className={idx > 0 ? "mt-1 text-gray-700" : ""}>
+                          {parts.map((part, pIdx) => {
+                            if (part.startsWith('**') && part.endsWith('**')) {
+                              return <strong key={pIdx} className="font-extrabold text-indigo-950 underline decoration-indigo-200/50 decoration-2 underline-offset-2">{part.slice(2, -2)}</strong>;
+                            }
+                            return part;
+                          })}
+                        </p>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ))}
@@ -84,6 +111,23 @@ const AIAssistant: React.FC = () => {
                     <div className="w-2 h-2 bg-[#FF9900] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
                     <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {!loading && messages.length === 1 && (
+              <div className="pt-4 space-y-3">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-2">Quick Inquiries</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSend(q)}
+                      className="text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white px-4 py-2 rounded-full transition-all border border-indigo-100/50"
+                    >
+                      {q}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -100,7 +144,7 @@ const AIAssistant: React.FC = () => {
                 placeholder="How long does USA air take?"
                 className="w-full bg-gray-50 border-2 border-transparent rounded-[1.5rem] pl-6 pr-14 py-4 text-sm focus:outline-none focus:border-indigo-600/20 focus:bg-white transition-all shadow-inner"
               />
-              <button 
+              <button
                 onClick={handleSend}
                 disabled={!input.trim() || loading}
                 className="absolute right-2 bg-indigo-600 text-white p-3 rounded-xl hover:bg-[#FF9900] transition-all disabled:opacity-50 shadow-lg"
@@ -111,7 +155,7 @@ const AIAssistant: React.FC = () => {
           </div>
         </div>
       ) : (
-        <button 
+        <button
           onClick={() => setIsOpen(true)}
           className="group relative"
         >
