@@ -102,13 +102,29 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <button onClick={() => setIsLogin(false)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${!isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Join Elite</button>
           </div>
 
-          <div className="text-center mb-6">
+          <div className="text-center mb-6 flex flex-col gap-2">
             <button
               type="button"
               onClick={() => { supabase.auth.signOut().then(() => window.location.reload()) }}
               className="text-[9px] font-bold text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-all underline underline-offset-4"
             >
               Session Stuck? Force Clear & Restart
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return alert("System Status: Not logged into Supabase");
+                const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                if (error) {
+                  alert(`Diagnostic Report:\nStatus: Logged In\nID: ${session.user.id}\nProfile Error: ${error.message}\nAction: Ensure 'profiles' table exists in Supabase!`);
+                } else {
+                  alert(`Diagnostic Report:\nEmail: ${data.email}\nRole: ${data.role}\nAdmin Access: ${data.role === 'admin' ? 'YES' : 'NO'}`);
+                }
+              }}
+              className="text-[9px] font-bold text-[#3D8593] uppercase tracking-widest hover:text-teal-600 transition-all underline underline-offset-4"
+            >
+              Diagnostic: Check My Role Status
             </button>
           </div>
 
