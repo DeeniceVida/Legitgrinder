@@ -57,7 +57,6 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
   blogs, onUpdateBlogs,
-  faqs, onUpdateFaqs,
   pricelist, onUpdatePricelist,
   clients, onUpdateClients,
   invoices, onUpdateInvoices,
@@ -819,14 +818,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="w-full xl:w-80 flex flex-col justify-center gap-6">
                   <div className="grid grid-cols-2 gap-3">
                     {[ConsultationStatus.PENDING, ConsultationStatus.DOABLE, ConsultationStatus.PAID, ConsultationStatus.CANCELLED].map(s => (
-                      <button
-                        key={s}
-                        onClick={async () => {
-                          onUpdateConsultations(consultations.map(item => item.id === c.id ? { ...item, status: s } : item));
-                          await supabase.from('consultations').update({ status: s }).eq('id', c.id);
-                        }}
-                        className={`px-4 py-4 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all ${c.status === s ? 'bg-[#3D8593] text-white shadow-xl' : 'bg-white border border-neutral-100 text-gray-400'}`}
-                      >
+                      <button key={s} onClick={() => onUpdateConsultations(consultations.map(item => item.id === c.id ? { ...item, status: s } : item))} className={`px-4 py-4 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all ${c.status === s ? 'bg-[#3D8593] text-white shadow-xl' : 'bg-white border border-neutral-100 text-gray-400'}`}>
                         {s.split(' ')[0]}
                       </button>
                     ))}

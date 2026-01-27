@@ -14,7 +14,7 @@ import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
 import { supabase } from './src/lib/supabase';
-import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase, fetchConsultations } from './src/services/supabaseData';
+import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase } from './src/services/supabaseData';
 import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
@@ -25,17 +25,11 @@ import {
   Client, Invoice, PricelistItem, Consultation, ConsultationStatus
 } from './types';
 
-console.log('--- LEGITGRINDER APP INITIALIZING (v3.2) ---');
-
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    console.log('App State Check:', { currentPage, isLoggedIn, isAdmin, userEmail: user?.email });
-  }, [currentPage, isLoggedIn, isAdmin, user]);
 
   // --- GLOBAL STATE ---
 
@@ -145,37 +139,7 @@ const App: React.FC = () => {
     return items;
   });
 
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 'p1',
-      name: 'iPhone 15 Pro Max',
-      priceKES: 165000,
-      discountPriceKES: 185000,
-      imageUrls: ['https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800'],
-      variations: [
-        { type: 'Storage', name: '256GB', priceKES: 0 },
-        { type: 'Storage', name: '512GB', priceKES: 25000 }
-      ],
-      availability: Availability.LOCAL,
-      shippingDuration: 'Ready for Pickup',
-      description: 'The definitive iPhone experience with Titanium design and Pro camera system.',
-      category: 'Smartphones',
-      stockCount: 15
-    },
-    {
-      id: 'p2',
-      name: 'MacBook Pro M3',
-      priceKES: 245000,
-      discountPriceKES: 275000,
-      imageUrls: ['https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=800'],
-      variations: [],
-      availability: Availability.IMPORT,
-      shippingDuration: '2 Weeks Air',
-      description: 'The most advanced laptop for builders and creators.',
-      category: 'Laptops',
-      stockCount: 5
-    }
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   // Blogs and FAQs
   const [blogs, setBlogs] = useState<BlogPost[]>([
@@ -241,66 +205,31 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
-      // 1. Fetch Public Data (No Auth Required)
-      try {
-        const [plist, prods] = await Promise.all([
-          fetchPricelistData().catch(() => []),
-          fetchInventoryProducts().catch(() => [])
-        ]);
-        if (plist.length > 0) setPricelist(plist);
-        if (prods.length > 0) setProducts(prods);
-        console.log('Public data loaded:', { pricelist: plist.length, products: prods.length });
-      } catch (e) {
-        console.warn("Public data fetch partially failed", e);
-      }
-
-      // 2. Fetch Admin Data (Only if logged in)
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        try {
-          const [clist, cons] = await Promise.all([
-            fetchClientsData().catch(() => []),
-            fetchConsultations().catch(() => [])
-          ]);
-          if (clist.length > 0) setClients(clist);
-          if (cons.length > 0) setConsultations(cons);
-          console.log('Admin data loaded:', { clients: clist.length, consultations: cons.length });
-        } catch (e) {
-          console.log("Admin data not accessible for this user");
-        }
-      }
+      const [plist, prods, clist] = await Promise.all([
+        fetchPricelistData(),
+        fetchInventoryProducts(),
+        fetchClientsData()
+      ]);
+      if (plist.length > 0) setPricelist(plist);
+      if (prods.length > 0) setProducts(prods);
+      if (clist.length > 0) setClients(clist);
     };
     loadAllData();
   }, []);
 
+  // Auth State Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Supabase Auth Event:', event);
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
 
         // Check for admin role
-        let { data: profile, error } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', session.user.id)
           .single();
-
-        console.log('Profile Fetch Result:', { profile, error });
-
-        // If profile doesn't exist (legacy user), create it
-        if (error && error.code === 'PGRST116') {
-          console.log('Profile missing for user, attempting creation...');
-          const { data: newProfile, error: createError } = await supabase
-            .from('profiles')
-            .upsert({ id: session.user.id, email: session.user.email })
-            .select('role')
-            .single();
-
-          if (createError) console.error('Profile creation failed:', createError);
-          profile = newProfile;
-        }
 
         setIsAdmin(profile?.role === 'admin');
       } else {
@@ -320,72 +249,40 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    console.log('Logout start...');
-    try {
-      await supabase.auth.signOut();
-      localStorage.clear();
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      setUser(null);
-      setCurrentPage('home');
-      window.location.replace('/'); // replace instead of href for cleaner history
-    } catch (err) {
-      console.error('Logout error:', err);
-      window.location.replace('/');
-    }
+    await supabase.auth.signOut();
+    setCurrentPage('home');
   };
 
-  const DebugIndicator = () => (
-    <div style={{ position: 'fixed', bottom: 10, left: 10, zIndex: 9999, padding: '10px', background: 'rgba(0,0,0,0.8)', color: 'white', fontSize: '10px', borderRadius: '10px', pointerEvents: 'none' }}>
-      v3.2 | Auth: {isLoggedIn ? 'IN' : 'OUT'} | Admin: {isAdmin ? 'YES' : 'NO'} | Page: {currentPage}
-    </div>
-  );
-
   const renderPage = () => {
-    try {
-      switch (currentPage) {
-        case 'home': return <Home onNavigate={setCurrentPage} />;
-        case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
-        case 'pricelist': return <Pricelist pricelist={pricelist} />;
-        case 'collaboration': return <Collaboration />;
-        case 'consultation': return <ConsultationPage />;
-        case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
-        case 'calculators': return <Calculators />;
-        case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
-        case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-        case 'admin':
-          if (!isAdmin) {
-            console.warn("Blocked non-admin from admin page");
-            return <Home onNavigate={setCurrentPage} />;
-          }
-          return (
-            <AdminDashboard
-              blogs={blogs}
-              faqs={faqs}
-              onUpdateBlogs={setBlogs}
-              onUpdateFaqs={setFaqs}
-              pricelist={pricelist}
-              onUpdatePricelist={setPricelist}
-              clients={clients}
-              onUpdateClients={setClients}
-              invoices={invoices}
-              onUpdateInvoices={setInvoices}
-              products={products}
-              onUpdateProducts={setProducts}
-              consultations={consultations}
-              onUpdateConsultations={setConsultations}
-            />
-          );
-        default: return <Home onNavigate={setCurrentPage} />;
-      }
-    } catch (err) {
-      console.error("Render Page Crash:", err);
-      return (
-        <div className="pt-48 px-6 text-center">
-          <h2 className="text-2xl font-bold text-rose-600">Something went wrong.</h2>
-          <button onClick={() => window.location.reload()} className="mt-4 px-6 py-2 bg-teal-600 text-white rounded-full">Refresh Page</button>
-        </div>
-      );
+    switch (currentPage) {
+      case 'home': return <Home onNavigate={setCurrentPage} />;
+      case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
+      case 'pricelist': return <Pricelist pricelist={pricelist} />;
+      case 'collaboration': return <Collaboration />;
+      case 'consultation': return <ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />;
+      case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
+      case 'calculators': return <Calculators />;
+      case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
+      case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
+      case 'admin': return isAdmin ? (
+        <AdminDashboard
+          blogs={blogs}
+          faqs={faqs}
+          onUpdateBlogs={setBlogs}
+          onUpdateFaqs={setFaqs}
+          pricelist={pricelist}
+          onUpdatePricelist={setPricelist}
+          clients={clients}
+          onUpdateClients={setClients}
+          invoices={invoices}
+          onUpdateInvoices={setInvoices}
+          products={products}
+          onUpdateProducts={setProducts}
+          consultations={consultations}
+          onUpdateConsultations={setConsultations}
+        />
+      ) : <Home onNavigate={setCurrentPage} />;
+      default: return <Home onNavigate={setCurrentPage} />;
     }
   };
 
@@ -443,7 +340,6 @@ const App: React.FC = () => {
           </div>
         </div>
       </footer>
-      <DebugIndicator />
       <AIAssistant />
     </div>
   );

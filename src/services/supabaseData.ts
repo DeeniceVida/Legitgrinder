@@ -1,5 +1,6 @@
+
 import { supabase } from '../lib/supabase';
-import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus } from '../../types';
+import { PricelistItem, Product, Availability, Client } from '../../types';
 import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
@@ -72,17 +73,17 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
         if (error) throw error;
 
         return data.map((p: any) => ({
-            id: p.id?.toString() || Math.random().toString(),
-            name: p.name || 'Unnamed Product',
-            priceKES: Number(p.price_kes || 0),
-            discountPriceKES: p.discount_price ? Number(p.discount_price) : undefined,
-            imageUrls: (p.images && p.images.length > 0) ? p.images : [p.image || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'],
+            id: p.id.toString(),
+            name: p.name,
+            priceKES: parseFloat(p.price_kes),
+            discountPriceKES: p.discount_price ? parseFloat(p.discount_price) : undefined,
+            imageUrls: p.images && p.images.length > 0 ? p.images : [p.image || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'],
             variations: p.shop_variants || [],
-            availability: p.stock_status as Availability || Availability.LOCAL,
+            availability: p.stock_status as Availability,
             shippingDuration: p.shipping_duration || '2-3 Business Days',
             description: p.description || '',
             category: p.category || 'Electronics',
-            stockCount: Number(p.inventory_quantity || 0)
+            stockCount: parseInt(p.inventory_quantity || 0)
         }));
     } catch (error) {
         console.error('Error fetching inventory:', error);
@@ -141,53 +142,6 @@ export const saveClientToSupabase = async (client: Client): Promise<{ success: b
         return { success: true };
     } catch (error) {
         console.error('Error saving client:', error);
-        return { success: false, error };
-    }
-};
-
-export const fetchConsultations = async (): Promise<Consultation[]> => {
-    try {
-        const { data, error } = await supabase
-            .from('consultations')
-            .select('*')
-            .order('requested_date', { ascending: false });
-
-        if (error) throw error;
-
-        return data.map((c: any) => ({
-            id: c.id?.toString() || Math.random().toString(),
-            name: c.client_name || 'Inquiry',
-            email: c.client_email || 'No Email',
-            phone: c.client_phone || '',
-            whatsapp: c.client_phone || '',
-            date: c.requested_date ? new Date(c.requested_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            time: '00:00',
-            topic: c.topic || 'No topic provided',
-            status: c.status as ConsultationStatus || ConsultationStatus.PENDING,
-            feeUSD: 15
-        }));
-    } catch (error) {
-        console.error('Error fetching consultations:', error);
-        return [];
-    }
-};
-
-export const submitConsultation = async (consultation: Omit<Consultation, 'id' | 'status' | 'feeUSD'>): Promise<{ success: boolean; error?: any }> => {
-    try {
-        const { error } = await supabase
-            .from('consultations')
-            .insert({
-                client_name: consultation.name,
-                client_email: consultation.email,
-                client_phone: consultation.whatsapp,
-                topic: consultation.topic,
-                status: 'pending'
-            });
-
-        if (error) throw error;
-        return { success: true };
-    } catch (error) {
-        console.error('Error submitting consultation:', error);
         return { success: false, error };
     }
 };

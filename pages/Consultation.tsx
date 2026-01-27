@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, MessageSquare, ShieldCheck, User, Mail, Phone, MessageCircle, ArrowRight, Sparkles } from 'lucide-react';
 import { WHATSAPP_NUMBER } from '../constants';
-import { submitConsultation } from '../src/services/supabaseData';
 
 const Consultation: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -15,28 +14,10 @@ const Consultation: React.FC = () => {
     topic: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    const { success } = await submitConsultation({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone || formData.whatsapp, // Ensure phone is provided
-      whatsapp: formData.whatsapp,
-      topic: formData.topic,
-      date: formData.date,
-      time: formData.time
-    });
-
-    if (success) {
-      setIsSubmitted(true);
-    } else {
-      alert('Failed to submit request. Please try again.');
-    }
-    setLoading(false);
+    setIsSubmitted(true);
   };
 
   if (isSubmitted) {
@@ -192,10 +173,9 @@ const Consultation: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={loading}
                 className="btn-vibrant-orange w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
               >
-                {loading ? 'Submitting...' : <>Request Session <ArrowRight className="w-4 h-4" /></>}
+                Request Session <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           </div>
