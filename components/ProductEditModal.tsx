@@ -238,7 +238,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({ product, onClose, o
                         <div className="grid gap-4">
                             {formData.variations.map((v, idx) => (
                                 <div key={idx} className="grid grid-cols-12 gap-4 items-center bg-neutral-50/50 p-6 rounded-[2rem] border border-neutral-100 animate-in slide-in-from-right-4 duration-300">
-                                    <div className="col-span-3">
+                                    <div className="col-span-2">
                                         <select
                                             className="w-full bg-white border-none rounded-xl px-4 py-4 text-[10px] font-black uppercase tracking-widest focus:ring-4 focus:ring-teal-100 transition-all appearance-none cursor-pointer text-gray-600 shadow-sm"
                                             value={v.type}
@@ -251,31 +251,40 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({ product, onClose, o
                                             <option value="Bundle">Bundle</option>
                                         </select>
                                     </div>
-                                    <div className="col-span-4">
+                                    <div className="col-span-3">
                                         <input
                                             className="w-full bg-white border-none rounded-xl px-4 py-4 text-xs font-bold focus:ring-4 focus:ring-teal-100 transition-all shadow-sm"
-                                            placeholder="Variation Name (e.g. Deep Purple)"
+                                            placeholder="Variation Name"
                                             value={v.name}
                                             onChange={e => handleVariationChange(idx, 'name', e.target.value)}
                                         />
                                     </div>
-                                    <div className="col-span-3 relative">
+                                    <div className="col-span-2 relative">
                                         <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-300 pointer-events-none" />
                                         <input
                                             type="number"
                                             className="w-full bg-white border-none rounded-xl pl-10 pr-4 py-4 text-xs font-bold focus:ring-4 focus:ring-teal-100 transition-all shadow-sm"
-                                            placeholder="Price Offset"
+                                            placeholder="Offset"
                                             value={v.priceKES}
                                             onChange={e => handleVariationChange(idx, 'priceKES', parseInt(e.target.value) || 0)}
                                         />
                                     </div>
-                                    <div className="col-span-2 flex justify-end">
+                                    <div className="col-span-4 relative">
+                                        <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-teal-300 pointer-events-none" />
+                                        <input
+                                            className="w-full bg-white border-none rounded-xl pl-10 pr-4 py-4 text-xs font-bold focus:ring-4 focus:ring-teal-100 transition-all shadow-sm"
+                                            placeholder="Image URL (Optional)"
+                                            value={v.imageUrl || ''}
+                                            onChange={e => handleVariationChange(idx, 'imageUrl', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="col-span-1 flex justify-end">
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveVariation(idx)}
-                                            className="p-4 bg-white border border-rose-100 text-rose-300 hover:text-rose-500 hover:border-rose-300 rounded-xl transition-all shadow-sm"
+                                            className="p-3 bg-white border border-rose-100 text-rose-300 hover:text-rose-500 hover:border-rose-300 rounded-xl transition-all shadow-sm"
                                         >
-                                            <Trash2 className="w-5 h-5" />
+                                            <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>

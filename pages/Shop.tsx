@@ -42,7 +42,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           <div className="grid lg:grid-cols-2 gap-16">
             <div className="space-y-6">
               <div className="aspect-square bg-neutral-50 rounded-[2.5rem] overflow-hidden border border-neutral-100 relative">
-                <img src={p.imageUrls[selectedImageIdx]} className="w-full h-full object-cover animate-in fade-in duration-500" alt={p.name} />
+                <img
+                  src={(Object.values(selectedVariations) as ProductVariation[]).find(v => v.imageUrl)?.imageUrl || p.imageUrls[selectedImageIdx]}
+                  className="w-full h-full object-cover animate-in fade-in duration-500"
+                  alt={p.name}
+                />
                 <div className="absolute top-6 left-6 flex flex-col gap-2">
                   <div className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg ${isLocal ? 'bg-green-500 text-white' : 'bg-[#FF9900] text-white'}`}>
                     {isLocal ? 'In Stock' : 'On Import'}

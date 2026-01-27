@@ -146,43 +146,49 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAddProduct = async (newProduct: Product) => {
     setIsUpdating(true);
-    const { data: created, error } = await supabase
-      .from('products')
-      .insert({
-        name: newProduct.name,
-        price_kes: newProduct.priceKES,
-        discount_price: newProduct.discountPriceKES,
-        images: newProduct.imageUrls,
-        stock_status: newProduct.availability,
-        shipping_duration: newProduct.shippingDuration,
-        description: newProduct.description,
-        category: newProduct.category || 'Electronics',
-        inventory_quantity: newProduct.stockCount,
-        shop_variants: newProduct.variations
-      })
-      .select()
-      .single();
+    try {
+      const { data: created, error } = await supabase
+        .from('products')
+        .insert({
+          name: newProduct.name,
+          price_kes: newProduct.priceKES,
+          discount_price: newProduct.discountPriceKES,
+          images: newProduct.imageUrls,
+          stock_status: newProduct.availability,
+          shipping_duration: newProduct.shippingDuration,
+          description: newProduct.description,
+          category: newProduct.category || 'Electronics',
+          inventory_quantity: newProduct.stockCount,
+          shop_variants: newProduct.variations
+        })
+        .select()
+        .single();
 
-    if (!error && created) {
-      const formatted: Product = {
-        id: created.id.toString(),
-        name: created.name,
-        priceKES: parseFloat(created.price_kes),
-        discountPriceKES: created.discount_price ? parseFloat(created.discount_price) : undefined,
-        imageUrls: created.images || [],
-        variations: created.shop_variants || [],
-        availability: created.stock_status as Availability,
-        shippingDuration: created.shipping_duration,
-        description: created.description,
-        category: created.category,
-        stockCount: created.inventory_quantity
-      };
-      onUpdateProducts([formatted, ...products]);
-      setEditingProduct(null);
-    } else {
-      alert('Failed to add product.');
+      if (error) throw error;
+
+      if (created) {
+        const formatted: Product = {
+          id: created.id.toString(),
+          name: created.name,
+          priceKES: parseFloat(created.price_kes),
+          discountPriceKES: created.discount_price ? parseFloat(created.discount_price) : undefined,
+          imageUrls: created.images || [],
+          variations: created.shop_variants || [],
+          availability: created.stock_status as Availability,
+          shippingDuration: created.shipping_duration,
+          description: created.description,
+          category: created.category,
+          stockCount: created.inventory_quantity
+        };
+        onUpdateProducts([formatted, ...products]);
+        setEditingProduct(null);
+      }
+    } catch (err: any) {
+      console.error('Error adding product:', err);
+      alert('Failed to add product: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsUpdating(false);
     }
-    setIsUpdating(false);
   };
 
   const handleDeleteProduct = async (id: string) => {
@@ -215,18 +221,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveProduct = async (updatedProduct: Product) => {
     setIsUpdating(true);
-    if (!updatedProduct.id) {
-      await handleAddProduct(updatedProduct);
-      return;
+    try {
+      if (!updatedProduct.id) {
+        await handleAddProduct(updatedProduct);
+        return;
+      }
+      const success = await updateProduct(updatedProduct);
+      if (success) {
+        onUpdateProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+        setEditingProduct(null);
+      } else {
+        throw new Error('Update failed');
+      }
+    } catch (err: any) {
+      console.error('Error updating product:', err);
+      alert('Failed to update product: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsUpdating(false);
     }
-    const success = await updateProduct(updatedProduct);
-    if (success) {
-      onUpdateProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-      setEditingProduct(null);
-    } else {
-      alert('Failed to update product.');
-    }
-    setIsUpdating(false);
   };
 
   return (
