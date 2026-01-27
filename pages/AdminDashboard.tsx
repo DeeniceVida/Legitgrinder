@@ -157,7 +157,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         shipping_duration: newProduct.shippingDuration,
         description: newProduct.description,
         category: newProduct.category || 'Electronics',
-        inventory_quantity: newProduct.stockCount
+        inventory_quantity: newProduct.stockCount,
+        shop_variants: newProduct.variations
       })
       .select()
       .single();
@@ -169,7 +170,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         priceKES: parseFloat(created.price_kes),
         discountPriceKES: created.discount_price ? parseFloat(created.discount_price) : undefined,
         imageUrls: created.images || [],
-        variations: [],
+        variations: created.shop_variants || [],
         availability: created.stock_status as Availability,
         shippingDuration: created.shipping_duration,
         description: created.description,

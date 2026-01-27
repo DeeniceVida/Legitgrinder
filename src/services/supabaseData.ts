@@ -225,7 +225,8 @@ export const updateProduct = async (product: Product): Promise<boolean> => {
                 shipping_duration: product.shippingDuration,
                 description: product.description,
                 category: product.category,
-                inventory_quantity: product.stockCount
+                inventory_quantity: product.stockCount,
+                shop_variants: product.variations
             })
             .eq('id', product.id);
 

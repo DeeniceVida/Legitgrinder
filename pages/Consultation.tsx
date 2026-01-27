@@ -187,11 +187,25 @@ const Consultation: React.FC = () => {
                 </div>
               </div>
 
+              {error && (
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-500 text-sm font-bold animate-in slide-in-from-top-4">
+                  <ShieldCheck className="w-5 h-5" />
+                  {error}
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="btn-vibrant-orange w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
+                disabled={loading}
+                className="btn-vibrant-orange w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group transition-all"
               >
-                Request Session <ArrowRight className="w-4 h-4" />
+                {loading ? (
+                  <Sparkles className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    Request Session <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
             </form>
           </div>
