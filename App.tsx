@@ -13,8 +13,7 @@ import ConsultationPage from './pages/Consultation';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
-import { supabase } from './src/lib/supabase';
-import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase } from './src/services/supabaseData';
+import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase, fetchConsultationsData, fetchInvoicesData } from './src/services/supabaseData';
 import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
@@ -300,8 +299,7 @@ const App: React.FC = () => {
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
       case 'pricelist': return <Pricelist pricelist={pricelist} />;
       case 'collaboration': return <Collaboration />;
-      case 'consultation': return <ConsultationPage onSubmit={async (c) => {
-        const { fetchConsultationsData } = await import('./src/services/supabaseData');
+      case 'consultation': return <ConsultationPage onSubmit={async () => {
         const updated = await fetchConsultationsData();
         setConsultations(updated);
       }} />;
@@ -309,7 +307,7 @@ const App: React.FC = () => {
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-      case 'admin': return (isAdmin || user?.email === 'mungaimports@gmail.com') ? (
+      case 'admin': return (isAdmin || user?.email?.toLowerCase() === 'mungaimports@gmail.com') ? (
         <AdminDashboard
           blogs={blogs}
           faqs={faqs}
@@ -337,7 +335,7 @@ const App: React.FC = () => {
         onNavigate={setCurrentPage}
         currentPage={currentPage}
         isLoggedIn={isLoggedIn}
-        isAdmin={isAdmin}
+        isAdmin={isAdmin || user?.email?.toLowerCase() === 'mungaimports@gmail.com'}
         onLogout={handleLogout}
       />
 

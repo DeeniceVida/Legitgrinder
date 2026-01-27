@@ -117,9 +117,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 if (!session) return alert("System Status: Not logged into Supabase");
                 const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
                 if (error) {
-                  alert(`Diagnostic Report:\nStatus: Logged In\nID: ${session.user.id}\nProfile Error: ${error.message}\nAction: Ensure 'profiles' table exists in Supabase!`);
+                  alert(`Diagnostic Report:\nStatus: Logged In\nID: ${session.user.id}\nProfile Error: ${error.message}\nAction: Ensure 'profiles' table exists!`);
                 } else {
-                  alert(`Diagnostic Report:\nEmail: ${data.email}\nRole: ${data.role}\nAdmin Access: ${data.role === 'admin' ? 'YES' : 'NO'}`);
+                  alert(`Diagnostic Report:\nRegistered ID: ${data.id}\nYour Session ID: ${session.user.id}\nEmail: ${data.email}\nRole: ${data.role}\nAdmin Access: ${data.role === 'admin' ? 'YES' : 'NO'}`);
                 }
               }}
               className="text-[9px] font-bold text-[#3D8593] uppercase tracking-widest hover:text-teal-600 transition-all underline underline-offset-4"
