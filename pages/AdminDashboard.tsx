@@ -147,37 +147,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleSaveProduct = async (productData: Product) => {
     setIsUpdating(true);
     try {
-      // 1. Prepare data for Supabase (mapping camelCase to snake_case)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Authentication Error: No active session. Please refresh.');
+        return;
+      }
+
       const isNew = !productData.id || productData.id === '';
       const payload: any = {
         name: productData.name,
         price_kes: productData.priceKES,
         discount_price: productData.discountPriceKES || null,
-        images: productData.imageUrls.filter(u => u.trim() !== ''),
+        images: productData.imageUrls.filter(u => u && u.trim() !== ''),
         stock_status: productData.availability,
         shipping_duration: productData.shippingDuration || '',
         description: productData.description || '',
         category: productData.category || 'General',
         inventory_quantity: productData.stockCount || 0,
-        shop_variants: productData.variations || []
+        shop_variants: productData.variations || [],
+        brand: 'general',
+        series: 'standard',
+        capacities: []
       };
 
-      // 2. Add ID only if it's an update
-      if (!isNew) {
-        payload.id = parseInt(productData.id);
+      let query;
+      if (isNew) {
+        query = supabase.from('products').insert(payload);
+      } else {
+        query = supabase.from('products').update(payload).eq('id', parseInt(productData.id));
       }
 
-      // 3. Execute Upsert
-      const { data, error } = await supabase
-        .from('products')
-        .upsert(payload)
-        .select()
-        .single();
+      const { data, error } = await query.select().single();
 
       if (error) throw error;
 
       if (data) {
-        // 4. Format the returned data back to Product type
         const formatted: Product = {
           id: data.id.toString(),
           name: data.name,
@@ -192,7 +196,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           stockCount: data.inventory_quantity
         };
 
-        // 5. Update local state
         if (isNew) {
           onUpdateProducts([formatted, ...products]);
         } else {
@@ -200,11 +203,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
 
         setEditingProduct(null);
-        alert('Inventory updated successfully!');
+        alert('SUCCESS: Inventory unit synchronized.');
       }
     } catch (err: any) {
       console.error('Save Error:', err);
-      alert('Save failed: ' + (err.message || 'Check database permissions'));
+      alert(`CRITICAL ERROR\n\nCode: ${err.code || 'None'}\nMessage: ${err.message || 'Unknown'}`);
     } finally {
       setIsUpdating(false);
     }
