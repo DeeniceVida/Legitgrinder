@@ -57,6 +57,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
   blogs, onUpdateBlogs,
+  faqs, onUpdateFaqs,
   pricelist, onUpdatePricelist,
   clients, onUpdateClients,
   invoices, onUpdateInvoices,

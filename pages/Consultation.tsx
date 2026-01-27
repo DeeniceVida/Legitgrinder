@@ -192,9 +192,10 @@ const Consultation: React.FC = () => {
 
               <button
                 type="submit"
+                disabled={loading}
                 className="btn-vibrant-orange w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
               >
-                Request Session <ArrowRight className="w-4 h-4" />
+                {loading ? 'Submitting...' : <>Request Session <ArrowRight className="w-4 h-4" /></>}
               </button>
             </form>
           </div>

@@ -306,7 +306,7 @@ const App: React.FC = () => {
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
       case 'pricelist': return <Pricelist pricelist={pricelist} />;
       case 'collaboration': return <Collaboration />;
-      case 'consultation': return <ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />;
+      case 'consultation': return <ConsultationPage />;
       case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
