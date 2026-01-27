@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { PricelistItem, Product, Availability, Client } from '../../types';
+import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus, Invoice, OrderStatus } from '../../types';
 import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
@@ -116,6 +116,82 @@ export const fetchClientsData = async (): Promise<Client[]> => {
     } catch (error) {
         console.error('Error fetching clients:', error);
         return [];
+    }
+};
+
+export const fetchConsultationsData = async (): Promise<Consultation[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone || '',
+            whatsapp: c.whatsapp || '',
+            date: c.date,
+            time: c.time,
+            topic: c.topic,
+            status: c.status as ConsultationStatus,
+            feeUSD: c.fee_usd || 15
+        }));
+    } catch (error) {
+        console.error('Error fetching consultations:', error);
+        return [];
+    }
+};
+
+export const fetchInvoicesData = async (): Promise<Invoice[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('invoices')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((i: any) => ({
+            id: i.id,
+            invoiceNumber: i.invoice_number,
+            clientName: i.client_name,
+            productName: i.product_name,
+            status: i.status as OrderStatus,
+            progress: i.progress || 0,
+            lastUpdate: i.last_update || 'Just now',
+            isPaid: i.is_paid || false
+        }));
+    } catch (error) {
+        console.error('Error fetching invoices:', error);
+        return [];
+    }
+};
+
+export const saveConsultationData = async (consultation: Partial<Consultation>): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('consultations')
+            .insert({
+                name: consultation.name,
+                email: consultation.email,
+                phone: consultation.phone,
+                whatsapp: consultation.whatsapp,
+                date: consultation.date,
+                time: consultation.time,
+                topic: consultation.topic,
+                status: 'Pending',
+                fee_usd: 15
+            });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving consultation:', error);
+        return { success: false, error };
     }
 };
 

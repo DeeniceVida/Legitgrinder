@@ -205,14 +205,20 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
-      const [plist, prods, clist] = await Promise.all([
+      const [plist, prods, clist, conlist, invlist] = await Promise.all([
         fetchPricelistData(),
         fetchInventoryProducts(),
-        fetchClientsData()
+        fetchClientsData(),
+        // New: Dynamic Fetch
+        (await import('./src/services/supabaseData')).fetchConsultationsData(),
+        (await import('./src/services/supabaseData')).fetchInvoicesData()
       ]);
+
       if (plist.length > 0) setPricelist(plist);
       if (prods.length > 0) setProducts(prods);
       if (clist.length > 0) setClients(clist);
+      if (conlist.length > 0) setConsultations(conlist);
+      if (invlist.length > 0) setInvoices(invlist);
     };
     loadAllData();
   }, []);
@@ -226,6 +232,8 @@ const App: React.FC = () => {
         setUser(session.user);
         setIsLoggedIn(true);
 
+        const isOwner = session.user.email === 'mungaimports@gmail.com';
+
         try {
           // Fetch existing profile
           let { data: profile, error } = await supabase
@@ -236,34 +244,29 @@ const App: React.FC = () => {
 
           // FALLBACK: Create profile if it doesn't exist
           if (error && (error.code === 'PGRST116' || error.message?.includes('not found'))) {
-            console.log('Profile missing for user, initializing default profile...');
             const { data: newProfile, error: insertError } = await supabase
               .from('profiles')
               .upsert({
                 id: session.user.id,
                 email: session.user.email,
-                role: 'user',
+                role: isOwner ? 'admin' : 'user',
                 updated_at: new Date().toISOString()
               })
               .select()
               .single();
 
             if (!insertError) profile = newProfile;
-            else console.error('Failed to create fallback profile:', insertError);
           }
 
-          if (profile) {
-            console.log('--- SESSION DIAGNOSTIC ---');
-            console.log('User ID:', session.user.id);
-            console.log('Profile found:', profile);
-            console.log('Role matches "admin":', profile.role === 'admin');
-            setIsAdmin(profile.role === 'admin');
+          if (profile || isOwner) {
+            // SUPERUSER OVERRIDE: Owner is ALWAYS admin
+            setIsAdmin(isOwner || profile?.role === 'admin');
           }
         } catch (err) {
           console.error('Critical Auth Error:', err);
+          if (isOwner) setIsAdmin(true);
         }
       } else {
-        console.log('Session cleared');
         setUser(null);
         setIsLoggedIn(false);
         setIsAdmin(false);
@@ -276,23 +279,17 @@ const App: React.FC = () => {
   const handleLoginSuccess = (isAdminLogin: boolean = false) => {
     setIsLoggedIn(true);
     setIsAdmin(isAdminLogin);
-    // If admin, go to dashboard, else home
     setCurrentPage(isAdminLogin ? 'admin' : 'home');
   };
 
   const handleLogout = async () => {
-    console.log('Initiating logout...');
-    // CLEAR EVERYTHING IMMEDIATELY
     setUser(null);
     setIsLoggedIn(false);
     setIsAdmin(false);
-
     try {
       await supabase.auth.signOut();
-      console.log('Supabase signout complete. Redirecting...');
-      window.location.href = '/'; // Force a hard refresh and go home
+      window.location.href = '/';
     } catch (err) {
-      console.error('Sign out failed:', err);
       window.location.reload();
     }
   };
@@ -303,12 +300,16 @@ const App: React.FC = () => {
       case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
       case 'pricelist': return <Pricelist pricelist={pricelist} />;
       case 'collaboration': return <Collaboration />;
-      case 'consultation': return <ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />;
+      case 'consultation': return <ConsultationPage onSubmit={async (c) => {
+        const { fetchConsultationsData } = await import('./src/services/supabaseData');
+        const updated = await fetchConsultationsData();
+        setConsultations(updated);
+      }} />;
       case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-      case 'admin': return isAdmin ? (
+      case 'admin': return (isAdmin || user?.email === 'mungaimports@gmail.com') ? (
         <AdminDashboard
           blogs={blogs}
           faqs={faqs}
