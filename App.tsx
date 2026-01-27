@@ -31,6 +31,10 @@ const App: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
 
+  useEffect(() => {
+    console.log('App State Check:', { currentPage, isLoggedIn, isAdmin, userEmail: user?.email });
+  }, [currentPage, isLoggedIn, isAdmin, user]);
+
   // --- GLOBAL STATE ---
 
   // Pricelist State - Starting with mock data so the list is never empty
@@ -253,9 +257,9 @@ const App: React.FC = () => {
     loadAllData();
   }, []);
 
-  // Auth State Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Supabase Auth Event:', event);
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
@@ -267,13 +271,18 @@ const App: React.FC = () => {
           .eq('id', session.user.id)
           .single();
 
+        console.log('Profile Fetch Result:', { profile, error });
+
         // If profile doesn't exist (legacy user), create it
         if (error && error.code === 'PGRST116') {
-          const { data: newProfile } = await supabase
+          console.log('Profile missing for user, attempting creation...');
+          const { data: newProfile, error: createError } = await supabase
             .from('profiles')
-            .insert({ id: session.user.id, email: session.user.email })
+            .upsert({ id: session.user.id, email: session.user.email })
             .select('role')
             .single();
+
+          if (createError) console.error('Profile creation failed:', createError);
           profile = newProfile;
         }
 
@@ -295,9 +304,16 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setCurrentPage('home');
-    window.location.reload(); // Ensure clean state
+    console.log('Initiating logout...');
+    try {
+      await supabase.auth.signOut();
+      localStorage.clear(); // Nuclear option for stuck sessions
+      setCurrentPage('home');
+      window.location.href = '/'; // Hard redirect to clear all states
+    } catch (err) {
+      console.error('Logout error:', err);
+      window.location.href = '/';
+    }
   };
 
   const renderPage = () => {

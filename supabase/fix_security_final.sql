@@ -18,9 +18,10 @@ CREATE POLICY "Users can view their own profile" ON public.profiles
 
 -- NON_RECURSIVE: Admin check using a specific clause that doesn't trigger SELECT recursion on the same table
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
--- We'll rely on the 'Users can view their own profile' for admin's own visibility, 
--- and use a more specific check for the 'all' case if needed.
--- In most cases, admins just need to see everyone.
+CREATE POLICY "Admins can view all profiles" ON public.profiles
+    FOR SELECT USING (
+        (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+    );
 
 -- 2. CLIENTS TABLE (PII Protection)
 DO $$ 
