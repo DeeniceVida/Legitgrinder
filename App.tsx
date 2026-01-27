@@ -265,8 +265,17 @@ const App: React.FC = () => {
       setCurrentPage('home');
       console.log('Logged out successfully');
     } catch (err: any) {
-      console.error('Unexpected logout error:', err);
-      alert(`Unexpected logout error: ${err.message}`);
+      // Ignore abort errors - they're harmless
+      if (err.message?.includes('aborted')) {
+        console.log('Logout aborted (normal), clearing session anyway');
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+        setUser(null);
+        setCurrentPage('home');
+      } else {
+        console.error('Unexpected logout error:', err);
+        alert(`Unexpected logout error: ${err.message}`);
+      }
     }
   };
 
