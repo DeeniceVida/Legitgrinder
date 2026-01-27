@@ -29,10 +29,10 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = fals
     <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-7xl">
       <div className="glass rounded-[1.8rem] px-6 py-3 flex justify-between items-center shadow-xl shadow-teal-900/5 border-white/50">
         <div className="flex items-center cursor-pointer group" onClick={() => onNavigate('home')}>
-          <img 
-            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg" 
-            className="h-10 w-auto rounded-lg transition-transform group-hover:scale-110" 
-            alt="LegitGrinder Logo" 
+          <img
+            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg"
+            className="h-10 w-auto rounded-lg transition-transform group-hover:scale-110"
+            alt="LegitGrinder Logo"
           />
           <div className="ml-3 flex flex-col">
             <span className="text-sm font-black text-gray-900 tracking-tight leading-none">LEGIT GRINDER</span>
@@ -46,11 +46,10 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = fals
             <button
               key={link.id}
               onClick={() => onNavigate(link.id)}
-              className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                currentPage === link.id 
-                  ? 'bg-white text-[#3D8593] shadow-md shadow-teal-900/5' 
+              className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === link.id
+                  ? 'bg-white text-[#3D8593] shadow-md shadow-teal-900/5'
                   : 'text-gray-400 hover:text-[#FF9900]'
-              }`}
+                }`}
             >
               {link.name}
             </button>
@@ -58,11 +57,11 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = fals
         </div>
 
         <div className="flex items-center space-x-3">
-          <button 
+          <button
             onClick={() => onNavigate('login')}
-            className="hidden md:flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-4 md:px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
           >
-            <User className="w-3.5 h-3.5" /> Account
+            <User className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Account</span>
           </button>
           <button className="lg:hidden p-2 text-gray-900" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -81,13 +80,22 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = fals
                   onNavigate(link.id);
                   setIsOpen(false);
                 }}
-                className={`text-xl font-bold p-4 rounded-2xl text-left transition-all ${
-                  currentPage === link.id ? 'bg-teal-50 text-[#3D8593]' : 'text-gray-400 hover:text-[#FF9900]'
-                }`}
+                className={`text-xl font-bold p-4 rounded-2xl text-left transition-all ${currentPage === link.id ? 'bg-teal-50 text-[#3D8593]' : 'text-gray-400 hover:text-[#FF9900]'
+                  }`}
               >
                 {link.name}
               </button>
             ))}
+            <div className="h-px bg-gray-100 my-2"></div>
+            <button
+              onClick={() => {
+                onNavigate('login');
+                setIsOpen(false);
+              }}
+              className="text-xl font-bold p-4 rounded-2xl text-left text-[#3D8593] flex items-center gap-3"
+            >
+              <User className="w-5 h-5" /> Account / Login
+            </button>
           </div>
         </div>
       )}
