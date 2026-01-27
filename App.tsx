@@ -278,17 +278,19 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    // CLEAR EVERYTHING IMMEDIATELY (Optimistic)
+    console.log('Initiating logout...');
+    // CLEAR EVERYTHING IMMEDIATELY
     setUser(null);
     setIsLoggedIn(false);
     setIsAdmin(false);
-    setCurrentPage('home');
 
     try {
       await supabase.auth.signOut();
-      console.log('Signed out successfully');
+      console.log('Supabase signout complete. Redirecting...');
+      window.location.href = '/'; // Force a hard refresh and go home
     } catch (err) {
       console.error('Sign out failed:', err);
+      window.location.reload();
     }
   };
 
