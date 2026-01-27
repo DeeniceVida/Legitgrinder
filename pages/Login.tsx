@@ -42,35 +42,43 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
+      if (isLogin) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
 
-      if (error) {
-        alert(`Login failed: ${error.message}`);
-        setLoading(false);
-        return;
+        if (error) throw error;
+
+        // Check for admin role in profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .single();
+
+        onLoginSuccess(profile?.role === 'admin');
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: formData.name,
+              phone: formData.phone,
+            }
+          }
+        });
+
+        if (error) throw error;
+
+        if (data.user) {
+          alert('Registration successful! Please check your email for confirmation.');
+          setIsLogin(true);
+        }
       }
-
-      // Check if user has admin role in profiles table
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
-
-      const isAdmin = profile?.role === 'admin';
-
-      onLoginSuccess(isAdmin, {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
-        interests: selectedInterests
-      });
     } catch (err: any) {
-      alert(`Unexpected error: ${err.message}`);
+      alert(`Authentication failed: ${err.message}`);
     } finally {
       setLoading(false);
     }

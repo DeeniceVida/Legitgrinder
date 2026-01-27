@@ -139,7 +139,37 @@ const App: React.FC = () => {
     return items;
   });
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([
+    {
+      id: 'p1',
+      name: 'iPhone 15 Pro Max',
+      priceKES: 165000,
+      discountPriceKES: 185000,
+      imageUrls: ['https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800'],
+      variations: [
+        { type: 'Storage', name: '256GB', priceKES: 0 },
+        { type: 'Storage', name: '512GB', priceKES: 25000 }
+      ],
+      availability: Availability.LOCAL,
+      shippingDuration: 'Ready for Pickup',
+      description: 'The definitive iPhone experience with Titanium design and Pro camera system.',
+      category: 'Smartphones',
+      stockCount: 15
+    },
+    {
+      id: 'p2',
+      name: 'MacBook Pro M3',
+      priceKES: 245000,
+      discountPriceKES: 275000,
+      imageUrls: ['https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=800'],
+      variations: [],
+      availability: Availability.IMPORT,
+      shippingDuration: '2 Weeks Air',
+      description: 'The most advanced laptop for builders and creators.',
+      category: 'Laptops',
+      stockCount: 5
+    }
+  ]);
 
   // Blogs and FAQs
   const [blogs, setBlogs] = useState<BlogPost[]>([
@@ -205,16 +235,20 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
-      const [plist, prods, clist, cons] = await Promise.all([
-        fetchPricelistData(),
-        fetchInventoryProducts(),
-        fetchClientsData(),
-        fetchConsultations()
-      ]);
-      if (plist.length > 0) setPricelist(plist);
-      if (prods.length > 0) setProducts(prods);
-      if (clist.length > 0) setClients(clist);
-      if (cons.length > 0) setConsultations(cons);
+      try {
+        const [plist, prods, clist, cons] = await Promise.all([
+          fetchPricelistData(),
+          fetchInventoryProducts(),
+          fetchClientsData(),
+          fetchConsultations()
+        ]);
+        if (plist.length > 0) setPricelist(plist);
+        if (prods.length > 0) setProducts(prods);
+        if (clist.length > 0) setClients(clist);
+        if (cons.length > 0) setConsultations(cons);
+      } catch (e) {
+        console.warn("Could not fetch remote data, using local mocks", e);
+      }
     };
     loadAllData();
   }, []);
@@ -227,11 +261,21 @@ const App: React.FC = () => {
         setIsLoggedIn(true);
 
         // Check for admin role
-        const { data: profile } = await supabase
+        let { data: profile, error } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', session.user.id)
           .single();
+
+        // If profile doesn't exist (legacy user), create it
+        if (error && error.code === 'PGRST116') {
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .insert({ id: session.user.id, email: session.user.email })
+            .select('role')
+            .single();
+          profile = newProfile;
+        }
 
         setIsAdmin(profile?.role === 'admin');
       } else {
@@ -253,6 +297,7 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setCurrentPage('home');
+    window.location.reload(); // Ensure clean state
   };
 
   const renderPage = () => {
