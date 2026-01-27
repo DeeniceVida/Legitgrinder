@@ -266,6 +266,14 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Auto-redirect when logged in to prevent "stuck" processing UI
+  useEffect(() => {
+    if (isLoggedIn && currentPage === 'login') {
+      console.log('User logged in, auto-redirecting to home');
+      setCurrentPage('home');
+    }
+  }, [isLoggedIn, currentPage]);
+
   const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {
     setIsLoggedIn(true);
     setIsAdmin(isAdminLogin);

@@ -45,9 +45,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Optimized: Don't wait for profile fetch here. 
-        // Let the central App.tsx listener handle the role detection.
-        onLoginSuccess(data.user?.email === 'mungaimports@gmail.com', data.user);
+        // Central App.tsx logic handles redirection and admin state
+        onLoginSuccess(false, data.user);
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
