@@ -220,22 +220,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleSaveProduct = async (updatedProduct: Product) => {
+    alert('Dashboard Header: Starting Save Process');
     setIsUpdating(true);
     try {
-      if (!updatedProduct.id) {
+      if (!updatedProduct.id || updatedProduct.id === '') {
+        alert('Dashboard: Routing to CREATE NEW');
         await handleAddProduct(updatedProduct);
         return;
       }
+
+      alert('Dashboard: Calling Service for ID ' + updatedProduct.id);
       const result = await updateProduct(updatedProduct);
+
       if (result === true) {
+        alert('Dashboard: SERVICE RETURNED SUCCESS');
         onUpdateProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
         setEditingProduct(null);
       } else {
+        alert('Dashboard: SERVICE RETURNED FAILURE: ' + result);
         throw new Error(typeof result === 'string' ? result : 'Update failed');
       }
     } catch (err: any) {
+      alert('Dashboard: EXCEPTION CAUGHT: ' + err.message);
       console.error('Error updating product:', err);
-      alert('Failed to update product: ' + (err.message || 'Unknown error'));
     } finally {
       setIsUpdating(false);
     }

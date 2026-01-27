@@ -214,6 +214,7 @@ export const updateConsultationStatus = async (id: string, status: ConsultationS
 
 export const updateProduct = async (product: Product): Promise<boolean | string> => {
     try {
+        alert('Supabase Service: Starting update for ID ' + product.id);
         const { error, count } = await supabase
             .from('products')
             .update({
@@ -228,12 +229,19 @@ export const updateProduct = async (product: Product): Promise<boolean | string>
                 inventory_quantity: product.stockCount,
                 shop_variants: product.variations
             }, { count: 'exact' })
-            .eq('id', product.id);
+            .eq('id', parseInt(product.id));
 
-        if (error) throw error;
-        if (count === 0) return 'Product not found (ID mismatch)';
+        if (error) {
+            alert('Supabase Service: ERROR - ' + error.message);
+            console.error('Supabase Update Error:', error);
+            return error.message;
+        }
+
+        alert('Supabase Service: DONE. Count = ' + count);
+        if (count === 0) return 'Product not found (ID: ' + product.id + ')';
         return true;
     } catch (error: any) {
+        alert('Supabase Service: CATCH - ' + (error.message || 'Unknown error'));
         console.error('Error updating product:', error);
         return error.message || 'Unknown database error';
     }
