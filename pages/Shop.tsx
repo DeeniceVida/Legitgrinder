@@ -49,7 +49,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   </div>
                   {p.stockCount !== undefined && p.stockCount > 0 && p.stockCount <= 5 && (
                     <div className="px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest bg-rose-500 text-white shadow-xl animate-pulse">
-                      Low Stock: {p.stockCount} Units Left
+                      Low Stock
                     </div>
                   )}
                   {p.stockCount !== undefined && p.stockCount === 0 && (
@@ -185,7 +185,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 </div>
                 {p.stockCount !== undefined && p.stockCount > 0 && p.stockCount <= 5 && (
                   <div className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-xl animate-pulse">
-                    Low Stock: Only {p.stockCount} Left
+                    Low Stock
                   </div>
                 )}
                 {p.stockCount !== undefined && p.stockCount === 0 && (
