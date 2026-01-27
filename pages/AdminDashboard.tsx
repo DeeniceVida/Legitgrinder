@@ -158,6 +158,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       shippingDuration: formData.get('shippingDuration') as string,
       description: formData.get('description') as string,
       category: formData.get('category') as string,
+      stockCount: parseInt(formData.get('stockCount') as string) || 0,
     };
 
     if (productData.imageUrls.length === 0) {
@@ -183,6 +184,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           shipping_duration: productData.shippingDuration,
           description: productData.description,
           category: productData.category,
+          inventory_quantity: productData.stockCount,
         });
 
       if (error) {
@@ -984,6 +986,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         name="shippingDuration"
                         defaultValue={typeof editingProduct === 'object' ? editingProduct.shippingDuration : '2-3 Weeks Air'}
                         className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Box className="w-3.5 h-3.5" /> Available Stock</label>
+                      <input
+                        required
+                        type="number"
+                        name="stockCount"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.stockCount : 0}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                        placeholder="0"
                       />
                     </div>
                   </div>

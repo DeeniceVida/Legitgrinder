@@ -43,8 +43,20 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
             <div className="space-y-6">
               <div className="aspect-square bg-neutral-50 rounded-[2.5rem] overflow-hidden border border-neutral-100 relative">
                 <img src={p.imageUrls[selectedImageIdx]} className="w-full h-full object-cover animate-in fade-in duration-500" alt={p.name} />
-                <div className={`absolute top-6 left-6 px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg ${isLocal ? 'bg-green-500 text-white' : 'bg-[#FF9900] text-white'}`}>
-                  {isLocal ? 'In Stock' : 'On Import'}
+                <div className="absolute top-6 left-6 flex flex-col gap-2">
+                  <div className={`px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg ${isLocal ? 'bg-green-500 text-white' : 'bg-[#FF9900] text-white'}`}>
+                    {isLocal ? 'In Stock' : 'On Import'}
+                  </div>
+                  {p.stockCount !== undefined && p.stockCount > 0 && p.stockCount <= 5 && (
+                    <div className="px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest bg-rose-500 text-white shadow-xl animate-pulse">
+                      Low Stock: {p.stockCount} Units Left
+                    </div>
+                  )}
+                  {p.stockCount !== undefined && p.stockCount === 0 && (
+                    <div className="px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest bg-gray-500 text-white shadow-xl">
+                      Out of Stock
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-4">
@@ -167,7 +179,21 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           <div key={p.id} className="group flex flex-col cursor-pointer text-left animate-in fade-in slide-in-from-bottom-8">
             <div className="aspect-[4/5] bg-neutral-100 relative overflow-hidden rounded-[3rem] mb-8 shadow-sm group-hover:shadow-2xl transition-all border border-white">
               <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
-              <div className={`absolute top-6 right-6 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] ${p.availability === Availability.LOCAL ? 'bg-green-500 text-white' : 'bg-[#FF9900] text-white'}`}>{p.availability}</div>
+              <div className="absolute top-6 right-6 flex gap-2">
+                <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-[#3D8593] text-white' : 'bg-[#FF9900] text-white'}`}>
+                  {p.availability}
+                </div>
+                {p.stockCount !== undefined && p.stockCount > 0 && p.stockCount <= 5 && (
+                  <div className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white shadow-xl animate-pulse">
+                    Low Stock: Only {p.stockCount} Left
+                  </div>
+                )}
+                {p.stockCount !== undefined && p.stockCount === 0 && (
+                  <div className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-gray-500 text-white shadow-xl">
+                    Out of Stock
+                  </div>
+                )}
+              </div>
             </div>
             <div className="px-4 flex justify-between items-center">
               <div>

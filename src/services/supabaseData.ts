@@ -82,7 +82,8 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
             availability: p.stock_status as Availability,
             shippingDuration: p.shipping_duration || '2-3 Business Days',
             description: p.description || '',
-            category: p.category || 'Electronics'
+            category: p.category || 'Electronics',
+            stockCount: parseInt(p.inventory_quantity || 0)
         }));
     } catch (error) {
         console.error('Error fetching inventory:', error);

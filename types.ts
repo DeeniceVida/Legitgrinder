@@ -62,6 +62,7 @@ export interface Product {
   shippingDuration?: string;
   description: string;
   category: string;
+  stockCount?: number;
 }
 
 export interface Invoice {
