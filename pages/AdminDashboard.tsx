@@ -182,7 +182,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           category: productData.category,
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        alert(`Failed to save to database: ${error.message} (${error.details || 'no details'})`);
+        return;
+      }
 
       // Update local state
       if (editingProduct === 'new') {
@@ -191,9 +195,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onUpdateProducts(products.map(p => p.id === productData.id ? productData : p));
       }
       setEditingProduct(null);
-    } catch (err) {
-      console.error('Error saving product:', err);
-      alert('Failed to save product to database.');
+    } catch (err: any) {
+      console.error('Unexpected error:', err);
+      alert(`An unexpected error occurred: ${err.message || 'Unknown error'}`);
     }
   };
 
