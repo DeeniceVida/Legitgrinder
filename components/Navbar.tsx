@@ -13,6 +13,8 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = false, isAdmin = false, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  console.log('Navbar State:', { isLoggedIn, isAdmin, hasLogoutHandler: !!onLogout });
+
   const navLinks = [
     { name: 'Shop', id: 'shop' },
     { name: 'Pricelist', id: 'pricelist' },

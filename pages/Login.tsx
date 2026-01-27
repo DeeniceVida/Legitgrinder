@@ -102,6 +102,16 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <button onClick={() => setIsLogin(false)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${!isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Join Elite</button>
           </div>
 
+          <div className="text-center mb-6">
+            <button
+              type="button"
+              onClick={() => { supabase.auth.signOut().then(() => window.location.reload()) }}
+              className="text-[9px] font-bold text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-all underline underline-offset-4"
+            >
+              Session Stuck? Force Clear & Restart
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
             {!isLogin && (
               <div className="grid md:grid-cols-2 gap-6">
