@@ -168,50 +168,72 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     try {
       setIsSaving(true);
-      console.log('Starting product save...', productData);
+      console.log('Starting product save process...');
 
-      // Persist to Supabase
-      const { error } = await supabase
-        .from('products')
-        .upsert({
-          id: isNaN(parseInt(productId)) ? undefined : parseInt(productId), // If it's a temp ID, let Supabase generate one
-          name: productData.name,
-          brand: 'General', // Default for shop products
-          series: 'Shop',   // Default for shop products
-          capacities: [],   // Default for shop products
-          price_kes: productData.priceKES,
-          discount_price: productData.discountPriceKES,
-          image: productData.imageUrls[0],
-          images: productData.imageUrls,
-          shop_variants: productData.variations,
-          stock_status: productData.availability,
-          shipping_duration: productData.shippingDuration,
-          description: productData.description,
-          category: productData.category,
-          inventory_quantity: productData.stockCount,
-        });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        alert(`Failed to save to database: ${error.message} (${error.details || 'no details'})`);
+      // 0. Verify Session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error('Session error or missing:', sessionError);
+        alert('Authentication failed. Please sign out and sign back in to ensure you have active admin credentials.');
+        setIsSaving(false);
         return;
       }
 
-      console.log('Product saved successfully');
+      console.log('Session verified:', session.user.id);
+      console.log('Product data payload:', productData);
 
-      // Update local state
-      if (editingProduct === 'new') {
-        onUpdateProducts([...products, productData]);
+      const isNew = editingProduct === 'new' || isNaN(parseInt(productId));
+      const dbPayload = {
+        name: productData.name,
+        brand: 'General',
+        series: 'Shop',
+        capacities: [],
+        price_kes: productData.priceKES,
+        discount_price: productData.discountPriceKES,
+        image: productData.imageUrls[0],
+        images: productData.imageUrls,
+        shop_variants: productData.variations,
+        stock_status: productData.availability,
+        shipping_duration: productData.shippingDuration,
+        description: productData.description,
+        category: productData.category,
+        inventory_quantity: productData.stockCount,
+        origin: 'USA' // Added default for consistency
+      };
+
+      let result;
+      if (isNew) {
+        console.log('Executing INSERT for new product');
+        result = await supabase.from('products').insert(dbPayload).select().single();
       } else {
-        onUpdateProducts(products.map(p => p.id === productData.id ? productData : p));
+        const id = parseInt(productId);
+        console.log(`Executing UPDATE for product ID: ${id}`);
+        result = await supabase.from('products').update(dbPayload).eq('id', id).select().single();
+      }
+
+      const { data: savedData, error } = result;
+
+      if (error) {
+        console.error('Database operation failed:', error);
+        alert(`Failed to save: ${error.message}${error.details ? '\nDetails: ' + error.details : ''}\n\nHint: Ensure your account has admin privileges in the "profiles" table.`);
+        return;
+      }
+
+      console.log('Product saved successfully:', savedData);
+
+      // Update local state - use the returned ID from Supabase if it was a new product
+      const updatedProduct = { ...productData, id: savedData.id.toString() };
+
+      if (editingProduct === 'new') {
+        onUpdateProducts([...products, updatedProduct]);
+      } else {
+        onUpdateProducts(products.map(p => p.id === productId ? updatedProduct : p));
       }
       setEditingProduct(null);
     } catch (err: any) {
-      console.error('Unexpected error in handleSaveProduct:', err);
-      // Special handling for AbortError
+      console.error('Critical failure in handleSaveProduct:', err);
       if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-        console.warn('Request was aborted. This might be due to a timeout or component unmount.');
-        alert('The request was aborted/timed out. Please check your connection and try again.');
+        alert('The request was aborted/timed out. This usually happens if the connection is lost or the database is unresponsive. Please check your internet and try again.');
       } else {
         alert(`An unexpected error occurred: ${err.message || 'Unknown error'}`);
       }
