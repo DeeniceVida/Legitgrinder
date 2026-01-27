@@ -230,6 +230,13 @@ const App: React.FC = () => {
         setUser(session.user);
         setIsLoggedIn(true);
 
+        // Instant detection for main admin
+        const isMainAdmin = session.user.email === 'mungaimports@gmail.com';
+        if (isMainAdmin) {
+          setIsAdmin(true);
+          console.log('Instant admin detection for:', session.user.email);
+        }
+
         try {
           const { data: profile, error } = await supabase
             .from('profiles')
@@ -237,17 +244,16 @@ const App: React.FC = () => {
             .eq('id', session.user.id)
             .single();
 
-          if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+          if (error && error.code !== 'PGRST116') {
             console.error('Error fetching profile:', error);
           }
 
           const isAdminUser = checkAdminStatus(session.user.email, profile?.role);
           setIsAdmin(isAdminUser);
-          console.log('Admin status updated:', isAdminUser);
+          console.log('Final admin status:', isAdminUser);
         } catch (err) {
           console.error('Unexpected error in auth listener:', err);
-          // Fallback to email check if profile fetch fails
-          setIsAdmin(session.user.email === 'mungaimports@gmail.com');
+          // Fallback handled by isMainAdmin check above
         }
       } else {
         setUser(null);

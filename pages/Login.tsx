@@ -44,15 +44,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Check if admin
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .single();
-
-        const isAdmin = profile?.role === 'admin' || data.user.email === 'mungaimports@gmail.com';
-        onLoginSuccess(isAdmin, data.user);
+        // Optimized: Don't wait for profile fetch here. 
+        // Let the central App.tsx listener handle the role detection.
+        onLoginSuccess(data.user?.email === 'mungaimports@gmail.com', data.user);
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
@@ -157,8 +151,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         type="button"
                         onClick={() => toggleInterest(cat)}
                         className={`flex items-center gap-2 p-4 rounded-2xl text-[10px] font-black uppercase tracking-tight transition-all border ${interests.includes(cat)
-                            ? 'bg-teal-50 border-teal-200 text-[#3D8593]'
-                            : 'bg-neutral-50 border-transparent text-gray-400 hover:border-neutral-200'
+                          ? 'bg-teal-50 border-teal-200 text-[#3D8593]'
+                          : 'bg-neutral-50 border-transparent text-gray-400 hover:border-neutral-200'
                           }`}
                       >
                         <div className={`p-1 rounded-md ${interests.includes(cat) ? 'bg-[#3D8593] text-white' : 'bg-gray-200 text-transparent'}`}>
