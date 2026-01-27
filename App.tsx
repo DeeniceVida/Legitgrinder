@@ -14,7 +14,7 @@ import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
 import { supabase } from './src/lib/supabase';
-import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase } from './src/services/supabaseData';
+import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase, fetchConsultations } from './src/services/supabaseData';
 import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
@@ -194,9 +194,7 @@ const App: React.FC = () => {
   ]);
 
   // Consultations
-  const [consultations, setConsultations] = useState<Consultation[]>([
-    { id: 'c1', name: 'Brian Otieno', email: 'brian@example.com', phone: '+254 700 000 000', whatsapp: '+254 700 000 000', date: '2026-01-20', time: '14:30', topic: 'Sourcing 50 refurbished laptops.', status: ConsultationStatus.PENDING, feeUSD: 15 }
-  ]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -205,14 +203,16 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
-      const [plist, prods, clist] = await Promise.all([
+      const [plist, prods, clist, cons] = await Promise.all([
         fetchPricelistData(),
         fetchInventoryProducts(),
-        fetchClientsData()
+        fetchClientsData(),
+        fetchConsultations()
       ]);
       if (plist.length > 0) setPricelist(plist);
       if (prods.length > 0) setProducts(prods);
       if (clist.length > 0) setClients(clist);
+      if (cons.length > 0) setConsultations(cons);
     };
     loadAllData();
   }, []);

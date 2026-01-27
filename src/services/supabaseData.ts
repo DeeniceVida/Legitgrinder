@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { PricelistItem, Product, Availability, Client } from '../../types';
+import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus } from '../../types';
 import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
@@ -143,5 +143,96 @@ export const saveClientToSupabase = async (client: Client): Promise<{ success: b
     } catch (error) {
         console.error('Error saving client:', error);
         return { success: false, error };
+    }
+};
+
+export const saveConsultation = async (consultation: Omit<Consultation, 'id' | 'status' | 'feeUSD'>): Promise<{ success: boolean; data?: any; error?: any }> => {
+    try {
+        const { data, error } = await supabase
+            .from('consultations')
+            .insert({
+                name: consultation.name,
+                email: consultation.email,
+                phone: consultation.phone,
+                whatsapp: consultation.whatsapp,
+                date: consultation.date,
+                time: consultation.time,
+                topic: consultation.topic
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return { success: true, data };
+    } catch (error) {
+        console.error('Error saving consultation:', error);
+        return { success: false, error };
+    }
+};
+
+export const fetchConsultations = async (): Promise<Consultation[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone,
+            whatsapp: c.whatsapp,
+            date: c.date,
+            time: c.time,
+            topic: c.topic,
+            status: c.status as ConsultationStatus,
+            feeUSD: parseFloat(c.fee_usd || 15)
+        }));
+    } catch (error) {
+        console.error('Error fetching consultations:', error);
+        return [];
+    }
+};
+
+export const updateConsultationStatus = async (id: string, status: ConsultationStatus): Promise<boolean> => {
+    try {
+        const { error } = await supabase
+            .from('consultations')
+            .update({ status })
+            .eq('id', id);
+
+        if (error) throw error;
+        return true;
+    } catch (error) {
+        console.error('Error updating consultation status:', error);
+        return false;
+    }
+};
+
+export const updateProduct = async (product: Product): Promise<boolean> => {
+    try {
+        const { error } = await supabase
+            .from('products')
+            .update({
+                name: product.name,
+                price_kes: product.priceKES,
+                discount_price: product.discountPriceKES,
+                images: product.imageUrls,
+                stock_status: product.availability,
+                shipping_duration: product.shippingDuration,
+                description: product.description,
+                category: product.category,
+                inventory_quantity: product.stockCount
+            })
+            .eq('id', product.id);
+
+        if (error) throw error;
+        return true;
+    } catch (error) {
+        console.error('Error updating product:', error);
+        return false;
     }
 };

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Calendar, Clock, MessageSquare, ShieldCheck, User, Mail, Phone, MessageCircle, ArrowRight, Sparkles } from 'lucide-react';
-import { WHATSAPP_NUMBER } from '../constants';
+import { saveConsultation } from '../src/services/supabaseData';
 
 const Consultation: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,10 +14,26 @@ const Consultation: React.FC = () => {
     topic: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { success, error } = await saveConsultation(formData);
+      if (success) {
+        setIsSubmitted(true);
+      } else {
+        throw error;
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to save consultation. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (isSubmitted) {
