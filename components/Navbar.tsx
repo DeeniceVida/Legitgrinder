@@ -20,12 +20,13 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = f
     { name: 'Blogs', id: 'blogs' },
     { name: 'Tracking', id: 'tracking' },
     { name: 'Consult', id: 'consultation' },
+    { name: 'Admin', id: 'admin' }, // TEMPORARY: Admin accessible to everyone
   ];
 
-  // Add Admin link only if isAdmin is true
-  if (isAdmin) {
-    navLinks.push({ name: 'Admin', id: 'admin' });
-  }
+  // REMOVED: Admin check temporarily disabled
+  // if (isAdmin) {
+  //   navLinks.push({ name: 'Admin', id: 'admin' });
+  // }
 
   return (
     <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-7xl">
