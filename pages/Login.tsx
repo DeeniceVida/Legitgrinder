@@ -84,7 +84,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setIsLogin(true); // Switch to login after successful registration
       }
     } catch (err: any) {
-      setError(err.message);
+      if (err.message === 'Email not confirmed') {
+        setError('Please verify your email! Check your inbox for the confirmation link.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
