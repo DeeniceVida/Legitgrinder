@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../src/lib/supabase';
-import { Mail, Lock, LogIn, UserPlus, Info, Phone, MapPin, Package, Check } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, Info, Phone, MapPin, Package, Check, Eye, EyeOff } from 'lucide-react';
 import { saveClientToSupabase } from '../src/services/supabaseData';
 
 interface LoginProps {
@@ -23,6 +23,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [phone, setPhone] = useState('+254');
   const [location, setLocation] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -180,13 +181,20 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <div className="relative">
               <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Security Passcode"
                 required
-                className="w-full bg-neutral-50 border-none rounded-2xl pl-16 pr-8 py-5 text-sm font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                className="w-full bg-neutral-50 border-none rounded-2xl pl-16 pr-16 py-5 text-sm font-bold focus:ring-4 focus:ring-teal-100 transition-all"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#3D8593] transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
 
             {error && (
