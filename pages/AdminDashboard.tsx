@@ -144,48 +144,67 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleAddProduct = async (newProduct: Product) => {
+  const handleSaveProduct = async (productData: Product) => {
     setIsUpdating(true);
     try {
-      const { data: created, error } = await supabase
+      // 1. Prepare data for Supabase (mapping camelCase to snake_case)
+      const isNew = !productData.id || productData.id === '';
+      const payload: any = {
+        name: productData.name,
+        price_kes: productData.priceKES,
+        discount_price: productData.discountPriceKES || null,
+        images: productData.imageUrls.filter(u => u.trim() !== ''),
+        stock_status: productData.availability,
+        shipping_duration: productData.shippingDuration || '',
+        description: productData.description || '',
+        category: productData.category || 'General',
+        inventory_quantity: productData.stockCount || 0,
+        shop_variants: productData.variations || []
+      };
+
+      // 2. Add ID only if it's an update
+      if (!isNew) {
+        payload.id = parseInt(productData.id);
+      }
+
+      // 3. Execute Upsert
+      const { data, error } = await supabase
         .from('products')
-        .insert({
-          name: newProduct.name,
-          price_kes: newProduct.priceKES,
-          discount_price: newProduct.discountPriceKES,
-          images: newProduct.imageUrls,
-          stock_status: newProduct.availability,
-          shipping_duration: newProduct.shippingDuration,
-          description: newProduct.description,
-          category: newProduct.category || 'Electronics',
-          inventory_quantity: newProduct.stockCount,
-          shop_variants: newProduct.variations
-        })
+        .upsert(payload)
         .select()
         .single();
 
       if (error) throw error;
 
-      if (created) {
+      if (data) {
+        // 4. Format the returned data back to Product type
         const formatted: Product = {
-          id: created.id.toString(),
-          name: created.name,
-          priceKES: parseFloat(created.price_kes),
-          discountPriceKES: created.discount_price ? parseFloat(created.discount_price) : undefined,
-          imageUrls: created.images || [],
-          variations: created.shop_variants || [],
-          availability: created.stock_status as Availability,
-          shippingDuration: created.shipping_duration,
-          description: created.description,
-          category: created.category,
-          stockCount: created.inventory_quantity
+          id: data.id.toString(),
+          name: data.name,
+          priceKES: parseFloat(data.price_kes),
+          discountPriceKES: data.discount_price ? parseFloat(data.discount_price) : undefined,
+          imageUrls: data.images || [],
+          variations: data.shop_variants || [],
+          availability: data.stock_status as Availability,
+          shippingDuration: data.shipping_duration,
+          description: data.description,
+          category: data.category,
+          stockCount: data.inventory_quantity
         };
-        onUpdateProducts([formatted, ...products]);
+
+        // 5. Update local state
+        if (isNew) {
+          onUpdateProducts([formatted, ...products]);
+        } else {
+          onUpdateProducts(products.map(p => p.id === formatted.id ? formatted : p));
+        }
+
         setEditingProduct(null);
+        alert('Inventory updated successfully!');
       }
     } catch (err: any) {
-      console.error('Error adding product:', err);
-      alert('Failed to add product: ' + (err.message || 'Unknown error'));
+      console.error('Save Error:', err);
+      alert('Save failed: ' + (err.message || 'Check database permissions'));
     } finally {
       setIsUpdating(false);
     }
@@ -217,35 +236,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const url = `https://wa.me/${c.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
     handleUpdateConsultationStatus(c.id, ConsultationStatus.DOABLE);
-  };
-
-  const handleSaveProduct = async (updatedProduct: Product) => {
-    alert('Dashboard Header: Starting Save Process');
-    setIsUpdating(true);
-    try {
-      if (!updatedProduct.id || updatedProduct.id === '') {
-        alert('Dashboard: Routing to CREATE NEW');
-        await handleAddProduct(updatedProduct);
-        return;
-      }
-
-      alert('Dashboard: Calling Service for ID ' + updatedProduct.id);
-      const result = await updateProduct(updatedProduct);
-
-      if (result === true) {
-        alert('Dashboard: SERVICE RETURNED SUCCESS');
-        onUpdateProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-        setEditingProduct(null);
-      } else {
-        alert('Dashboard: SERVICE RETURNED FAILURE: ' + result);
-        throw new Error(typeof result === 'string' ? result : 'Update failed');
-      }
-    } catch (err: any) {
-      alert('Dashboard: EXCEPTION CAUGHT: ' + err.message);
-      console.error('Error updating product:', err);
-    } finally {
-      setIsUpdating(false);
-    }
   };
 
   return (
