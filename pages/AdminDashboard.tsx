@@ -267,6 +267,92 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         )}
+
+        {activeTab === 'clients' && (
+          <div className="space-y-10">
+            <div className="flex justify-between items-center mb-8">
+              <div className="relative w-96">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
+                <input
+                  type="text"
+                  placeholder="Search clients..."
+                  className="w-full bg-white border border-neutral-100 rounded-full pl-16 pr-8 py-5 text-sm font-bold focus:ring-4 focus:ring-teal-100 transition-all shadow-sm"
+                  value={adminSearchTerm}
+                  onChange={(e) => setAdminSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-4">
+                <button className="p-5 bg-white border border-neutral-100 rounded-2xl text-gray-400 hover:text-[#3D8593] transition-all shadow-sm">
+                  <Download className="w-5 h-5" />
+                </button>
+                <button className="p-5 bg-white border border-neutral-100 rounded-2xl text-gray-400 hover:text-[#3D8593] transition-all shadow-sm">
+                  <Filter className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[3.5rem] border border-neutral-100 shadow-2xl overflow-hidden">
+              <table className="w-full text-left border-separate border-spacing-0">
+                <thead>
+                  <tr className="bg-neutral-50">
+                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Identity</th>
+                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Contact</th>
+                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Location</th>
+                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Interests</th>
+                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Activity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredClients.map((client) => (
+                    <tr key={client.id} className="group hover:bg-neutral-50/50 transition-all">
+                      <td className="px-10 py-8 border-b border-neutral-50">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-[#3D8593]/10 rounded-2xl flex items-center justify-center text-[#3D8593] font-black text-sm">
+                            {client.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-black text-gray-900">{client.name}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Joined {client.joinedDate}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8 border-b border-neutral-50">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600">
+                            <Mail className="w-3.5 h-3.5 text-gray-300" /> {client.email}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600">
+                            <Smartphone className="w-3.5 h-3.5 text-gray-300" /> {client.phone}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8 border-b border-neutral-50">
+                        <div className="flex items-center gap-2 text-sm font-bold text-gray-600 uppercase tracking-tight">
+                          <MapPin className="w-3.5 h-3.5 text-gray-300" /> {client.location}
+                        </div>
+                      </td>
+                      <td className="px-10 py-8 border-b border-neutral-50">
+                        <div className="flex flex-wrap gap-2">
+                          {(client.interests || []).map((interest, i) => (
+                            <span key={i} className="px-3 py-1 bg-teal-50 text-[#3D8593] text-[9px] font-black uppercase rounded-full border border-teal-100">
+                              {interest}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-10 py-8 border-b border-neutral-50">
+                        <div>
+                          <p className="font-black text-gray-900">KES {client.totalSpentKES.toLocaleString()}</p>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{client.orderCount} Orders</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
 
       {editingPrice && (
