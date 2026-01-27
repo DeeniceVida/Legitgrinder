@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Mail, Lock, Phone, User, MapPin, Check, Eye, EyeOff, Sparkles, ShieldCheck, Globe } from 'lucide-react';
 import { Client } from '../types';
+import { supabase } from '../src/lib/supabase';
 
 interface LoginProps {
   onLoginSuccess: (isAdmin: boolean, userData?: Partial<Client>) => void;
@@ -36,14 +37,31 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const isAdmin = formData.email.toLowerCase() === 'mungaimports@gmail.com';
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
 
-    setTimeout(() => {
-      setLoading(false);
+      if (error) {
+        alert(`Login failed: ${error.message}`);
+        setLoading(false);
+        return;
+      }
+
+      // Check if user has admin role in profiles table
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      const isAdmin = profile?.role === 'admin';
+
       onLoginSuccess(isAdmin, {
         name: formData.name,
         email: formData.email,
@@ -51,7 +69,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         location: formData.location,
         interests: selectedInterests
       });
-    }, 1200);
+    } catch (err: any) {
+      alert(`Unexpected error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

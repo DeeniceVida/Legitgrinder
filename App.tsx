@@ -13,7 +13,8 @@ import ConsultationPage from './pages/Consultation';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
-import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase } from './src/services/supabaseData';
+import { supabase } from './src/lib/supabase';
+import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase, fetchConsultations } from './src/services/supabaseData';
 import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
@@ -28,6 +29,7 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   // --- GLOBAL STATE ---
 
@@ -203,40 +205,53 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
-      const [plist, prods, clist] = await Promise.all([
+      const [plist, prods, clist, cons] = await Promise.all([
         fetchPricelistData(),
         fetchInventoryProducts(),
-        fetchClientsData()
+        fetchClientsData(),
+        fetchConsultations()
       ]);
       if (plist.length > 0) setPricelist(plist);
       if (prods.length > 0) setProducts(prods);
       if (clist.length > 0) setClients(clist);
+      if (cons.length > 0) setConsultations(cons);
     };
     loadAllData();
+  }, []);
+
+  // Auth State Listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        setUser(session.user);
+        setIsLoggedIn(true);
+
+        // Check for admin role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        setIsAdmin(profile?.role === 'admin');
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {
     setIsLoggedIn(true);
     setIsAdmin(isAdminLogin);
-    if (userData && !isAdminLogin) {
-      // Add new client if registering
-      const newClient: Client = {
-        id: `u-${Date.now()}`,
-        name: userData.name || 'New Member',
-        email: userData.email || '',
-        phone: userData.phone || '',
-        location: userData.location || 'Nairobi',
-        joinedDate: new Date().toISOString().split('T')[0],
-        totalSpentKES: 0,
-        orderCount: 0,
-        lastOrderDate: 'Never',
-        interests: userData.interests || [],
-        purchasedItems: [],
-        purchaseFrequency: 'Low'
-      };
-      setClients(prev => [...prev, newClient]);
-      saveClientToSupabase(newClient);
-    }
+    setCurrentPage('home');
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentPage('home');
   };
 
@@ -275,7 +290,13 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-[#3D8593] selection:text-white">
-      <Navbar onNavigate={setCurrentPage} currentPage={currentPage} isAdmin={isAdmin} />
+      <Navbar
+        onNavigate={setCurrentPage}
+        currentPage={currentPage}
+        isLoggedIn={isLoggedIn}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+      />
 
       <main className="flex-1 bg-white">
         {renderPage()}

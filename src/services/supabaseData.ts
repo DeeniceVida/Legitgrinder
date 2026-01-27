@@ -1,6 +1,5 @@
-
 import { supabase } from '../lib/supabase';
-import { PricelistItem, Product, Availability, Client } from '../../types';
+import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus } from '../../types';
 import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
@@ -142,6 +141,53 @@ export const saveClientToSupabase = async (client: Client): Promise<{ success: b
         return { success: true };
     } catch (error) {
         console.error('Error saving client:', error);
+        return { success: false, error };
+    }
+};
+
+export const fetchConsultations = async (): Promise<Consultation[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('consultations')
+            .select('*')
+            .order('requested_date', { ascending: false });
+
+        if (error) throw error;
+
+        return data.map((c: any) => ({
+            id: c.id.toString(),
+            name: c.client_name || 'Unknown',
+            email: c.client_email || 'Unknown',
+            phone: c.client_phone || '',
+            whatsapp: c.client_phone || '', // Using phone as whatsapp for now
+            date: c.requested_date ? new Date(c.requested_date).toISOString().split('T')[0] : '',
+            time: '00:00', // Time might need a separate column if precise
+            topic: c.topic || '',
+            status: c.status as ConsultationStatus || ConsultationStatus.PENDING,
+            feeUSD: 15
+        }));
+    } catch (error) {
+        console.error('Error fetching consultations:', error);
+        return [];
+    }
+};
+
+export const submitConsultation = async (consultation: Omit<Consultation, 'id' | 'status' | 'feeUSD'>): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('consultations')
+            .insert({
+                client_name: consultation.name,
+                client_email: consultation.email,
+                client_phone: consultation.whatsapp,
+                topic: consultation.topic,
+                status: 'pending'
+            });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error submitting consultation:', error);
         return { success: false, error };
     }
 };

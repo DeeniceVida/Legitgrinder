@@ -5,10 +5,12 @@ import { Menu, X, User } from 'lucide-react';
 interface NavbarProps {
   onNavigate: (page: string) => void;
   currentPage: string;
+  isLoggedIn?: boolean;
   isAdmin?: boolean;
+  onLogout?: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = false }) => {
+const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = false, isAdmin = false, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const navLinks = [
@@ -47,8 +49,8 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = fals
               key={link.id}
               onClick={() => onNavigate(link.id)}
               className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === link.id
-                  ? 'bg-white text-[#3D8593] shadow-md shadow-teal-900/5'
-                  : 'text-gray-400 hover:text-[#FF9900]'
+                ? 'bg-white text-[#3D8593] shadow-md shadow-teal-900/5'
+                : 'text-gray-400 hover:text-[#FF9900]'
                 }`}
             >
               {link.name}
@@ -57,12 +59,21 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin = fals
         </div>
 
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => onNavigate('login')}
-            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-4 md:px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
-          >
-            <User className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Account</span>
-          </button>
+          {isLoggedIn ? (
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white px-4 md:px-6 py-3 rounded-full hover:bg-rose-600 transition-all shadow-lg shadow-rose-100"
+            >
+              Logout
+            </button>
+          ) : (
+            <button
+              onClick={() => onNavigate('login')}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-4 md:px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
+            >
+              <User className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Account</span>
+            </button>
+          )}
           <button className="lg:hidden p-2 text-gray-900" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
