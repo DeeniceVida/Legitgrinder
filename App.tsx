@@ -232,19 +232,20 @@ const App: React.FC = () => {
         setUser(session.user);
         setIsLoggedIn(true);
 
-        const isOwner = session.user.email === 'mungaimports@gmail.com';
+        const currentEmail = session.user.email?.toLowerCase();
+        const isOwner = currentEmail === 'mungaimports@gmail.com';
 
         try {
           // Fetch existing profile
-          let { data: profile, error } = await supabase
+          let { data: profile } = await supabase
             .from('profiles')
-            .select('role')
+            .select('*')
             .eq('id', session.user.id)
             .single();
 
           // FALLBACK: Create profile if it doesn't exist
-          if (error && (error.code === 'PGRST116' || error.message?.includes('not found'))) {
-            const { data: newProfile, error: insertError } = await supabase
+          if (!profile) {
+            const { data: newProfile } = await supabase
               .from('profiles')
               .upsert({
                 id: session.user.id,
@@ -255,13 +256,14 @@ const App: React.FC = () => {
               .select()
               .single();
 
-            if (!insertError) profile = newProfile;
+            profile = newProfile;
           }
 
-          if (profile || isOwner) {
-            // SUPERUSER OVERRIDE: Owner is ALWAYS admin
-            setIsAdmin(isOwner || profile?.role === 'admin');
-          }
+          // Force Admin state if they are the owner OR the DB says admin
+          const hasAdminAccess = isOwner || profile?.role === 'admin';
+          setIsAdmin(hasAdminAccess);
+          console.log(`Auth Finalized: ${currentEmail} -> Admin: ${hasAdminAccess}`);
+
         } catch (err) {
           console.error('Critical Auth Error:', err);
           if (isOwner) setIsAdmin(true);
