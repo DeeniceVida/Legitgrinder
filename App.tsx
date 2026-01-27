@@ -220,31 +220,47 @@ const App: React.FC = () => {
   // Auth State Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth Event:', event);
+      console.log('Supabase Auth Event:', event, session?.user?.email);
 
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
 
         try {
-          // Check for admin role
-          const { data: profile, error } = await supabase
+          // Fetch existing profile
+          let { data: profile, error } = await supabase
             .from('profiles')
             .select('role')
             .eq('id', session.user.id)
             .single();
 
-          if (!error && profile) {
+          // FALLBACK: Create profile if it doesn't exist
+          if (error && (error.code === 'PGRST116' || error.message?.includes('not found'))) {
+            console.log('Profile missing for user, initializing default profile...');
+            const { data: newProfile, error: insertError } = await supabase
+              .from('profiles')
+              .upsert({
+                id: session.user.id,
+                email: session.user.email,
+                role: 'user',
+                updated_at: new Date().toISOString()
+              })
+              .select()
+              .single();
+
+            if (!insertError) profile = newProfile;
+            else console.error('Failed to create fallback profile:', insertError);
+          }
+
+          if (profile) {
+            console.log('User role verified:', profile.role);
             setIsAdmin(profile.role === 'admin');
-          } else {
-            console.warn('Profile fetch error or not found:', error);
-            setIsAdmin(false);
           }
         } catch (err) {
-          console.error('Error in profile check:', err);
-          setIsAdmin(false);
+          console.error('Critical Auth Error:', err);
         }
       } else {
+        console.log('Session cleared');
         setUser(null);
         setIsLoggedIn(false);
         setIsAdmin(false);
