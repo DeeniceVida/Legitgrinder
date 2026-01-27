@@ -253,7 +253,10 @@ const App: React.FC = () => {
           }
 
           if (profile) {
-            console.log('User role verified:', profile.role);
+            console.log('--- SESSION DIAGNOSTIC ---');
+            console.log('User ID:', session.user.id);
+            console.log('Profile found:', profile);
+            console.log('Role matches "admin":', profile.role === 'admin');
             setIsAdmin(profile.role === 'admin');
           }
         } catch (err) {
