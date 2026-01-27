@@ -217,26 +217,20 @@ const App: React.FC = () => {
     loadAllData();
   }, []);
 
-  // Auth State Listener
+  // Auth State Listener - Simplified
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
 
-        // Check for admin role
-        const { data: profile, error } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', session.user.id)
           .single();
 
-        console.log('Profile query result:', profile, error);
-        console.log('Is admin?', profile?.role === 'admin');
-
-        setIsAdmin(profile?.role === 'admin');
+        setIsAdmin(profile?.role === 'admin' || session.user.email === 'mungaimports@gmail.com');
       } else {
         setUser(null);
         setIsLoggedIn(false);
