@@ -111,10 +111,30 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               <button
                 onClick={async () => {
                   const { data: { user } } = await supabase.auth.getUser();
-                  if (!user) return alert('Login first before attempting override');
-                  const { error } = await supabase.from('profiles').upsert({ id: user.id, email: user.email, role: 'admin' });
-                  if (error) alert(`Error: ${error.message}`);
-                  else alert('SUCCESS: Profile set to admin. Please refresh the page.');
+                  if (!user) return alert('LOGIN REQUIRED: Please sign in to your account first before clicking this button.');
+
+                  console.log('Starting Force Admin process for:', user.id);
+
+                  // Check if profile exists
+                  const { data: existing } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+
+                  let error;
+                  if (!existing) {
+                    console.log('Creating new admin profile...');
+                    const { error: insError } = await supabase.from('profiles').insert({ id: user.id, email: user.email, role: 'admin' });
+                    error = insError;
+                  } else {
+                    console.log('Updating existing profile to admin...');
+                    const { error: updError } = await supabase.from('profiles').update({ role: 'admin' }).eq('id', user.id);
+                    error = updError;
+                  }
+
+                  if (error) {
+                    console.error('Diagnostic error:', error);
+                    alert(`ACCESS ERROR: ${error.message}\n\nHint: If this persists, your database may have strict RLS rules or the profile already exists and is locked. Contact support or run the SQL fix.`);
+                  } else {
+                    alert('SUCCESS! Your account is now set as Admin. \n\nIMPORTANT: You must REFRESH YOUR BROWSER now to see the "Admin" link in the navbar.');
+                  }
                 }}
                 className="flex-1 py-3 bg-amber-600 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-amber-700 transition-all shadow-md"
               >
