@@ -217,24 +217,43 @@ const App: React.FC = () => {
     loadAllData();
   }, []);
 
-  // Auth State Listener - Simplified
+  // Helper for admin check
+  const checkAdminStatus = (userEmail: string | undefined, profileRole: string | undefined) => {
+    return profileRole === 'admin' || userEmail === 'mungaimports@gmail.com';
+  };
+
+  // Auth State Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth change event:', event);
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
 
-        setIsAdmin(profile?.role === 'admin' || session.user.email === 'mungaimports@gmail.com');
+          if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+            console.error('Error fetching profile:', error);
+          }
+
+          const isAdminUser = checkAdminStatus(session.user.email, profile?.role);
+          setIsAdmin(isAdminUser);
+          console.log('Admin status updated:', isAdminUser);
+        } catch (err) {
+          console.error('Unexpected error in auth listener:', err);
+          // Fallback to email check if profile fetch fails
+          setIsAdmin(session.user.email === 'mungaimports@gmail.com');
+        }
       } else {
         setUser(null);
         setIsLoggedIn(false);
         setIsAdmin(false);
+        console.log('User logged out, state cleared');
       }
     });
 
@@ -249,32 +268,28 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      console.log('Logging out...');
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Logout error:', error);
-        alert(`Logout failed: ${error.message}`);
-        return;
-      }
+      console.log('Initiating logout...');
 
-      // Manually reset state (the auth listener will also trigger, but this is immediate)
+      // Immediate UI reset for better UX
       setIsLoggedIn(false);
       setIsAdmin(false);
       setUser(null);
       setCurrentPage('home');
-      console.log('Logged out successfully');
-    } catch (err: any) {
-      // Ignore abort errors - they're harmless
-      if (err.message?.includes('aborted')) {
-        console.log('Logout aborted (normal), clearing session anyway');
-        setIsLoggedIn(false);
-        setIsAdmin(false);
-        setUser(null);
-        setCurrentPage('home');
-      } else {
-        console.error('Unexpected logout error:', err);
-        alert(`Unexpected logout error: ${err.message}`);
+
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Supabase signOut error:', error);
+        // We still consider the user logged out locally
       }
+
+      console.log('Logout completed successfully');
+    } catch (err: any) {
+      console.error('Unexpected logout error:', err);
+      // Ensure state is reset even on error
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setUser(null);
+      setCurrentPage('home');
     }
   };
 
