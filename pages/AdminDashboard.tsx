@@ -171,6 +171,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         .upsert({
           id: isNaN(parseInt(productId)) ? undefined : parseInt(productId), // If it's a temp ID, let Supabase generate one
           name: productData.name,
+          brand: 'General', // Default for shop products
+          series: 'Shop',   // Default for shop products
+          capacities: [],   // Default for shop products
           price_kes: productData.priceKES,
           discount_price: productData.discountPriceKES,
           image: productData.imageUrls[0],
