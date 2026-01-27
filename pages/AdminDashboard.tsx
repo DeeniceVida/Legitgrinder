@@ -73,6 +73,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
   const [currentVariations, setCurrentVariations] = useState<ProductVariation[]>([]);
   const [currentImageUrls, setCurrentImageUrls] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   React.useEffect(() => {
     if (editingProduct && typeof editingProduct === 'object') {
@@ -166,6 +167,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     try {
+      setIsSaving(true);
+      console.log('Starting product save...', productData);
+
       // Persist to Supabase
       const { error } = await supabase
         .from('products')
@@ -193,6 +197,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         return;
       }
 
+      console.log('Product saved successfully');
+
       // Update local state
       if (editingProduct === 'new') {
         onUpdateProducts([...products, productData]);
@@ -201,8 +207,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
       setEditingProduct(null);
     } catch (err: any) {
-      console.error('Unexpected error:', err);
-      alert(`An unexpected error occurred: ${err.message || 'Unknown error'}`);
+      console.error('Unexpected error in handleSaveProduct:', err);
+      // Special handling for AbortError
+      if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+        console.warn('Request was aborted. This might be due to a timeout or component unmount.');
+        alert('The request was aborted/timed out. Please check your connection and try again.');
+      } else {
+        alert(`An unexpected error occurred: ${err.message || 'Unknown error'}`);
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1095,9 +1109,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex gap-4 pt-4 shrink-0">
                 <button
                   type="submit"
-                  className="flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-black transition-all"
+                  disabled={isSaving}
+                  className={`flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl transition-all ${isSaving ? 'opacity-50 cursor-not-allowed bg-neutral-700' : 'hover:bg-black'}`}
                 >
-                  Confirm Stock Update
+                  {isSaving ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <RefreshCcw className="w-4 h-4 animate-spin" /> Saving...
+                    </span>
+                  ) : 'Confirm Stock Update'}
                 </button>
                 <button
                   type="button"
