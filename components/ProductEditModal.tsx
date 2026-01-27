@@ -60,6 +60,8 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({ product, onClose, o
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        alert('Submitting data to server...');
+        console.log('Form submission triggered with data:', formData);
         // Filter out empty images
         const cleanedImages = formData.imageUrls.filter(url => url.trim() !== '');
         onSave({ ...formData, imageUrls: cleanedImages.length > 0 ? cleanedImages : formData.imageUrls });

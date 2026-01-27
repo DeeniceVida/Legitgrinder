@@ -226,12 +226,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await handleAddProduct(updatedProduct);
         return;
       }
-      const success = await updateProduct(updatedProduct);
-      if (success) {
+      const result = await updateProduct(updatedProduct);
+      if (result === true) {
         onUpdateProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
         setEditingProduct(null);
       } else {
-        throw new Error('Update failed');
+        throw new Error(typeof result === 'string' ? result : 'Update failed');
       }
     } catch (err: any) {
       console.error('Error updating product:', err);

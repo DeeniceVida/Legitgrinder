@@ -212,9 +212,9 @@ export const updateConsultationStatus = async (id: string, status: ConsultationS
     }
 };
 
-export const updateProduct = async (product: Product): Promise<boolean> => {
+export const updateProduct = async (product: Product): Promise<boolean | string> => {
     try {
-        const { error } = await supabase
+        const { error, count } = await supabase
             .from('products')
             .update({
                 name: product.name,
@@ -227,13 +227,14 @@ export const updateProduct = async (product: Product): Promise<boolean> => {
                 category: product.category,
                 inventory_quantity: product.stockCount,
                 shop_variants: product.variations
-            })
+            }, { count: 'exact' })
             .eq('id', product.id);
 
         if (error) throw error;
+        if (count === 0) return 'Product not found (ID mismatch)';
         return true;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error updating product:', error);
-        return false;
+        return error.message || 'Unknown database error';
     }
 };
