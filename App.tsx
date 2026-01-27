@@ -220,18 +220,30 @@ const App: React.FC = () => {
   // Auth State Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth Event:', event);
+
       if (session) {
         setUser(session.user);
         setIsLoggedIn(true);
 
-        // Check for admin role
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+        try {
+          // Check for admin role
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
 
-        setIsAdmin(profile?.role === 'admin');
+          if (!error && profile) {
+            setIsAdmin(profile.role === 'admin');
+          } else {
+            console.warn('Profile fetch error or not found:', error);
+            setIsAdmin(false);
+          }
+        } catch (err) {
+          console.error('Error in profile check:', err);
+          setIsAdmin(false);
+        }
       } else {
         setUser(null);
         setIsLoggedIn(false);
@@ -242,21 +254,25 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {
+  const handleLoginSuccess = (isAdminLogin: boolean = false) => {
     setIsLoggedIn(true);
     setIsAdmin(isAdminLogin);
-    setCurrentPage('home');
+    // If admin, go to dashboard, else home
+    setCurrentPage(isAdminLogin ? 'admin' : 'home');
   };
 
   const handleLogout = async () => {
+    // CLEAR EVERYTHING IMMEDIATELY (Optimistic)
+    setUser(null);
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+    setCurrentPage('home');
+
     try {
       await supabase.auth.signOut();
-      setUser(null);
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      setCurrentPage('home');
+      console.log('Signed out successfully');
     } catch (err) {
-      console.error('Logout failed:', err);
+      console.error('Sign out failed:', err);
     }
   };
 

@@ -58,10 +58,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           .eq('id', data.user.id)
           .single();
 
-        onLoginSuccess(profile?.role === 'admin', {
-          name: formData.name,
-          email: formData.email
-        });
+        onLoginSuccess(profile?.role === 'admin');
       } else {
         // --- SIGN UP ---
         const { data, error } = await supabase.auth.signUp({
