@@ -239,19 +239,33 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
+      // 1. Fetch Public Data (No Auth Required)
       try {
-        const [plist, prods, clist, cons] = await Promise.all([
-          fetchPricelistData(),
-          fetchInventoryProducts(),
-          fetchClientsData(),
-          fetchConsultations()
+        const [plist, prods] = await Promise.all([
+          fetchPricelistData().catch(() => []),
+          fetchInventoryProducts().catch(() => [])
         ]);
         if (plist.length > 0) setPricelist(plist);
         if (prods.length > 0) setProducts(prods);
-        if (clist.length > 0) setClients(clist);
-        if (cons.length > 0) setConsultations(cons);
+        console.log('Public data loaded:', { pricelist: plist.length, products: prods.length });
       } catch (e) {
-        console.warn("Could not fetch remote data, using local mocks", e);
+        console.warn("Public data fetch partially failed", e);
+      }
+
+      // 2. Fetch Admin Data (Only if logged in)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        try {
+          const [clist, cons] = await Promise.all([
+            fetchClientsData().catch(() => []),
+            fetchConsultations().catch(() => [])
+          ]);
+          if (clist.length > 0) setClients(clist);
+          if (cons.length > 0) setConsultations(cons);
+          console.log('Admin data loaded:', { clients: clist.length, consultations: cons.length });
+        } catch (e) {
+          console.log("Admin data not accessible for this user");
+        }
       }
     };
     loadAllData();

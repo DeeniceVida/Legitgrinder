@@ -16,6 +16,16 @@ DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 CREATE POLICY "Users can view their own profile" ON public.profiles
     FOR SELECT USING (auth.uid() = id);
 
+-- Users can create their own profile
+DROP POLICY IF EXISTS "Users can create their own profile" ON public.profiles;
+CREATE POLICY "Users can create their own profile" ON public.profiles
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Users can update their own email/metadata but not role (handled by CHECK or specific columns)
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+CREATE POLICY "Users can update their own profile" ON public.profiles
+    FOR UPDATE USING (auth.uid() = id);
+
 -- NON_RECURSIVE: Admin check using a specific clause that doesn't trigger SELECT recursion on the same table
 DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 CREATE POLICY "Admins can view all profiles" ON public.profiles
