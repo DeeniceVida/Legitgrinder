@@ -18,7 +18,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
   const handleBuyNow = (p: Product) => {
     const varsString = Object.values(selectedVariations).map((v: ProductVariation) => `${v.type}: ${v.name}`).join(', ');
-    const totalPrice = (p.discountPriceKES || p.priceKES) + (Object.values(selectedVariations) as ProductVariation[]).reduce((sum: number, v: ProductVariation) => sum + v.priceKES, 0);
+    const totalPrice = p.priceKES + (Object.values(selectedVariations) as ProductVariation[]).reduce((sum: number, v: ProductVariation) => sum + v.priceKES, 0);
     const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}. ${varsString ? `(${varsString})` : ''} - (Availability: ${p.availability}). Total Price: KES ${totalPrice.toLocaleString()}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
@@ -100,8 +100,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] block mb-2">Total Strategy Investment</span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-black text-gray-900">
-                    KES {((p.discountPriceKES || p.priceKES) + Object.values(selectedVariations).reduce((sum: number, v: ProductVariation) => sum + v.priceKES, 0)).toLocaleString()}
+                    KES {(p.priceKES + Object.values(selectedVariations).reduce((sum: number, v: ProductVariation) => sum + v.priceKES, 0)).toLocaleString()}
                   </span>
+                  {p.discountPriceKES && p.discountPriceKES > p.priceKES && (
+                    <span className="text-xl font-bold text-gray-400 line-through ml-2">
+                      KES {p.discountPriceKES.toLocaleString()}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -166,7 +171,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
             <div className="px-4 flex justify-between items-center">
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-1">{p.name}</h3>
-                <span className="text-2xl font-black text-[#FF9900]">KES {(p.discountPriceKES || p.priceKES).toLocaleString()}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-black text-[#FF9900]">KES {p.priceKES.toLocaleString()}</span>
+                  {p.discountPriceKES && p.discountPriceKES > p.priceKES && (
+                    <span className="text-sm font-bold text-gray-400 line-through mt-1">KES {p.discountPriceKES.toLocaleString()}</span>
+                  )}
+                </div>
               </div>
               <button onClick={() => setSelectedProduct(p)} className="bg-[#3D8593] text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">View <ChevronRight className="w-4 h-4" /></button>
             </div>
