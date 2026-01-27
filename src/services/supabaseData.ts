@@ -72,17 +72,17 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
         if (error) throw error;
 
         return data.map((p: any) => ({
-            id: p.id.toString(),
-            name: p.name,
-            priceKES: parseFloat(p.price_kes),
-            discountPriceKES: p.discount_price ? parseFloat(p.discount_price) : undefined,
-            imageUrls: p.images && p.images.length > 0 ? p.images : [p.image || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'],
+            id: p.id?.toString() || Math.random().toString(),
+            name: p.name || 'Unnamed Product',
+            priceKES: Number(p.price_kes || 0),
+            discountPriceKES: p.discount_price ? Number(p.discount_price) : undefined,
+            imageUrls: (p.images && p.images.length > 0) ? p.images : [p.image || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'],
             variations: p.shop_variants || [],
-            availability: p.stock_status as Availability,
+            availability: p.stock_status as Availability || Availability.LOCAL,
             shippingDuration: p.shipping_duration || '2-3 Business Days',
             description: p.description || '',
             category: p.category || 'Electronics',
-            stockCount: parseInt(p.inventory_quantity || 0)
+            stockCount: Number(p.inventory_quantity || 0)
         }));
     } catch (error) {
         console.error('Error fetching inventory:', error);
@@ -155,14 +155,14 @@ export const fetchConsultations = async (): Promise<Consultation[]> => {
         if (error) throw error;
 
         return data.map((c: any) => ({
-            id: c.id.toString(),
-            name: c.client_name || 'Unknown',
-            email: c.client_email || 'Unknown',
+            id: c.id?.toString() || Math.random().toString(),
+            name: c.client_name || 'Inquiry',
+            email: c.client_email || 'No Email',
             phone: c.client_phone || '',
-            whatsapp: c.client_phone || '', // Using phone as whatsapp for now
-            date: c.requested_date ? new Date(c.requested_date).toISOString().split('T')[0] : '',
-            time: '00:00', // Time might need a separate column if precise
-            topic: c.topic || '',
+            whatsapp: c.client_phone || '',
+            date: c.requested_date ? new Date(c.requested_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            time: '00:00',
+            topic: c.topic || 'No topic provided',
             status: c.status as ConsultationStatus || ConsultationStatus.PENDING,
             feeUSD: 15
         }));
