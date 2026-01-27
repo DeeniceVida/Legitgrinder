@@ -19,7 +19,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const handleBuyNow = (p: Product) => {
     const varsString = Object.values(selectedVariations).map((v: ProductVariation) => `${v.type}: ${v.name}`).join(', ');
     const totalPrice = p.priceKES + (Object.values(selectedVariations) as ProductVariation[]).reduce((sum: number, v: ProductVariation) => sum + v.priceKES, 0);
-    const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}. ${varsString ? `(${varsString})` : ''} - (Availability: ${p.availability}). Total Price: KES ${totalPrice.toLocaleString()}`);
+    const mpesaText = "\n\n*Payment Instructions:*\nLipa na M-Pesa: Buy Goods and Services\nTill Number: *8537538*";
+    const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}. ${varsString ? `(${varsString})` : ''} - (Availability: ${p.availability}). Total Price: KES ${totalPrice.toLocaleString()}${mpesaText}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
 

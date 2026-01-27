@@ -13,7 +13,7 @@ import ConsultationPage from './pages/Consultation';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
-import { fetchPricelistData, fetchInventoryProducts } from './src/services/supabaseData';
+import { fetchPricelistData, fetchInventoryProducts, fetchClientsData, saveClientToSupabase } from './src/services/supabaseData';
 import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
@@ -203,12 +203,14 @@ const App: React.FC = () => {
   // Fetch real data on load
   useEffect(() => {
     const loadAllData = async () => {
-      const [plist, prods] = await Promise.all([
+      const [plist, prods, clist] = await Promise.all([
         fetchPricelistData(),
-        fetchInventoryProducts()
+        fetchInventoryProducts(),
+        fetchClientsData()
       ]);
       if (plist.length > 0) setPricelist(plist);
       if (prods.length > 0) setProducts(prods);
+      if (clist.length > 0) setClients(clist);
     };
     loadAllData();
   }, []);
@@ -233,6 +235,7 @@ const App: React.FC = () => {
         purchaseFrequency: 'Low'
       };
       setClients(prev => [...prev, newClient]);
+      saveClientToSupabase(newClient);
     }
     setCurrentPage('home');
   };

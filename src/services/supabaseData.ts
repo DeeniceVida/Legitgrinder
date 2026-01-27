@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { PricelistItem, Product, Availability } from '../../types';
+import { PricelistItem, Product, Availability, Client } from '../../types';
 import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
@@ -87,5 +87,60 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
     } catch (error) {
         console.error('Error fetching inventory:', error);
         return [];
+    }
+};
+
+export const fetchClientsData = async (): Promise<Client[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('clients')
+            .select('*');
+
+        if (error) throw error;
+
+        return data.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            email: c.email,
+            phone: c.phone || '',
+            location: c.location || '',
+            joinedDate: c.joined_date,
+            totalSpentKES: parseFloat(c.total_spent_kes || 0),
+            orderCount: parseInt(c.order_count || 0),
+            lastOrderDate: c.last_order_date || 'Never',
+            interests: c.interests || [],
+            purchasedItems: c.purchased_items || [],
+            purchaseFrequency: c.purchase_frequency as any || 'Low'
+        }));
+    } catch (error) {
+        console.error('Error fetching clients:', error);
+        return [];
+    }
+};
+
+export const saveClientToSupabase = async (client: Client): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('clients')
+            .upsert({
+                id: client.id,
+                name: client.name,
+                email: client.email,
+                phone: client.phone,
+                location: client.location,
+                joined_date: client.joinedDate,
+                total_spent_kes: client.totalSpentKES,
+                order_count: client.orderCount,
+                last_order_date: client.lastOrderDate,
+                interests: client.interests,
+                purchased_items: client.purchasedItems,
+                purchase_frequency: client.purchaseFrequency
+            });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving client:', error);
+        return { success: false, error };
     }
 };
