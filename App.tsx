@@ -295,24 +295,30 @@ const App: React.FC = () => {
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-      case 'admin': return isAdmin ? (
-        <AdminDashboard
-          blogs={blogs}
-          faqs={faqs}
-          onUpdateBlogs={setBlogs}
-          onUpdateFaqs={setFaqs}
-          pricelist={pricelist}
-          onUpdatePricelist={setPricelist}
-          clients={clients}
-          onUpdateClients={setClients}
-          invoices={invoices}
-          onUpdateInvoices={setInvoices}
-          products={products}
-          onUpdateProducts={setProducts}
-          consultations={consultations}
-          onUpdateConsultations={setConsultations}
-        />
-      ) : <Home onNavigate={setCurrentPage} />;
+      case 'admin':
+        if (isAdmin) {
+          return (
+            <AdminDashboard
+              blogs={blogs}
+              faqs={faqs}
+              onUpdateBlogs={setBlogs}
+              onUpdateFaqs={setFaqs}
+              pricelist={pricelist}
+              onUpdatePricelist={setPricelist}
+              clients={clients}
+              onUpdateClients={setClients}
+              invoices={invoices}
+              onUpdateInvoices={setInvoices}
+              products={products}
+              onUpdateProducts={setProducts}
+              consultations={consultations}
+              onUpdateConsultations={setConsultations}
+            />
+          );
+        } else {
+          console.warn('Admin access denied: isAdmin is false. Redirecting to Home.');
+          return <Home onNavigate={setCurrentPage} />;
+        }
       default: return <Home onNavigate={setCurrentPage} />;
     }
   };

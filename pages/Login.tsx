@@ -87,9 +87,40 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </h1>
           </div>
 
-          <div className="flex bg-neutral-50 p-2 rounded-3xl mb-12 relative z-10">
+          <div className="flex bg-neutral-50 p-2 rounded-3xl mb-8 relative z-10">
             <button onClick={() => setIsLogin(true)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Member Login</button>
             <button onClick={() => setIsLogin(false)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${!isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Join Elite</button>
+          </div>
+
+          <div className="mb-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 flex flex-col gap-3 relative z-10">
+            <h4 className="text-[9px] font-black uppercase tracking-widest text-amber-600 flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5" /> Diagnostic Tools
+            </h4>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) return alert('Not logged in at all');
+                  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+                  alert(`User ID: ${user.id}\nProfile Role: ${profile?.role || 'NONE'}\nSession Email: ${user.email}`);
+                }}
+                className="flex-1 py-3 bg-white text-neutral-600 rounded-xl text-[9px] font-bold uppercase tracking-widest border border-amber-200 hover:bg-amber-100 transition-all"
+              >
+                1. Check My Role
+              </button>
+              <button
+                onClick={async () => {
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) return alert('Login first before attempting override');
+                  const { error } = await supabase.from('profiles').upsert({ id: user.id, email: user.email, role: 'admin' });
+                  if (error) alert(`Error: ${error.message}`);
+                  else alert('SUCCESS: Profile set to admin. Please refresh the page.');
+                }}
+                className="flex-1 py-3 bg-amber-600 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest hover:bg-amber-700 transition-all shadow-md"
+              >
+                2. Force Admin Profile
+              </button>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
