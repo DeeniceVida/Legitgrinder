@@ -249,8 +249,25 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setCurrentPage('home');
+    try {
+      console.log('Logging out...');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Logout error:', error);
+        alert(`Logout failed: ${error.message}`);
+        return;
+      }
+
+      // Manually reset state (the auth listener will also trigger, but this is immediate)
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setUser(null);
+      setCurrentPage('home');
+      console.log('Logged out successfully');
+    } catch (err: any) {
+      console.error('Unexpected logout error:', err);
+      alert(`Unexpected logout error: ${err.message}`);
+    }
   };
 
   const renderPage = () => {
