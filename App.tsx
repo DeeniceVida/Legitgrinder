@@ -13,7 +13,7 @@ import ConsultationPage from './pages/Consultation';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import AIAssistant from './components/AIAssistant';
-import { fetchPricelistData } from './src/services/supabaseData';
+import { fetchPricelistData, fetchInventoryProducts } from './src/services/supabaseData';
 import { calculateAutomatedPrice } from './utils/priceCalculations';
 import {
   Instagram, Youtube, Globe
@@ -137,45 +137,7 @@ const App: React.FC = () => {
     return items;
   });
 
-  // Shop Products
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 'p1',
-      name: 'iPhone 15 Pro Max',
-      priceKES: 175000,
-      discountPriceKES: 168000,
-      imageUrls: ['https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800'],
-      variations: [
-        { type: 'Capacity', name: '256GB', priceKES: 0 },
-        { type: 'Capacity', name: '512GB', priceKES: 15000 },
-        { type: 'Capacity', name: '1TB', priceKES: 30000 },
-        { type: 'Color', name: 'Natural Titanium', priceKES: 0 },
-        { type: 'Color', name: 'Black', priceKES: 0 },
-        { type: 'Color', name: 'Blue', priceKES: 0 }
-      ],
-      availability: Availability.IMPORT,
-      shippingDuration: '2-3 Weeks Air',
-      description: 'The ultimate iPhone experience with titanium build and advanced zoom.',
-      category: 'Electronics'
-    },
-    {
-      id: 'p2',
-      name: 'Samsung S24 Ultra',
-      priceKES: 165000,
-      discountPriceKES: 158000,
-      imageUrls: ['https://images.unsplash.com/photo-1707055745727-465494191d57?auto=format&fit=crop&q=80&w=800'],
-      variations: [
-        { type: 'Capacity', name: '256GB', priceKES: 0 },
-        { type: 'Capacity', name: '512GB', priceKES: 12000 },
-        { type: 'Color', name: 'Titanium Gray', priceKES: 0 },
-        { type: 'Color', name: 'Black', priceKES: 0 }
-      ],
-      availability: Availability.LOCAL,
-      shippingDuration: '2-3 Business Days',
-      description: 'Galaxy AI is here. Stunning 200MP camera and built-in S Pen.',
-      category: 'Electronics'
-    }
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   // Blogs and FAQs
   const [blogs, setBlogs] = useState<BlogPost[]>([
@@ -238,15 +200,17 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentPage]);
 
-  // Fetch real pricelist on load
+  // Fetch real data on load
   useEffect(() => {
-    const loadPricelist = async () => {
-      const data = await fetchPricelistData();
-      if (data.length > 0) {
-        setPricelist(data);
-      }
+    const loadAllData = async () => {
+      const [plist, prods] = await Promise.all([
+        fetchPricelistData(),
+        fetchInventoryProducts()
+      ]);
+      if (plist.length > 0) setPricelist(plist);
+      if (prods.length > 0) setProducts(prods);
     };
-    loadPricelist();
+    loadAllData();
   }, []);
 
   const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {

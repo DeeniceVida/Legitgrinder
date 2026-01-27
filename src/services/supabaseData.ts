@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { PricelistItem } from '../../types';
+import { PricelistItem, Product, Availability } from '../../types';
 import { calculateAutomatedPrice } from '../../utils/priceCalculations';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
@@ -57,6 +57,35 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
         return Object.values(groupedData);
     } catch (error) {
         console.error('Error fetching pricelist:', error);
+        return [];
+    }
+};
+
+export const fetchInventoryProducts = async (): Promise<Product[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            // Filter to only get shop products, not pricelist source products
+            // Based on migration_products_v4.sql, we can use category or just check for shop-specific fields
+            .not('price_kes', 'is', null);
+
+        if (error) throw error;
+
+        return data.map((p: any) => ({
+            id: p.id.toString(),
+            name: p.name,
+            priceKES: parseFloat(p.price_kes),
+            discountPriceKES: p.discount_price ? parseFloat(p.discount_price) : undefined,
+            imageUrls: p.images && p.images.length > 0 ? p.images : [p.image || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'],
+            variations: p.shop_variants || [],
+            availability: p.stock_status as Availability,
+            shippingDuration: p.shipping_duration || '2-3 Business Days',
+            description: p.description || '',
+            category: p.category || 'Electronics'
+        }));
+    } catch (error) {
+        console.error('Error fetching inventory:', error);
         return [];
     }
 };

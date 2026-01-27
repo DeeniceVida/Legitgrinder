@@ -72,14 +72,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Product Management State
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
   const [currentVariations, setCurrentVariations] = useState<ProductVariation[]>([]);
+  const [currentImageUrls, setCurrentImageUrls] = useState<string[]>([]);
 
   React.useEffect(() => {
     if (editingProduct && typeof editingProduct === 'object') {
       setCurrentVariations(editingProduct.variations || []);
+      setCurrentImageUrls(editingProduct.imageUrls || []);
     } else {
       setCurrentVariations([]);
+      setCurrentImageUrls(['']);
     }
   }, [editingProduct]);
+
+  const handleAddImageUrl = () => {
+    setCurrentImageUrls([...currentImageUrls, '']);
+  };
+
+  const handleUpdateImageUrl = (index: number, value: string) => {
+    const updated = [...currentImageUrls];
+    updated[index] = value;
+    setCurrentImageUrls(updated);
+  };
+
+  const handleRemoveImageUrl = (index: number) => {
+    setCurrentImageUrls(currentImageUrls.filter((_, i) => i !== index));
+  };
 
   const handleAddVariation = () => {
     setCurrentVariations([...currentVariations, { type: 'Color', name: '', priceKES: 0 }]);
@@ -125,16 +142,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateInvoices(updated);
   };
 
-  const handleSaveProduct = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveProduct = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
+    const productId = typeof editingProduct === 'object' ? editingProduct.id : `prod-${Date.now()}`;
     const productData: Product = {
-      id: typeof editingProduct === 'object' ? editingProduct.id : `prod-${Date.now()}`,
+      id: productId,
       name: formData.get('name') as string,
       priceKES: parseInt(formData.get('priceKES') as string),
       discountPriceKES: formData.get('discountPriceKES') ? parseInt(formData.get('discountPriceKES') as string) : undefined,
-      imageUrls: [(formData.get('imageUrl') as string) || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'],
+      imageUrls: currentImageUrls.filter(url => url.trim() !== ''),
       variations: currentVariations,
       availability: formData.get('availability') as Availability,
       shippingDuration: formData.get('shippingDuration') as string,
@@ -142,12 +160,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       category: formData.get('category') as string,
     };
 
-    if (editingProduct === 'new') {
-      onUpdateProducts([...products, productData]);
-    } else {
-      onUpdateProducts(products.map(p => p.id === productData.id ? productData : p));
+    if (productData.imageUrls.length === 0) {
+      productData.imageUrls = ['https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=800'];
     }
-    setEditingProduct(null);
+
+    try {
+      // Persist to Supabase
+      const { error } = await supabase
+        .from('products')
+        .upsert({
+          id: isNaN(parseInt(productId)) ? undefined : parseInt(productId), // If it's a temp ID, let Supabase generate one
+          name: productData.name,
+          price_kes: productData.priceKES,
+          discount_price: productData.discountPriceKES,
+          image: productData.imageUrls[0],
+          images: productData.imageUrls,
+          shop_variants: productData.variations,
+          stock_status: productData.availability,
+          shipping_duration: productData.shippingDuration,
+          description: productData.description,
+          category: productData.category,
+        });
+
+      if (error) throw error;
+
+      // Update local state
+      if (editingProduct === 'new') {
+        onUpdateProducts([...products, productData]);
+      } else {
+        onUpdateProducts(products.map(p => p.id === productData.id ? productData : p));
+      }
+      setEditingProduct(null);
+    } catch (err) {
+      console.error('Error saving product:', err);
+      alert('Failed to save product to database.');
+    }
   };
 
   const handleSavePrice = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -297,9 +344,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     reader.readAsText(file);
   };
 
-  const handleDeleteProduct = (id: string) => {
+  const handleDeleteProduct = async (id: string) => {
     if (confirm('Are you sure you want to remove this item from inventory?')) {
-      onUpdateProducts(products.filter(p => p.id !== id));
+      try {
+        const { error } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        onUpdateProducts(products.filter(p => p.id !== id));
+      } catch (err) {
+        console.error('Error deleting product:', err);
+        alert('Failed to delete product from database.');
+      }
     }
   };
 
@@ -853,14 +912,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><ImageIcon className="w-3.5 h-3.5" /> Hero Image URL</label>
-                    <input
-                      name="imageUrl"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.imageUrls[0] : ''}
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
-                      placeholder="https://images.unsplash.com/..."
-                    />
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                        <ImageIcon className="w-3.5 h-3.5" /> Product Image Assets
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleAddImageUrl}
+                        className="p-2 bg-teal-50 text-[#3D8593] rounded-lg hover:bg-[#3D8593] hover:text-white transition-all shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {currentImageUrls.map((url, idx) => (
+                        <div key={idx} className="flex gap-2 animate-in slide-in-from-right-2 duration-200">
+                          <input
+                            value={url}
+                            onChange={(e) => handleUpdateImageUrl(idx, e.target.value)}
+                            className="flex-1 bg-neutral-50 border-none rounded-xl px-5 py-3 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-[11px]"
+                            placeholder="https://images.unsplash.com/..."
+                          />
+                          {currentImageUrls.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImageUrl(idx)}
+                              className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
