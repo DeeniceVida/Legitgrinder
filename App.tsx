@@ -249,8 +249,15 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setCurrentPage('home');
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setCurrentPage('home');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
   };
 
   const renderPage = () => {
