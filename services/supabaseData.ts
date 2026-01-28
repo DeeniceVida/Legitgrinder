@@ -209,7 +209,7 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
 
         if (error) throw error;
 
-        return data.map((inv: any) => ({
+        return (data || []).map((inv: any) => ({
             id: inv.id,
             invoiceNumber: inv.invoice_number,
             clientName: inv.client_name,
@@ -219,6 +219,7 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             lastUpdate: inv.last_update ? new Date(inv.last_update).toLocaleString() : 'Never',
             isPaid: inv.is_paid,
             totalKES: parseFloat(inv.total_kes || 0),
+            paystackReference: inv.paystack_reference,
             date: inv.created_at
         }));
     } catch (error) {
@@ -237,7 +238,7 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
 
         if (error) throw error;
 
-        return data.map((inv: any) => ({
+        return (data || []).map((inv: any) => ({
             id: inv.id,
             invoiceNumber: inv.invoice_number,
             clientName: inv.client_name,
@@ -247,6 +248,7 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
             lastUpdate: inv.last_update ? new Date(inv.last_update).toLocaleString() : 'Never',
             isPaid: inv.is_paid,
             totalKES: parseFloat(inv.total_kes || 0),
+            paystackReference: inv.paystack_reference,
             date: inv.created_at
         }));
     } catch (error) {
@@ -632,7 +634,8 @@ export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ succes
                 total_kes: invoice.totalKES,
                 is_paid: invoice.isPaid || false,
                 status: invoice.status || 'Received by Agent',
-                invoice_number: `INV-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+                invoice_number: invoice.invoiceNumber || `INV-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+                paystack_reference: invoice.paystackReference,
                 progress: invoice.progress || 0
             })
             .select()
