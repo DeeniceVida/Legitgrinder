@@ -29,7 +29,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   ).trim();
 
   // Diagnostic: Precise reporting for user visibility
-  console.log(`💎 Paystack Info [Length: ${PAYSTACK_PUBLIC_KEY.length}] [Start: ${PAYSTACK_PUBLIC_KEY.substring(0, 7)}] [EnvKeys: ${Object.keys((import.meta as any).env).filter(k => k.startsWith('VITE_')).join(', ')}]`);
+  console.log(`💎 Paystack Info [Length: ${PAYSTACK_PUBLIC_KEY.length}] [Start: ${PAYSTACK_PUBLIC_KEY.substring(0, 7)}]`);
+  console.log(`💎 Available VITE Keys: ${Object.keys((import.meta as any).env).filter(k => k.startsWith('VITE_')).join(', ')}`);
+  console.log(`💎 All Loaded Keys: ${Object.keys((import.meta as any).env).join(', ')}`);
 
   const handleWhatsAppInquiry = (p: Product) => {
     const totalPrice = (p.discountPriceKES || p.priceKES) + (selectedVariation?.priceKES || 0);
@@ -102,7 +104,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
           <div className="grid lg:grid-cols-2 gap-20 items-start">
             {/* LEFT: VISUAL ECOSYSTEM */}
-            <div className="space-y-8 sticky top-32">
+            <div className="space-y-8 lg:sticky lg:top-32">
               <div className="aspect-[4/5] bg-white rounded-[3rem] overflow-hidden border border-neutral-100 relative group">
                 <img
                   src={displayImage}
