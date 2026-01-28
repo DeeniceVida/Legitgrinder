@@ -205,7 +205,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
                       {!showPaystack ? (
                         <button
-                          onClick={() => setShowPaystack(true)}
+                          onClick={() => {
+                            if (!PAYSTACK_PUBLIC_KEY) {
+                              alert("Payment system configuration missing. Please ensure VITE_PAYSTACK_PUBLIC_KEY is set in your environment.");
+                              return;
+                            }
+                            setShowPaystack(true);
+                          }}
                           className="flex-1 h-[64px] bg-black text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-[#3D8593] transition-all shadow-2xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
                         >
                           Buy Now
