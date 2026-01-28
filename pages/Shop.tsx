@@ -23,6 +23,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
   const PAYSTACK_PUBLIC_KEY = (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY;
 
+  // Diagnostic: Log key presence (not the full key for safety)
+  console.log('💎 Paystack Bridge Status:', {
+    keyExists: !!PAYSTACK_PUBLIC_KEY,
+    keyPrefix: PAYSTACK_PUBLIC_KEY ? PAYSTACK_PUBLIC_KEY.substring(0, 10) : 'none',
+    envKeysFound: Object.keys((import.meta as any).env).filter(k => k.startsWith('VITE_'))
+  });
+
   const handleWhatsAppInquiry = (p: Product) => {
     const totalPrice = (p.discountPriceKES || p.priceKES) + (selectedVariation?.priceKES || 0);
     const varText = selectedVariation ? ` (Selected: ${selectedVariation.type} - ${selectedVariation.name})` : '';
