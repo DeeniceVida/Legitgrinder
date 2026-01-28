@@ -27,6 +27,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     ""
   ).trim();
 
+  // STICKY DIAGNOSTIC: Do not remove until Paystack is confirmed working
+  console.log(`💎 Paystack Check -> Length: ${PAYSTACK_PUBLIC_KEY.length}, StartsWith: ${PAYSTACK_PUBLIC_KEY.substring(0, 8)}`);
+
   const handleWhatsAppInquiry = (p: Product) => {
     const totalPrice = (p.discountPriceKES || p.priceKES) + (selectedVariation?.priceKES || 0);
     const varText = selectedVariation ? ` (Selected: ${selectedVariation.type} - ${selectedVariation.name})` : '';
