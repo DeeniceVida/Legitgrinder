@@ -223,12 +223,12 @@ const App: React.FC = () => {
           fetchInvoicesData()
         ]);
 
-        if (plist) setPricelist(plist);
-        if (prods) setProducts(prods);
-        if (clist) setClients(clist);
-        if (cons) setConsultations(cons);
-        if (blogsData) setBlogs(blogsData);
-        if (invs) setInvoices(invs);
+        if (plist.length > 0) setPricelist(plist);
+        if (prods.length > 0) setProducts(prods);
+        if (clist.length > 0) setClients(clist);
+        if (cons.length > 0) setConsultations(cons);
+        if (blogsData.length > 0) setBlogs(blogsData);
+        if (invs.length > 0) setInvoices(invs);
       } catch (error) {
         console.error('Error loading data from Supabase:', error);
       }

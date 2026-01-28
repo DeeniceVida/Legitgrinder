@@ -233,27 +233,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           name: productData.name || '',
           priceKES: productData.priceKES || 0,
           imageUrls: productData.imageUrls || [],
-          variations: productData.variations || [],
+          variations: [],
           category: productData.category || 'Electronics',
           availability: productData.availability || Availability.IMPORT,
           shippingDuration: productData.shippingDuration || '',
           description: productData.description || '',
           stockCount: productData.stockCount || 0,
+          ...productData
         };
         onUpdateProducts([...products, newProduct]);
         setEditingProduct(null);
-        alert('Product created successfully!');
-      } else {
-        alert('Failed to create product: ' + (result.error?.message || 'Unknown error. Check if you are an Admin.'));
       }
     } else if (editingProduct && typeof editingProduct !== 'string') {
       const result = await updateProduct(editingProduct.id, productData);
       if (result.success) {
         onUpdateProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
         setEditingProduct(null);
-        alert('Product updated successfully!');
-      } else {
-        alert('Failed to update product: ' + (result.error?.message || 'Unknown error.'));
       }
     }
   };
