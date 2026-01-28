@@ -65,8 +65,7 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
     try {
         const { data, error } = await supabase
             .from('products')
-            .select('*')
-            .not('price_kes', 'is', null);
+            .select('*');
 
         if (error) throw error;
 
@@ -313,10 +312,10 @@ export const createProduct = async (productData: Partial<Product>): Promise<{ su
             .from('products')
             .insert({
                 name: productData.name,
-                price_kes: productData.priceKES,
+                price_kes: productData.priceKES || 0,
                 discount_price: productData.discountPriceKES,
                 images: productData.imageUrls || [],
-                description: productData.description,
+                description: productData.description || '',
                 category: productData.category || 'Electronics',
                 stock_status: productData.availability || 'In Stock',
                 inventory_quantity: productData.stockCount || 0,
