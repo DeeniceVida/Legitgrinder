@@ -259,6 +259,9 @@ USING ( EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
 CREATE POLICY "Users can view their own orders" ON invoices FOR SELECT 
 USING ( auth.uid() = user_id );
 
+-- Policy: Allow order creation
+CREATE POLICY "Allow order creation" ON invoices FOR INSERT WITH CHECK (true);
+
 /*
   ADMIN PROMOTION SNIPPET
   Run this AFTER you have signed up in the app:
