@@ -45,7 +45,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       const verification = await verifyPaystackPayment(response.reference);
 
       if (!verification.success) {
-        alert("Payment verification failed. Please contact support.");
+        const errorMsg = verification.error?.message || verification.data?.message || "Unknown verification failure.";
+        alert(`Payment verification failed: ${errorMsg}\n\nPlease share your reference (${response.reference}) on WhatsApp for manual sync.`);
         setPaymentLoading(false);
         return;
       }
