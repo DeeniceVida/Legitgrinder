@@ -12,13 +12,18 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
   const [activeBrand, setActiveBrand] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const listTitle = "January 2026 Price List";
+  // Dynamic Title based on current date (Targeting February 2026 for the upcoming month)
+  const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+  const currentYear = new Date().getFullYear();
+  // If it's late January, show February prices
+  const displayMonth = new Date().getDate() > 20 && currentMonth === 'January' ? 'February' : currentMonth;
+  const listTitle = `${displayMonth} ${currentYear} Price List`;
 
   const filteredModels = useMemo(() => {
-    return pricelist.filter(item => 
+    return pricelist.filter(item =>
       item.brand === activeBrand &&
       (item.modelName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       item.series.toLowerCase().includes(searchTerm.toLowerCase()))
+        item.series.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [activeBrand, searchTerm, pricelist]);
 
@@ -60,11 +65,10 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
                 <button
                   key={brand}
                   onClick={() => setActiveBrand(brand)}
-                  className={`whitespace-nowrap px-8 md:px-16 py-4 md:py-5 rounded-[1.8rem] md:rounded-[2.5rem] text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
-                    activeBrand === brand 
-                      ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-200' 
+                  className={`whitespace-nowrap px-8 md:px-16 py-4 md:py-5 rounded-[1.8rem] md:rounded-[2.5rem] text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${activeBrand === brand
+                      ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-200'
                       : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
-                  }`}
+                    }`}
                 >
                   {brand}
                 </button>
@@ -89,7 +93,7 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{cap.capacity}</span>
                         <span className="text-lg md:text-xl font-bold text-gray-900">KES {cap.currentPriceKES.toLocaleString()}</span>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleBuy(item.modelName, cap.capacity, cap.currentPriceKES)}
                         className="w-full py-4 bg-indigo-600 text-white rounded-2xl flex items-center justify-center gap-3 text-[9px] font-bold uppercase tracking-widest"
                       >

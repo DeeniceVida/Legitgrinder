@@ -1,41 +1,26 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  LayoutDashboard, ShoppingBag, Users, Plus, RefreshCcw, Calendar, Clock, Box, Package,
+  LayoutDashboard, ShoppingBag, Users, Plus, RefreshCcw, Calendar, Clock, Box,
   MessageSquare, CreditCard, Trash2, Edit3,
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
-  Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft
+  Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
 import { syncBackMarketPrices } from '../services/scraper';
-import { supabase } from '../src/lib/supabase';
-import { updateConsultationStatus, updateProduct } from '../src/services/supabaseData';
-import PriceEditModal from '../components/PriceEditModal';
-import ProductEditModal from '../components/ProductEditModal';
+import { syncAllMasterLinks, seedFullInventory } from '../services/syncLinks';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus,
   Consultation, ConsultationStatus, Availability, Invoice,
-  BlogPost, FAQItem, Client
+  BlogPost, FAQItem, Client, ProductVariation, SourcingRequest
 } from '../types';
 
-const REVENUE_DATA = [
-  { name: 'Jan', revenue: 1.2, profit: 0.3 },
-  { name: 'Feb', revenue: 1.8, profit: 0.45 },
-  { name: 'Mar', revenue: 1.5, profit: 0.38 },
-  { name: 'Apr', revenue: 2.1, profit: 0.52 },
-  { name: 'May', revenue: 2.8, profit: 0.70 },
-  { name: 'Jun', revenue: 3.5, profit: 0.88 },
-];
 
-const CATEGORY_DATA = [
-  { name: 'iPhones', value: 450, color: '#3D8593' },
-  { name: 'Samsung', value: 310, color: '#FF9900' },
-  { name: 'Pixels', value: 180, color: '#6366f1' },
-];
 
 interface AdminDashboardProps {
   blogs: BlogPost[];
@@ -55,19 +40,81 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
-  blogs,
+  blogs, onUpdateBlogs,
   pricelist, onUpdatePricelist,
-  clients,
+  clients, onUpdateClients,
   invoices, onUpdateInvoices,
   products, onUpdateProducts,
   consultations, onUpdateConsultations
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients'>('overview');
+  // Memoized Live Statistics
+  const revenueData = React.useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYear = new Date().getFullYear();
+    const monthlyStats: Record<string, { revenue: number, profit: number }> = {};
+
+    invoices.forEach(inv => {
+      if (!inv.date) return;
+      const date = new Date(inv.date);
+      if (date.getFullYear() !== currentYear) return;
+      const monthName = months[date.getMonth()];
+      if (!monthlyStats[monthName]) monthlyStats[monthName] = { revenue: 0, profit: 0 };
+      const rev = (inv.totalKES || 0) / 1000000;
+      monthlyStats[monthName].revenue += rev;
+      monthlyStats[monthName].profit += rev * 0.25;
+    });
+
+    return months.slice(0, 6).map(name => ({
+      name,
+      revenue: parseFloat((monthlyStats[name]?.revenue || 0).toFixed(2)),
+      profit: parseFloat((monthlyStats[name]?.profit || 0).toFixed(2))
+    }));
+  }, [invoices]);
+
+  const categoryData = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach(p => {
+      const cat = p.category || 'General';
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    const colors = ['#3D8593', '#FF9900', '#6366f1', '#ec4899', '#f59e0b'];
+    return Object.entries(counts).map(([name, value], idx) => ({
+      name,
+      value,
+      color: colors[idx % colors.length]
+    }));
+  }, [products]);
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads'>('overview');
   const [syncing, setSyncing] = useState(false);
+  const [syncingMaster, setSyncingMaster] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [syncBrandFilter, setSyncBrandFilter] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
   const [editingPrice, setEditingPrice] = useState<{ plId: string, capIdx: number } | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Product Management State
+  const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
+
+  // Price Editing State
+  const [priceEditUSD, setPriceEditUSD] = useState<string>('');
+  const [priceEditKES, setPriceEditKES] = useState<number | null>(null);
+  const [priceManualOverride, setPriceManualOverride] = useState(false);
+  const [priceCalculating, setPriceCalculating] = useState(false);
+  const [priceSaving, setPriceSaving] = useState(false);
+
+  // Advanced Variation State
+  const [localVariations, setLocalVariations] = useState<ProductVariation[]>([]);
+
+  // Blog Management State
+  const [editingBlog, setEditingBlog] = useState<BlogPost | 'new' | null>(null);
+
+  // Printing State
+  const [printingInvoice, setPrintingInvoice] = useState<Invoice | null>(null);
+
+  // Sourcing Leads State
+  const [leads, setLeads] = useState<SourcingRequest[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
 
   const tabs = [
     { id: 'overview', name: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
@@ -77,6 +124,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'consultations', name: 'Consult', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Content', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Sync', icon: <RefreshCcw className="w-4 h-4" /> },
+    { id: 'leads', name: 'Leads', icon: <Activity className="w-4 h-4" /> },
   ] as const;
 
   const filteredClients = useMemo(() => {
@@ -94,158 +142,277 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSyncing(false);
   };
 
+  const runMasterSync = async () => {
+    if (!confirm('This will connect all products to their Back Market master links. Proceed?')) return;
+    setSyncingMaster(true);
+    const count = await syncAllMasterLinks();
+    setSyncingMaster(false);
+    alert(`Successfully synced ${count} master links!`);
+  };
+
+  const runSeed = async () => {
+    if (!confirm('This will populate your database with 50+ phone models from the schema. It may create duplicates if already seeded. Proceed?')) return;
+    setSeeding(true);
+    const result = await seedFullInventory();
+    setSeeding(false);
+    alert(`Seeding complete! Added ${result.productCount} products and ${result.variantCount} variants.`);
+    // Refresh the page or data
+    window.location.reload();
+  };
+
+  const refreshLeads = async () => {
+    setLoadingLeads(true);
+    const data = await fetchSourcingRequests();
+    setLeads(data);
+    setLoadingLeads(false);
+  };
+
+  useEffect(() => {
+    refreshLeads();
+  }, []);
+
+  const handlePrintInvoice = (inv: Invoice) => {
+    setPrintingInvoice(inv);
+    setTimeout(() => {
+      window.print();
+    }, 100);
+    // Note: We don't nullify printingInvoice immediately so the template stays rendered during print dialog.
+    // The user will close the dialog and the site remains.
+  };
+
+  // Sync variations when editing starts
+  useEffect(() => {
+    if (editingProduct && typeof editingProduct === 'object') {
+      setLocalVariations(editingProduct.variations || []);
+    } else {
+      setLocalVariations([]);
+    }
+  }, [editingProduct]);
+
+  const addVariation = () => {
+    setLocalVariations([...localVariations, { type: 'Color', name: '', priceKES: 0 }]);
+  };
+
+  const removeVariation = (index: number) => {
+    setLocalVariations(localVariations.filter((_, i) => i !== index));
+  };
+
+  const updateVariation = (index: number, updates: Partial<ProductVariation>) => {
+    setLocalVariations(localVariations.map((v, i) => i === index ? { ...v, ...updates } : v));
+  };
+
   const updateInvoiceStatus = (id: string, newStatus: OrderStatus) => {
     const updated = invoices.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv);
     onUpdateInvoices(updated);
   };
 
-  const handleSavePrice = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveProduct = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!editingPrice) return;
-
     const formData = new FormData(e.currentTarget);
-    const newUSD = parseFloat(formData.get('priceUSD') as string);
-    const newKES = parseInt(formData.get('priceKES') as string);
+    const imageUrlsString = formData.get('imageUrls') as string;
 
-    const updatedList = pricelist.map(item => {
-      if (item.id === editingPrice.plId) {
-        const newCaps = [...item.capacities];
-        newCaps[editingPrice.capIdx] = {
-          ...newCaps[editingPrice.capIdx],
-          currentPriceKES: newKES,
-          sourcePriceUSD: newUSD,
-          isManualOverride: true,
-          lastSynced: 'Manual Override'
+    const productData: Partial<Product> = {
+      name: formData.get('name') as string,
+      priceKES: parseInt(formData.get('priceKES') as string),
+      discountPriceKES: formData.get('discountPriceKES') ? parseInt(formData.get('discountPriceKES') as string) : undefined,
+      imageUrls: imageUrlsString ? imageUrlsString.split(',').map(u => u.trim()) : [],
+      availability: formData.get('availability') as Availability,
+      shippingDuration: formData.get('shippingDuration') as string,
+      description: formData.get('description') as string,
+      category: formData.get('category') as string,
+      stockCount: formData.get('stockCount') ? parseInt(formData.get('stockCount') as string) : 0,
+      variations: localVariations
+    };
+
+    if (editingProduct === 'new') {
+      const result = await createProduct(productData);
+      if (result.success && result.id) {
+        // Initialize with minimal data for UI update
+        const newProduct: Product = {
+          id: result.id,
+          name: productData.name || '',
+          priceKES: productData.priceKES || 0,
+          imageUrls: productData.imageUrls || [],
+          variations: [],
+          category: productData.category || 'Electronics',
+          availability: productData.availability || Availability.IMPORT,
+          shippingDuration: productData.shippingDuration || '',
+          description: productData.description || '',
+          stockCount: productData.stockCount || 0,
+          ...productData
         };
-        return { ...item, capacities: newCaps };
-      }
-      return item;
-    });
-
-    onUpdatePricelist(updatedList);
-    setEditingPrice(null);
-
-    // Update Supabase
-    try {
-      const variant = pricelist.find(i => i.id === editingPrice.plId)?.capacities[editingPrice.capIdx];
-      if (variant) {
-        await supabase
-          .from('product_variants')
-          .update({
-            price_usd: newUSD,
-            price_kes: newKES,
-            is_manual_override: true,
-            last_updated: new Date().toISOString()
-          })
-          .match({ product_id: editingPrice.plId, capacity: variant.capacity });
-      }
-    } catch (err) {
-      console.error('Update error:', err);
-    }
-  };
-
-  const handleSaveProduct = async (productData: Product) => {
-    setIsUpdating(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        alert('Authentication Error: No active session. Please refresh.');
-        return;
-      }
-
-      const isNew = !productData.id || productData.id === '';
-      const payload: any = {
-        name: productData.name,
-        price_kes: productData.priceKES,
-        discount_price: productData.discountPriceKES || null,
-        images: productData.imageUrls.filter(u => u && u.trim() !== ''),
-        stock_status: productData.availability,
-        shipping_duration: productData.shippingDuration || '',
-        description: productData.description || '',
-        category: productData.category || 'General',
-        inventory_quantity: productData.stockCount || 0,
-        shop_variants: productData.variations || [],
-        brand: 'general',
-        series: 'standard',
-        capacities: []
-      };
-
-      let query;
-      if (isNew) {
-        query = supabase.from('products').insert(payload);
-      } else {
-        query = supabase.from('products').update(payload).eq('id', parseInt(productData.id));
-      }
-
-      const { data, error } = await query.select().single();
-
-      if (error) throw error;
-
-      if (data) {
-        const formatted: Product = {
-          id: data.id.toString(),
-          name: data.name,
-          priceKES: parseFloat(data.price_kes),
-          discountPriceKES: data.discount_price ? parseFloat(data.discount_price) : undefined,
-          imageUrls: data.images || [],
-          variations: data.shop_variants || [],
-          availability: data.stock_status as Availability,
-          shippingDuration: data.shipping_duration,
-          description: data.description,
-          category: data.category,
-          stockCount: data.inventory_quantity
-        };
-
-        if (isNew) {
-          onUpdateProducts([formatted, ...products]);
-        } else {
-          onUpdateProducts(products.map(p => p.id === formatted.id ? formatted : p));
-        }
-
+        onUpdateProducts([...products, newProduct]);
         setEditingProduct(null);
-        alert('SUCCESS: Inventory unit synchronized.');
       }
-    } catch (err: any) {
-      console.error('Save Error:', err);
-      alert(`CRITICAL ERROR\n\nCode: ${err.code || 'None'}\nMessage: ${err.message || 'Unknown'}`);
-    } finally {
-      setIsUpdating(false);
+    } else if (editingProduct && typeof editingProduct !== 'string') {
+      const result = await updateProduct(editingProduct.id, productData);
+      if (result.success) {
+        onUpdateProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
+        setEditingProduct(null);
+      }
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (window.confirm('Delete this product unit?')) {
-      try {
-        await supabase.from('products').delete().eq('id', id);
+    if (confirm('Are you sure you want to remove this item from inventory?')) {
+      const result = await deleteProduct(id);
+      if (result.success) {
         onUpdateProducts(products.filter(p => p.id !== id));
-      } catch (err) {
-        alert('Delete failed.');
       }
     }
   };
 
-  const handleUpdateConsultationStatus = async (id: string, status: ConsultationStatus) => {
-    setIsUpdating(true);
-    const success = await updateConsultationStatus(id, status);
-    if (success) {
-      onUpdateConsultations(consultations.map(c => c.id === id ? { ...c, status } : c));
+  // Price Editing Handlers
+  const handleOpenPriceEdit = (plId: string, capIdx: number) => {
+    const item = pricelist.find(p => p.id === plId);
+    if (item && item.capacities[capIdx]) {
+      const cap = item.capacities[capIdx];
+      setPriceEditUSD(cap.sourcePriceUSD?.toString() || '');
+      setPriceEditKES(null);
+      setPriceManualOverride(cap.isManualOverride || false);
+      setEditingPrice({ plId, capIdx });
     }
-    setIsUpdating(false);
   };
 
-  const handleConfirmConsultation = (c: Consultation) => {
-    const mpesaText = "\n\n*Payment Instructions:*\nLipa na M-Pesa: Buy Goods and Services\nTill Number: *8537538*\nFee: *KES 2,000* ($15)";
-    const message = `Hi ${c.name}, this is Legit Grinder. We've reviewed your consultation request for ${c.date} at ${c.time}. Your topic "${c.topic}" is doable! Please proceed with the payment to lock in the slot.${mpesaText}`;
-    const url = `https://wa.me/${c.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-    handleUpdateConsultationStatus(c.id, ConsultationStatus.DOABLE);
+  const handlePriceUSDChange = async (value: string) => {
+    setPriceEditUSD(value);
+    const usd = parseFloat(value);
+
+    if (!isNaN(usd) && usd > 0 && !priceManualOverride) {
+      setPriceCalculating(true);
+      try {
+        const result = await calculateFinalPrice(usd);
+        setPriceEditKES(result.totalKES);
+      } catch (error) {
+        console.error('Price calculation error:', error);
+        setPriceEditKES(null);
+      }
+      setPriceCalculating(false);
+    }
+  };
+
+  const handleSavePriceEdit = async () => {
+    if (!editingPrice) return;
+
+    const usd = parseFloat(priceEditUSD);
+    if (isNaN(usd) || usd <= 0) {
+      alert('Please enter a valid USD price');
+      return;
+    }
+
+    setPriceSaving(true);
+
+    try {
+      // Find the variant ID (this is simplified - you'd need actual variant IDs from database)
+      const item = pricelist.find(p => p.id === editingPrice.plId);
+      if (item && item.capacities[editingPrice.capIdx]) {
+        // In real implementation, you'd have variant IDs
+        // For now, update local state
+        const updated = pricelist.map(p => {
+          if (p.id === editingPrice.plId) {
+            const newCaps = [...p.capacities];
+            newCaps[editingPrice.capIdx] = {
+              ...newCaps[editingPrice.capIdx],
+              sourcePriceUSD: usd,
+              currentPriceKES: priceEditKES || newCaps[editingPrice.capIdx].currentPriceKES,
+              isManualOverride: priceManualOverride,
+              lastSynced: new Date().toLocaleString()
+            };
+            return { ...p, capacities: newCaps };
+          }
+          return p;
+        });
+
+        onUpdatePricelist(updated);
+        setEditingPrice(null);
+        setPriceEditUSD('');
+        setPriceEditKES(null);
+        alert('Price updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error saving price:', error);
+      alert('Failed to save price. Please try again.');
+    }
+
+    setPriceSaving(false);
+  };
+
+  // Blog Management Handlers
+  const handleSaveBlog = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const blogData: Partial<BlogPost> = {
+      title: formData.get('title') as string,
+      excerpt: formData.get('excerpt') as string,
+      content: formData.get('content') as string,
+      imageUrl: formData.get('imageUrl') as string,
+      category: formData.get('category') as string,
+      author: formData.get('author') as string,
+      date: formData.get('date') as string,
+    };
+
+    if (editingBlog === 'new') {
+      const result = await createBlog(blogData);
+      if (result.success && result.id) {
+        onUpdateBlogs([{ ...blogData, id: result.id } as BlogPost, ...blogs]);
+        setEditingBlog(null);
+      }
+    } else if (editingBlog && typeof editingBlog !== 'string') {
+      const result = await updateBlog(editingBlog.id, blogData);
+      if (result.success) {
+        onUpdateBlogs(blogs.map(b => b.id === editingBlog.id ? { ...b, ...blogData } : b));
+        setEditingBlog(null);
+      }
+    }
+  };
+
+  const handleDeleteBlog = async (id: string) => {
+    if (confirm('Are you sure you want to delete this blog post?')) {
+      const result = await deleteBlog(id);
+      if (result.success) {
+        onUpdateBlogs(blogs.filter(b => b.id !== id));
+      }
+    }
+  };
+
+
+
+  const handleUpdateConsultationStatus = async (id: string, status: ConsultationStatus) => {
+    const result = await updateConsultation(id, status);
+    if (result.success) {
+      onUpdateConsultations(consultations.map(c => c.id === id ? { ...c, status } : c));
+    }
+  };
+
+  const handleDeleteClient = async (id: string) => {
+    if (confirm('Are you sure you want to remove this client?')) {
+      const result = await deleteClient(id);
+      if (result.success) {
+        onUpdateClients(clients.filter(c => c.id !== id));
+      }
+    }
   };
 
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-[#F9FAFB] pt-24 pb-20">
-      <aside className="w-72 bg-white hidden lg:flex flex-col sticky top-24 h-[calc(100vh-6rem)] ml-6 my-6 rounded-[2.5rem] shadow-2xl">
+      {/* Mobile Tab Nav */}
+      <div className="lg:hidden sticky top-24 z-40 bg-white border-b border-gray-100 px-4 py-3 overflow-x-auto flex no-scrollbar gap-2">
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            className={`whitespace-nowrap flex items-center gap-2 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-[#3D8593] text-white shadow-lg shadow-teal-100' : 'bg-gray-50 text-gray-400'
+              }`}
+          >
+            {item.icon}
+            {item.name}
+          </button>
+        ))}
+      </div>
+
+      <aside className="w-72 bg-white border-r border-gray-100 hidden lg:flex flex-col sticky top-24 h-[calc(100vh-6rem)] ml-6 my-6 rounded-[2.5rem] shadow-2xl overflow-hidden">
         <div className="p-10 flex items-center space-x-4">
-          <div className="bg-[#3D8593] p-3 rounded-2xl text-white">
+          <div className="bg-[#3D8593] p-3 rounded-2xl text-white shadow-xl shadow-teal-100">
             <LayoutDashboard className="w-5 h-5" />
           </div>
           <span className="text-xl font-black tracking-tighter text-[#3D8593]">LEGIT HUB</span>
@@ -255,7 +422,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-4 px-6 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-teal-50 text-[#3D8593]' : 'text-gray-400 hover:text-[#3D8593]'}`}
+              className={`w-full flex items-center space-x-4 px-6 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-teal-50 text-[#3D8593] shadow-sm' : 'text-gray-400 hover:text-[#3D8593]'
+                }`}
             >
               {item.icon}
               <span>{item.name}</span>
@@ -264,274 +432,170 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </nav>
       </aside>
 
-      <main className="flex-1 p-12">
-        <header className="mb-16">
-          <h1 className="text-5xl font-black tracking-tighter text-gray-900 capitalize">{activeTab}</h1>
-          <p className="text-[#3D8593] font-bold uppercase text-[9px] tracking-[0.4em] mt-3">Elite Logistics Control</p>
+      <main className="flex-1 p-4 md:p-10 lg:p-12 overflow-y-auto">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-16 gap-6">
+          <div>
+            <h1 className="text-5xl font-black tracking-tighter text-gray-900 capitalize leading-none">{activeTab}</h1>
+            <p className="text-[#3D8593] font-bold uppercase text-[9px] tracking-[0.4em] mt-3">Elite Logistics Control & Intelligence</p>
+          </div>
+          <div className="flex gap-4 w-full md:w-auto">
+            {activeTab === 'clients' && (
+              <button className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl">
+                <Download className="w-4 h-4 mr-2" /> Export Segment
+              </button>
+            )}
+            {activeTab === 'products' && (
+              <button
+                onClick={() => setEditingProduct('new')}
+                className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> Global Stock Unit
+              </button>
+            )}
+          </div>
         </header>
 
+        {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
-          <div className="space-y-12">
-            <div className="grid grid-cols-4 gap-8">
+          <div className="space-y-12 animate-in fade-in duration-1000">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {[
-                { label: 'Total Revenue', val: 'KES 5.8M', icon: <DollarSign />, bg: 'bg-emerald-50' },
-                { label: 'Gross Profit', val: 'KES 1.1M', icon: <TrendingUp />, bg: 'bg-teal-50' },
-                { label: 'Active Clients', val: clients.length.toString(), icon: <Activity />, bg: 'bg-orange-50' },
-                { label: 'Shipments', val: invoices.length.toString(), icon: <Truck />, bg: 'bg-indigo-50' }
+                { label: 'Total Revenue', val: `KES ${(invoices.reduce((acc, inv) => acc + (inv.totalKES || 0), 0) / 1000000).toFixed(1)}M`, trend: '+14.2%', icon: <DollarSign className="text-emerald-500" />, bg: 'bg-emerald-50' },
+                { label: 'Gross Profit', val: `KES ${(invoices.reduce((acc, inv) => acc + (inv.totalKES || 0) * 0.25, 0) / 1000000).toFixed(1)}M`, trend: '+18.5%', icon: <TrendingUp className="text-[#3D8593]" />, bg: 'bg-teal-50' },
+                { label: 'Active Clients', val: clients.length.toString(), trend: '+5.4%', icon: <Activity className="text-[#FF9900]" />, bg: 'bg-orange-50' },
+                { label: 'Pending Shipments', val: invoices.filter(i => i.status !== OrderStatus.READY_FOR_COLLECTION).length.toString(), trend: 'High Priority', icon: <Truck className="text-indigo-500" />, bg: 'bg-indigo-50' }
               ].map((stat, i) => (
-                <div key={i} className="bg-white p-10 rounded-[3.5rem] border border-neutral-100 shadow-xl">
-                  <div className={`w-14 h-14 ${stat.bg} rounded-2xl flex items-center justify-center mb-8`}>{stat.icon}</div>
-                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none mb-3">{stat.label}</p>
-                  <h2 className="text-4xl font-black text-gray-900">{stat.val}</h2>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'pricelist' && (
-          <div className="bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
-            <div className="flex justify-between items-center mb-10">
-              <h3 className="text-2xl font-black text-gray-900">Live Market Sync</h3>
-              <button
-                onClick={runSync}
-                disabled={syncing}
-                className="btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
-              >
-                {syncing ? <RefreshCcw className="animate-spin" /> : <RefreshCcw />} Global Market Sync
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {pricelist.map((item) => (
-                <div key={item.id} className="p-8 bg-neutral-50 rounded-3xl border border-neutral-100">
-                  <div className="flex justify-between items-center mb-6">
-                    <div>
-                      <h4 className="text-xl font-black text-gray-900">{item.modelName}</h4>
-                      <p className="text-[10px] font-black uppercase text-[#3D8593] tracking-widest">{item.brand} | {item.series}</p>
-                    </div>
+                <div key={i} className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-neutral-100 relative group">
+                  <div className={`w-14 h-14 ${stat.bg} rounded-2xl flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform`}>
+                    {stat.icon}
                   </div>
-                  <div className="grid grid-cols-4 gap-4">
-                    {item.capacities.map((cap, idx) => (
-                      <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-white flex flex-col items-center">
-                        <span className="text-[10px] font-black text-gray-400 mb-2 uppercase">{cap.capacity}</span>
-                        <span className="text-lg font-black text-gray-900">KES {cap.currentPriceKES.toLocaleString()}</span>
-                        <button
-                          onClick={() => setEditingPrice({ plId: item.id, capIdx: idx })}
-                          className="mt-4 p-2 text-teal-600 hover:bg-teal-50 rounded-xl transition-all"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">{stat.label}</p>
+                  <h2 className="text-4xl font-black text-gray-900 tracking-tighter">{stat.val}</h2>
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-emerald-500 px-2 py-0.5 bg-emerald-50 rounded-lg">{stat.trend}</span>
+                    <span className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Growth Rate</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
 
-        {activeTab === 'products' && (
-          <div className="space-y-10">
-            <div className="flex justify-between items-center bg-teal-50 px-10 py-6 rounded-full border border-teal-100 mb-8">
-              <span className="text-[10px] font-black uppercase text-[#3D8593] tracking-[0.2em]">Active Inventory Stock Units ({products.length})</span>
-              <button
-                onClick={() => setEditingProduct({ id: '', name: '', priceKES: 0, imageUrls: [''], variations: [], availability: Availability.LOCAL, description: '', category: '' })}
-                className="btn-vibrant-teal px-8 py-3 rounded-full font-black text-[9px] uppercase tracking-widest flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Add New Unit
-              </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-8">
-              {products.map(p => (
-                <div key={p.id} className="bg-white rounded-[3rem] p-8 border border-neutral-100 shadow-xl group">
-                  <div className="h-48 rounded-[2rem] overflow-hidden mb-6 bg-gray-50 relative">
-                    <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
-                    <button
-                      onClick={() => setEditingProduct(p)}
-                      className="absolute top-4 right-4 bg-white/90 backdrop-blur p-3 rounded-xl shadow-lg hover:bg-teal-50 text-[#3D8593] transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Edit3 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <h4 className="text-xl font-black text-gray-900 mb-2">{p.name}</h4>
-                  <div className="flex justify-between items-center mb-6">
-                    <p className="text-2xl font-black text-[#3D8593]">KES {p.priceKES.toLocaleString()}</p>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{p.availability}</span>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteProduct(p.id)}
-                    className="w-full py-4 bg-rose-50 text-rose-500 rounded-2xl text-[10px] font-black uppercase hover:bg-rose-500 hover:text-white transition-all underline-none border-none ring-0 shadow-none"
-                  >
-                    Retire Unit
-                  </button>
+            <div className="grid lg:grid-cols-3 gap-10">
+              <div className="lg:col-span-2 bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-10">Revenue Velocity</h3>
+                <div className="h-[350px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={revenueData}>
+                      <defs>
+                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3D8593" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#3D8593" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
+                      <Tooltip contentStyle={{ borderRadius: '2rem', border: 'none', boxShadow: '0 25px 60px rgba(0,0,0,0.15)' }} />
+                      <Area type="monotone" dataKey="revenue" stroke="#3D8593" strokeWidth={5} fillOpacity={1} fill="url(#colorRev)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'consultations' && (
-          <div className="space-y-10">
-            <div className="flex justify-between items-center bg-teal-50 px-10 py-6 rounded-full border border-teal-100 mb-8">
-              <span className="text-[10px] font-black uppercase text-[#3D8593] tracking-[0.2em]">Scheduled strategy sessions ({consultations.length})</span>
-            </div>
-
-            <div className="grid gap-6">
-              {consultations.map((c) => (
-                <div key={c.id} className="bg-white rounded-[3rem] p-10 border border-neutral-100 shadow-xl flex flex-col md:flex-row gap-10">
-                  <div className="flex-1 space-y-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="text-2xl font-black text-gray-900 mb-1">{c.name}</h4>
-                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{c.email} | {c.whatsapp}</p>
-                      </div>
-                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${c.status === ConsultationStatus.PENDING ? 'bg-orange-50 text-orange-600' :
-                        c.status === ConsultationStatus.PAID ? 'bg-green-50 text-green-600' : 'bg-teal-50 text-teal-600'
-                        }`}>
-                        {c.status}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-6 p-6 bg-neutral-50 rounded-[2rem]">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="w-5 h-5 text-[#3D8593]" />
-                        <div>
-                          <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest">Date</p>
-                          <p className="text-sm font-black text-gray-900">{c.date}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Clock className="w-5 h-5 text-[#3D8593]" />
-                        <div>
-                          <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest">Time</p>
-                          <p className="text-sm font-black text-gray-900">{c.time}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-[9px] font-bold uppercase text-gray-400 tracking-widest mb-3">Consultation Topic</p>
-                      <p className="text-sm text-gray-600 leading-relaxed font-medium bg-neutral-50/50 p-6 rounded-2xl">{c.topic}</p>
-                    </div>
-                  </div>
-
-                  <div className="w-full md:w-64 flex flex-col gap-4 justify-center">
-                    {c.status === ConsultationStatus.PENDING && (
-                      <button
-                        onClick={() => handleConfirmConsultation(c)}
-                        className="w-full py-5 bg-[#3D8593] text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest shadow-lg shadow-teal-100 hover:scale-105 transition-all flex items-center justify-center gap-2"
-                      >
-                        <MessageSquare className="w-4 h-4" /> Confirm & Send WhatsApp
-                      </button>
-                    )}
-                    {c.status === ConsultationStatus.DOABLE && (
-                      <button
-                        onClick={() => handleUpdateConsultationStatus(c.id, ConsultationStatus.PAID)}
-                        className="w-full py-5 bg-[#FF9900] text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest shadow-lg shadow-orange-100 hover:scale-105 transition-all flex items-center justify-center gap-2"
-                      >
-                        <CreditCard className="w-4 h-4" /> Mark as Paid
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleUpdateConsultationStatus(c.id, ConsultationStatus.CANCELLED)}
-                      className="w-full py-5 bg-rose-50 text-rose-500 rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest hover:bg-rose-500 hover:text-white transition-all underline-none border-none ring-0 shadow-none"
-                    >
-                      Cancel Session
-                    </button>
-                  </div>
+              </div>
+              <div className="bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-2">Category Split</h3>
+                <div className="flex-1 min-h-[300px] w-full flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={categoryData} innerRadius={80} outerRadius={120} paddingAngle={10} dataKey="value" stroke="none">
+                        {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
-              {consultations.length === 0 && (
-                <div className="text-center py-20 bg-white rounded-[4rem] border border-neutral-100 shadow-xl">
-                  <div className="w-20 h-20 bg-neutral-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
-                    <MessageSquare className="w-10 h-10 text-gray-200" />
-                  </div>
-                  <h3 className="text-xl font-black text-gray-900">No sessions booked yet</h3>
-                  <p className="text-sm text-gray-400 mt-2">Active requests will appear here</p>
+                <div className="space-y-4 mt-8">
+                  {categoryData.map((c, i) => (
+                    <div key={i} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }}></div>
+                        <span className="text-gray-400">{c.name}</span>
+                      </div>
+                      <span className="text-gray-900">{((c.value / Math.max(1, products.length)) * 100).toFixed(1)}%</span>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}
 
+        {/* CLIENTS CRM TAB */}
         {activeTab === 'clients' && (
-          <div className="space-y-10">
-            <div className="flex justify-between items-center mb-8">
-              <div className="relative w-96">
-                <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-                <input
-                  type="text"
-                  placeholder="Search clients..."
-                  className="w-full bg-white border border-neutral-100 rounded-full pl-16 pr-8 py-5 text-sm font-bold focus:ring-4 focus:ring-teal-100 transition-all shadow-sm"
-                  value={adminSearchTerm}
-                  onChange={(e) => setAdminSearchTerm(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-4">
-                <button className="p-5 bg-white border border-neutral-100 rounded-2xl text-gray-400 hover:text-[#3D8593] transition-all shadow-sm">
-                  <Download className="w-5 h-5" />
-                </button>
-                <button className="p-5 bg-white border border-neutral-100 rounded-2xl text-gray-400 hover:text-[#3D8593] transition-all shadow-sm">
-                  <Filter className="w-5 h-5" />
-                </button>
-              </div>
+          <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="relative group max-w-2xl">
+              <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or location..."
+                className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-medium shadow-2xl focus:ring-8 focus:ring-[#3D8593]/5 outline-none transition-all"
+                value={adminSearchTerm}
+                onChange={(e) => setAdminSearchTerm(e.target.value)}
+              />
             </div>
 
-            <div className="bg-white rounded-[3.5rem] border border-neutral-100 shadow-2xl overflow-hidden">
-              <table className="w-full text-left border-separate border-spacing-0">
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto no-scrollbar">
+              <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-neutral-50">
-                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Identity</th>
-                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Contact</th>
-                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Location</th>
-                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Interests</th>
-                    <th className="px-10 py-8 text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">Activity</th>
+                  <tr className="bg-neutral-50/50 border-b border-neutral-100">
+                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Identity</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">HQ & Region</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Financial Value</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Buying Pulse</th>
+                    <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">CRM Actions</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {filteredClients.map((client) => (
-                    <tr key={client.id} className="group hover:bg-neutral-50/50 transition-all">
-                      <td className="px-10 py-8 border-b border-neutral-50">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-[#3D8593]/10 rounded-2xl flex items-center justify-center text-[#3D8593] font-black text-sm">
+                <tbody className="divide-y divide-neutral-50">
+                  {filteredClients.map(client => (
+                    <tr key={client.id} className="hover:bg-neutral-50/30 transition-colors group">
+                      <td className="px-12 py-10">
+                        <div className="flex items-center gap-6">
+                          <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-indigo-50 rounded-[1.8rem] flex items-center justify-center text-[#3D8593] font-black text-2xl border border-white group-hover:scale-110 transition-transform">
                             {client.name.charAt(0)}
                           </div>
                           <div>
-                            <p className="font-black text-gray-900">{client.name}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Joined {client.joinedDate}</p>
+                            <p className="font-black text-gray-900 text-xl tracking-tight leading-none">{client.name}</p>
+                            <p className="text-[11px] text-gray-400 font-bold mt-2 lowercase">{client.email}</p>
+                            <p className="text-[10px] text-[#3D8593] font-bold mt-1 uppercase tracking-widest">{client.phone}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-10 py-8 border-b border-neutral-50">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600">
-                            <Mail className="w-3.5 h-3.5 text-gray-300" /> {client.email}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600">
-                            <Smartphone className="w-3.5 h-3.5 text-gray-300" /> {client.phone}
-                          </div>
+                      <td className="px-10 py-10">
+                        <p className="font-bold text-sm flex items-center gap-2 text-gray-900"><MapPin className="w-4 h-4 text-[#3D8593]" /> {client.location}</p>
+                        <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Member since {client.joinedDate}</p>
+                      </td>
+                      <td className="px-10 py-10">
+                        <p className="text-xl font-black text-gray-900 tracking-tighter">KES {client.totalSpentKES.toLocaleString()}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${client.purchaseFrequency === 'High' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
+                            {client.purchaseFrequency} Frequency
+                          </span>
                         </div>
                       </td>
-                      <td className="px-10 py-8 border-b border-neutral-50">
-                        <div className="flex items-center gap-2 text-sm font-bold text-gray-600 uppercase tracking-tight">
-                          <MapPin className="w-3.5 h-3.5 text-gray-300" /> {client.location}
-                        </div>
-                      </td>
-                      <td className="px-10 py-8 border-b border-neutral-50">
-                        <div className="flex flex-wrap gap-2">
-                          {(client.interests || []).map((interest, i) => (
-                            <span key={i} className="px-3 py-1 bg-teal-50 text-[#3D8593] text-[9px] font-black uppercase rounded-full border border-teal-100">
-                              {interest}
-                            </span>
+                      <td className="px-10 py-10">
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {client.purchasedItems.slice(0, 2).map((item, i) => (
+                            <span key={i} className="px-2.5 py-1 bg-white border border-neutral-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-500">{item}</span>
                           ))}
+                          {client.purchasedItems.length > 2 && (
+                            <span className="px-2 py-1 bg-neutral-100 rounded-lg text-[8px] font-black uppercase tracking-widest text-gray-400">+{client.purchasedItems.length - 2} More</span>
+                          )}
                         </div>
+                        <p className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Last Activity: {client.lastOrderDate}</p>
                       </td>
-                      <td className="px-10 py-8 border-b border-neutral-50">
-                        <div>
-                          <p className="font-black text-gray-900">KES {client.totalSpentKES.toLocaleString()}</p>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{client.orderCount} Orders</p>
+                      <td className="px-12 py-10 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button title="Marketing Blast" className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"><Mail className="w-4 h-4" /></button>
+                          <button title="Full Audit Log" className="p-4 bg-neutral-900 text-white rounded-2xl hover:bg-black transition-all"><History className="w-4 h-4" /></button>
+                          <button title="Remove Client" onClick={() => handleDeleteClient(client.id)} className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </td>
                     </tr>
@@ -541,30 +605,872 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         )}
+
+        {/* INVOICES MANAGEMENT TAB */}
+        {activeTab === 'invoices' && (
+          <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-neutral-50/50 border-b border-neutral-100">
+                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Order/Invoice</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Status</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Logistics Phase</th>
+                    <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Management</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-50">
+                  {invoices.map(inv => (
+                    <tr key={inv.id} className="hover:bg-neutral-50/30 transition-colors">
+                      <td className="px-12 py-10">
+                        <p className="font-black text-gray-900 text-xl tracking-tight leading-none">#{inv.invoiceNumber}</p>
+                        <p className="text-[10px] text-[#3D8593] font-black uppercase tracking-widest mt-2">{inv.productName}</p>
+                      </td>
+                      <td className="px-10 py-10">
+                        <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`w-2 h-2 rounded-full ${inv.isPaid ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                          <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">{inv.isPaid ? 'Transaction Paid' : 'Payment Pending'}</p>
+                        </div>
+                      </td>
+                      <td className="px-10 py-10">
+                        <select
+                          value={inv.status}
+                          onChange={(e) => updateInvoiceStatus(inv.id, e.target.value as OrderStatus)}
+                          className="bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100"
+                        >
+                          {Object.values(OrderStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-12 py-10 text-right">
+                        <div className="flex justify-end gap-3">
+                          <button
+                            onClick={() => handlePrintInvoice(inv)}
+                            className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
+                            title="Print Invoice / Label"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button className="p-4 bg-neutral-900 text-white rounded-2xl"><ExternalLink className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* LEADS MANAGEMENT TAB (PHASE 4) */}
+        {activeTab === 'leads' && (
+          <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="flex justify-between items-center px-4">
+              <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Sourcing <span className="text-[#3D8593]">Intelligence</span></h2>
+              <button
+                onClick={refreshLeads}
+                disabled={loadingLeads}
+                className="px-6 py-3 bg-[#3D8593] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2"
+              >
+                <RefreshCcw className={`w-3.5 h-3.5 ${loadingLeads ? 'animate-spin' : ''}`} /> Refresh Nodes
+              </button>
+            </div>
+
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-neutral-50/50 border-b border-neutral-100">
+                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Target Asset</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Protocol</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Nodes & Logistics</th>
+                    <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-50">
+                  {leads.map((lead) => (
+                    <tr key={lead.id} className="hover:bg-neutral-50/50 transition-colors group">
+                      <td className="px-12 py-10">
+                        <div className="flex items-center gap-5">
+                          <div className="w-14 h-14 bg-neutral-100 rounded-[1.2rem] flex items-center justify-center text-neutral-400 group-hover:bg-[#3D8593]/10 group-hover:text-[#3D8593] transition-all">
+                            <Box className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="font-black text-gray-900 text-lg tracking-tight uppercase leading-none">{lead.productName}</p>
+                            <div className="flex items-center gap-3 mt-2">
+                              <span className="text-[10px] font-black text-[#3D8593] tracking-widest uppercase">Budget: KES {lead.targetBudgetKES?.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-10 py-10">
+                        <p className="font-bold text-sm text-gray-900 flex items-center gap-2"><User className="w-3.5 h-3.5 text-[#3D8593]" /> {lead.clientName}</p>
+                        <p className="text-[10px] font-black text-gray-400 mt-1 uppercase tracking-widest italic">{lead.clientWhatsapp}</p>
+                      </td>
+                      <td className="px-10 py-10">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.shippingPreference === 'Air' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'}`}>
+                            {lead.shippingPreference} Freight
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.urgency === 'High' ? 'bg-rose-50 text-rose-500' : 'bg-neutral-50 text-gray-400'}`}>
+                            {lead.urgency} Urgency
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-bold text-gray-300 uppercase italic">Type: {lead.itemType}</p>
+                      </td>
+                      <td className="px-12 py-10 text-right">
+                        <select
+                          value={lead.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value;
+                            await updateSourcingStatus(lead.id!, newStatus);
+                            refreshLeads();
+                          }}
+                          className={`bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100 transition-all ${lead.status === 'completed' ? 'text-emerald-600 font-black' :
+                            lead.status === 'contacted' ? 'text-amber-600 font-black' :
+                              'text-neutral-400 font-bold'
+                            }`}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="viewed">Viewed</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                  {leads.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-12 py-20 text-center">
+                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] italic">No active quest intelligence available.</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* INVENTORY TAB */}
+        {activeTab === 'products' && (
+          <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+              {products.map(p => (
+                <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">
+                  <div className="aspect-square rounded-[2.5rem] overflow-hidden mb-8 relative border border-neutral-50">
+                    <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                    <div className={`absolute top-6 left-6 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-emerald-500 text-white' : 'bg-[#FF9900] text-white'}`}>
+                      {p.availability}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{p.name}</h4>
+                      <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]">{p.category}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mb-8">
+                    <div>
+                      <p className="text-2xl font-black text-[#3D8593] tracking-tighter">KES {p.priceKES.toLocaleString()}</p>
+                      {p.discountPriceKES && (
+                        <p className="text-[10px] text-gray-400 line-through">KES {p.discountPriceKES.toLocaleString()}</p>
+                      )}
+                    </div>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{p.shippingDuration || 'Standard Shipping'}</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setEditingProduct(p)}
+                      className="flex-1 py-5 bg-neutral-900 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all"
+                    >
+                      <Edit3 className="w-4 h-4" /> Edit Specs
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProduct(p.id)}
+                      className="p-5 bg-rose-50 text-rose-500 rounded-[1.8rem] hover:bg-rose-500 hover:text-white transition-all"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => setEditingProduct('new')}
+                className="flex flex-col items-center justify-center border-4 border-dashed border-neutral-100 rounded-[3.5rem] p-12 text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group min-h-[500px]"
+              >
+                <Plus className="w-16 h-16 mb-6 group-hover:scale-125 transition-transform" />
+                <span className="font-black uppercase text-[12px] tracking-widest">Stock Global Unit</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SYNC TOOLS TAB */}
+        {activeTab === 'pricelist' && (
+          <div className="space-y-12 animate-in fade-in duration-700">
+            <div className="flex flex-col gap-10">
+              <div className="flex justify-center">
+                <div className="glass p-2 rounded-[3rem] flex shadow-2xl overflow-x-auto no-scrollbar max-w-full">
+                  {(['iphone', 'samsung', 'pixel'] as const).map((brand) => (
+                    <button key={brand} onClick={() => setSyncBrandFilter(brand)} className={`whitespace-nowrap px-10 py-5 rounded-[2.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${syncBrandFilter === brand ? 'bg-[#3D8593] text-white' : 'text-gray-400 hover:text-[#3D8593]'}`}>
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="relative max-w-2xl mx-auto w-full group">
+                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-[#3D8593] transition-colors" />
+                <input type="text" placeholder="Search Master Pricelist Registry..." className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-black uppercase tracking-widest outline-none focus:ring-8 focus:ring-[#3D8593]/5 transition-all shadow-xl" value={adminSearchTerm} onChange={(e) => setAdminSearchTerm(e.target.value)} />
+              </div>
+              <div className="flex justify-center flex-col items-center gap-4">
+                <button onClick={runSync} disabled={syncing} className="btn-vibrant-teal px-12 py-6 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
+                  {syncing ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
+                  {syncing ? 'Global Pulse Sync In Progress...' : 'Force Global Price Sync'}
+                </button>
+                <div className="flex gap-4">
+                  <button onClick={runMasterSync} disabled={syncingMaster} className="px-10 py-4 bg-indigo-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
+                    {syncingMaster ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                    {syncingMaster ? 'Associating Master Links...' : 'Sync Master Links'}
+                  </button>
+                  <button onClick={runSeed} disabled={seeding} className="px-10 py-4 bg-emerald-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
+                    {seeding ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    {seeding ? 'Seeding Database...' : 'Seed Prices From Schema'}
+                  </button>
+                </div>
+                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Connected to Cloudflare Worker (legit-sync-master)</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50">
+              {pricelist.filter(item => item.brand === syncBrandFilter && item.modelName.toLowerCase().includes(adminSearchTerm.toLowerCase())).map(item => (
+                <div key={item.id} className="p-12 hover:bg-neutral-50/50 transition-all">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
+                    <div>
+                      <h4 className="text-3xl font-black text-gray-900 tracking-tight">{item.modelName}</h4>
+                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.4em] mt-2">{item.series}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {item.capacities.map((cap, idx) => (
+                      <div key={idx} className={`p-8 rounded-[3rem] border transition-all relative ${cap.isManualOverride ? 'bg-orange-50 border-orange-100' : 'bg-white border-neutral-100 hover:border-teal-100 shadow-sm'}`}>
+                        <div className="flex justify-between items-center mb-8">
+                          <span className="px-4 py-2 bg-neutral-900 text-white text-[9px] font-black rounded-xl uppercase tracking-widest">{cap.capacity}</span>
+                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">{cap.lastSynced}</span>
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-3">Live KES Strategy Price</label>
+                          <div className="flex justify-between items-end">
+                            <p className="text-3xl font-black text-gray-900 tracking-tighter">KES {cap.currentPriceKES.toLocaleString()}</p>
+                            <button onClick={() => handleOpenPriceEdit(item.id, idx)} className="p-4 bg-neutral-50 rounded-2xl text-gray-300 hover:text-[#3D8593] shadow-inner">
+                              <Edit3 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* CONSULTATIONS REGISTRY */}
+        {activeTab === 'consultations' && (
+          <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50 animate-in fade-in duration-700">
+            <div className="p-12 bg-neutral-50/30 flex justify-between items-center">
+              <h3 className="text-2xl font-black tracking-tight text-gray-900">Expert Booking Pipeline</h3>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-4 py-1.5 rounded-full">{consultations.length} Active Requests</span>
+            </div>
+            {consultations.map(c => (
+              <div key={c.id} className="p-12 flex flex-col xl:flex-row gap-12 hover:bg-neutral-50/20 transition-all">
+                <div className="flex-1">
+                  <div className="flex items-center gap-6 mb-8">
+                    <div className="w-20 h-20 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center text-indigo-600 shadow-sm border border-white">
+                      <User className="w-10 h-10" />
+                    </div>
+                    <div>
+                      <h4 className="text-3xl font-black text-gray-900 tracking-tight leading-none">{c.name}</h4>
+                      <p className="text-[11px] text-gray-400 font-bold mt-4 uppercase tracking-[0.2em]">{c.whatsapp} • {c.email}</p>
+                    </div>
+                  </div>
+                  <div className="bg-white/80 p-10 rounded-[2.5rem] border border-neutral-100 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-4">Strategic Objective</p>
+                    <p className="text-lg font-bold text-gray-600 leading-relaxed italic">"{c.topic}"</p>
+                  </div>
+                </div>
+                <div className="w-full xl:w-80 flex flex-col justify-center gap-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {[ConsultationStatus.PENDING, ConsultationStatus.DOABLE, ConsultationStatus.PAID, ConsultationStatus.CANCELLED].map(s => (
+                      <button key={s} onClick={() => handleUpdateConsultationStatus(c.id, s)} className={`px-4 py-4 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all ${c.status === s ? 'bg-[#3D8593] text-white shadow-xl' : 'bg-white border border-neutral-100 text-gray-400'}`}>
+                        {s.split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 p-6 rounded-2xl">
+                    <span>Phase: {c.status}</span>
+                    <span className="text-[#3D8593]">Fee: ${c.feeUSD}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* CONTENT MANAGER */}
+        {activeTab === 'content' && (
+          <div className="grid md:grid-cols-2 gap-12 animate-in fade-in duration-700">
+            {blogs.map(b => (
+              <div key={b.id} className="bg-white rounded-[4rem] p-10 border border-neutral-100 shadow-2xl group relative overflow-hidden">
+                <div className="aspect-video rounded-[2.5rem] overflow-hidden mb-8 relative">
+                  <img src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                  <div className="absolute top-6 right-6 flex gap-3">
+                    <button onClick={() => setEditingBlog(b)} className="p-4 bg-white/90 backdrop-blur rounded-2xl shadow-xl hover:bg-white hover:scale-110 transition-all"><Edit3 className="w-5 h-5" /></button>
+                    <button onClick={() => handleDeleteBlog(b.id)} className="p-4 bg-rose-500 text-white rounded-2xl shadow-xl hover:bg-rose-600 hover:scale-110 transition-all"><Trash2 className="w-5 h-5" /></button>
+                  </div>
+                </div>
+                <span className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest bg-teal-50 px-4 py-2 rounded-full">{b.category}</span>
+                <h3 className="text-3xl font-black text-gray-900 mt-6 mb-4 leading-tight">{b.title}</h3>
+                <p className="text-gray-400 text-sm font-medium leading-relaxed line-clamp-3 mb-8">{b.excerpt}</p>
+              </div>
+            ))}
+            <button onClick={() => setEditingBlog('new')} className="aspect-video border-4 border-dashed border-neutral-100 rounded-[4rem] flex flex-col items-center justify-center text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group">
+              <Plus className="w-16 h-16 mb-4 group-hover:rotate-90 transition-transform duration-500" />
+              <span className="font-black uppercase text-[12px] tracking-widest">New Intelligence Piece</span>
+            </button>
+          </div>
+        )}
       </main>
 
-      {editingPrice && (
-        <PriceEditModal
-          onClose={() => setEditingPrice(null)}
-          onSave={handleSavePrice}
-          initialUSD={pricelist.find(i => i.id === editingPrice.plId)?.capacities[editingPrice.capIdx].sourcePriceUSD || 0}
-          initialKES={pricelist.find(i => i.id === editingPrice.plId)?.capacities[editingPrice.capIdx].currentPriceKES || 0}
-        />
+      {/* Product Edit/Add Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-[#0f1a1c]/60 backdrop-blur-sm" onClick={() => setEditingProduct(null)}></div>
+          <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-500">
+            <header className="px-10 py-8 bg-neutral-50 border-b border-neutral-100 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-3xl font-black tracking-tight text-gray-900">
+                  {editingProduct === 'new' ? 'New Global Stock Unit' : 'Refine Stock Specifications'}
+                </h3>
+                <p className="text-[10px] font-black uppercase text-[#3D8593] tracking-[0.3em] mt-1">Inventory Management Suite</p>
+              </div>
+              <button onClick={() => setEditingProduct(null)} className="p-3 hover:bg-white rounded-2xl transition-all">
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </header>
+
+            <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-10 space-y-10">
+              <div className="grid md:grid-cols-2 gap-10">
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Smartphone className="w-3.5 h-3.5" /> Product Name</label>
+                    <input
+                      required
+                      name="name"
+                      defaultValue={typeof editingProduct === 'object' ? editingProduct.name : ''}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                      placeholder="e.g. iPhone 15 Pro Max"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><DollarSign className="w-3.5 h-3.5" /> Price (KES)</label>
+                      <input
+                        required
+                        type="number"
+                        name="priceKES"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.priceKES : ''}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                        placeholder="120000"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><TrendingUp className="w-3.5 h-3.5" /> Old Price (Optional)</label>
+                      <input
+                        type="number"
+                        name="discountPriceKES"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.discountPriceKES : ''}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                        placeholder="135000"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><ImageIcon className="w-3.5 h-3.5" /> Image URLs (Comma separated)</label>
+                    <input
+                      name="imageUrls"
+                      defaultValue={typeof editingProduct === 'object' ? editingProduct.imageUrls.join(', ') : ''}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
+                      placeholder="https://image1.com, https://image2.com"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Tag className="w-3.5 h-3.5" /> Global Category</label>
+                    <input
+                      required
+                      name="category"
+                      defaultValue={typeof editingProduct === 'object' ? editingProduct.category : 'Electronics'}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><RefreshCcw className="w-3.5 h-3.5" /> Availability</label>
+                      <select
+                        name="availability"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.availability : Availability.IMPORT}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                      >
+                        <option value={Availability.LOCAL}>Local Stock</option>
+                        <option value={Availability.IMPORT}>On Import</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Truck className="w-3.5 h-3.5" /> Shipping ETA</label>
+                      <input
+                        name="shippingDuration"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.shippingDuration : '2-3 Weeks Air'}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><List className="w-3.5 h-3.5" /> Stock Count & Meta</label>
+                    <div className="flex gap-2">
+                      <input
+                        name="stockCount"
+                        type="number"
+                        placeholder="Quantity"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.stockCount : 0}
+                        className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold"
+                      />
+                      <div className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-gray-400 flex items-center">
+                        {typeof editingProduct === 'object' ? editingProduct.variations.length : 0} Variants
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ADVANCED VARIATION MANAGER */}
+              <div className="bg-neutral-50 rounded-[2.5rem] p-8 space-y-6">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] flex items-center gap-2">
+                    <Box className="w-3.5 h-3.5" /> High-Ticket Variations
+                  </label>
+                  <button
+                    type="button"
+                    onClick={addVariation}
+                    className="px-4 py-2 bg-[#3D8593] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-neutral-900 transition-all flex items-center gap-2"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Option
+                  </button>
+                </div>
+
+                {localVariations.length === 0 ? (
+                  <p className="text-[10px] text-gray-400 font-bold italic py-4 text-center">No variations defined for this asset.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {localVariations.map((v, idx) => (
+                      <div key={idx} className="flex gap-3 animate-in slide-in-from-right-2 duration-300">
+                        <select
+                          value={v.type}
+                          onChange={(e) => updateVariation(idx, { type: e.target.value as any })}
+                          className="w-32 bg-white border border-neutral-100 rounded-xl px-3 py-3 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-teal-100"
+                        >
+                          <option value="Color">Color</option>
+                          <option value="Capacity">Capacity</option>
+                          <option value="Size">Size</option>
+                          <option value="Design">Design</option>
+                          <option value="Bundle">Bundle</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Name (e.g. Titanium Blue)"
+                          value={v.name}
+                          onChange={(e) => updateVariation(idx, { name: e.target.value })}
+                          className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Variation Image URL"
+                          value={v.imageUrl || ''}
+                          onChange={(e) => updateVariation(idx, { imageUrl: e.target.value })}
+                          className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                        />
+                        <div className="relative w-32">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">KES</span>
+                          <input
+                            type="number"
+                            placeholder="Price"
+                            value={v.priceKES || ''}
+                            onChange={(e) => updateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
+                            className="w-full bg-white border border-neutral-100 rounded-xl pl-10 pr-3 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeVariation(idx)}
+                          className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><AlignLeft className="w-3.5 h-3.5" /> Detailed Strategic Description</label>
+                <textarea
+                  required
+                  name="description"
+                  defaultValue={typeof editingProduct === 'object' ? editingProduct.description : ''}
+                  rows={4}
+                  className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none"
+                  placeholder="The most premium device featuring AI capabilities and titanium structure..."
+                />
+              </div>
+
+              <div className="flex gap-4 pt-4 shrink-0">
+                <button
+                  type="submit"
+                  className="flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-black transition-all"
+                >
+                  Confirm Stock Update
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="px-10 py-6 bg-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[11px] tracking-widest hover:bg-neutral-200 transition-all"
+                >
+                  Discard
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {editingProduct && (
-        <ProductEditModal
-          product={editingProduct}
-          onClose={() => setEditingProduct(null)}
-          onSave={handleSaveProduct}
-          isUpdating={isUpdating}
-        />
+
+
+      {/* PRICE EDIT MODAL */}
+      {editingPrice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[3rem] p-8 md:p-12 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 to-[#3D8593]" />
+
+            <div className="mb-8">
+              <h3 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Adjust Strategy</h3>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                Live Currency Sync & Margin Calc
+              </p>
+            </div>
+
+            <div className="space-y-8">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-3">
+                  <DollarSign className="w-3.5 h-3.5" /> Source Base Price (USD)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    autoFocus
+                    value={priceEditUSD}
+                    onChange={(e) => handlePriceUSDChange(e.target.value)}
+                    className="w-full bg-neutral-50 border-none rounded-[2rem] pl-10 pr-6 py-5 text-xl font-black focus:ring-4 focus:ring-teal-100 transition-all outline-none"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className={`p-8 rounded-[2.5rem] transition-all bg-neutral-50 border border-neutral-100`}>
+                <div className="flex justify-between items-start mb-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                    <RefreshCcw className="w-3.5 h-3.5" /> Calculated Output
+                  </label>
+                  <button
+                    onClick={() => setPriceManualOverride(!priceManualOverride)}
+                    className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest transition-all border ${priceManualOverride ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-white text-gray-400 border-neutral-200 hover:border-gray-300'}`}
+                  >
+                    {priceManualOverride ? 'Manual Mode Active' : 'Auto-Sync Mode'}
+                  </button>
+                </div>
+
+                {priceCalculating ? (
+                  <div className="flex items-center gap-2 text-teal-600 font-medium py-2">
+                    <RefreshCcw className="w-4 h-4 animate-spin" />
+                    <span className="text-xs uppercase tracking-widest">Calculating...</span>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {priceManualOverride ? (
+                      <div className="relative">
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-900 font-black text-sm">KES</span>
+                        <input
+                          type="number"
+                          value={priceEditKES || ''}
+                          onChange={(e) => setPriceEditKES(parseFloat(e.target.value))}
+                          className="w-full bg-white border-2 border-orange-100 rounded-2xl pl-12 pr-4 py-3 font-black text-2xl text-gray-900 focus:outline-none focus:border-orange-300"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-4xl font-black text-gray-900 tracking-tighter">
+                        KES {(priceEditKES || 0).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {!priceManualOverride && (
+                  <p className="text-[9px] font-bold text-gray-400 mt-4 leading-relaxed">
+                    Includes flat logistics fee ($20 + 3.5%) + service fee. Strategy auto-rounds up.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex gap-4 pt-2">
+                <button
+                  onClick={handleSavePriceEdit}
+                  disabled={priceSaving || priceCalculating}
+                  className="flex-1 py-5 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-black hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {priceSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {priceSaving ? 'Syncing...' : 'Save Strategy'}
+                </button>
+                <button
+                  onClick={() => setEditingPrice(null)}
+                  disabled={priceSaving}
+                  className="px-8 py-5 bg-white border border-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:bg-neutral-50 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* BLOG EDIT MODAL */}
+      {editingBlog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[3rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden h-[90vh]">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 to-[#3D8593]" />
+            <div className="absolute top-0 right-0 p-8 z-10">
+              <button
+                onClick={() => setEditingBlog(null)}
+                className="p-2 bg-white rounded-full hover:bg-neutral-50 transition-colors shadow-sm"
+              >
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="h-full flex flex-col">
+              <div className="mb-6 shrink-0">
+                <h3 className="text-3xl font-black text-gray-900 tracking-tight mb-2">
+                  {editingBlog === 'new' ? 'New Intelligence Piece' : 'Edit Intelligence'}
+                </h3>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  Content Management System
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveBlog} className="flex-1 overflow-y-auto pr-2 space-y-6 no-scrollbar pb-6">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                    <FileText className="w-3.5 h-3.5" /> Headline / Title
+                  </label>
+                  <input
+                    required
+                    name="title"
+                    defaultValue={editingBlog !== 'new' ? editingBlog.title : ''}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all"
+                    placeholder="Enter article title..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                      <Tag className="w-3.5 h-3.5" /> Category
+                    </label>
+                    <select
+                      name="category"
+                      defaultValue={editingBlog !== 'new' ? editingBlog.category : 'Tech Insights'}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all"
+                    >
+                      <option value="Tech Insights">Tech Insights</option>
+                      <option value="Market Analysis">Market Analysis</option>
+                      <option value="Product Reviews">Product Reviews</option>
+                      <option value="Company News">Company News</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                      <User className="w-3.5 h-3.5" /> Author
+                    </label>
+                    <input
+                      name="author"
+                      defaultValue={editingBlog !== 'new' ? editingBlog.author : 'Admin'}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                    <ImageIcon className="w-3.5 h-3.5" /> Cover Image URL
+                  </label>
+                  <input
+                    required
+                    name="imageUrl"
+                    defaultValue={editingBlog !== 'new' ? editingBlog.imageUrl : ''}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                    <AlignLeft className="w-3.5 h-3.5" /> Short Excerpt
+                  </label>
+                  <textarea
+                    required
+                    name="excerpt"
+                    defaultValue={editingBlog !== 'new' ? editingBlog.excerpt : ''}
+                    rows={2}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none"
+                    placeholder="Brief summary for the card view..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                    <FileText className="w-3.5 h-3.5" /> Full Article Content
+                  </label>
+                  <textarea
+                    required
+                    name="content"
+                    defaultValue={editingBlog !== 'new' ? editingBlog.content : ''}
+                    rows={12}
+                    className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-base focus:ring-4 focus:ring-teal-100 transition-all resize-none leading-relaxed"
+                    placeholder="Write your article content here..."
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4 shrink-0">
+                  <button
+                    type="submit"
+                    className="flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-black transition-all"
+                  >
+                    {editingBlog === 'new' ? 'Publish Piece' : 'Save Changes'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingBlog(null)}
+                    className="px-10 py-6 bg-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[11px] tracking-widest hover:bg-neutral-200 transition-all"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @media print {
+          body * { visibility: hidden; }
+          #printable-invoice, #printable-invoice * { visibility: visible; }
+          #printable-invoice {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white;
+            padding: 20px;
+          }
+        }
       `}</style>
+
+      {/* HIDDEN PRINT TEMPLATE */}
+      {printingInvoice && (
+        <div id="printable-invoice" className="hidden print:block fixed inset-0 z-[-1] bg-white p-12 text-black">
+          <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
+            <div>
+              <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">LEGIT GRINDER</h1>
+              <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">Official Sales Invoice / Ship Label</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xl font-black">#{printingInvoice.invoiceNumber}</p>
+              <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">{new Date().toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-12 mb-12">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Consignee Details</p>
+              <p className="text-2xl font-black mb-2">{printingInvoice.clientName}</p>
+              <p className="text-sm font-bold text-gray-600 mb-1">{printingInvoice.email}</p>
+              <p className="text-sm font-bold text-gray-600">{printingInvoice.phone}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Shipping Destination</p>
+              <p className="text-lg font-bold mb-2">{printingInvoice.location}</p>
+              <p className="text-[10px] font-black uppercase py-2 px-4 bg-black text-white rounded inline-block">
+                Priority Fulfillment
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t-2 border-neutral-100 pt-8">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b-2 border-black">
+                  <th className="py-4 text-[10px] font-black uppercase tracking-widest">Article Description</th>
+                  <th className="py-4 text-right text-[10px] font-black uppercase tracking-widest">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-neutral-100">
+                  <td className="py-6">
+                    <p className="text-lg font-black uppercase">{printingInvoice.productName}</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Standard Legit Assurance Warranty Included</p>
+                  </td>
+                  <td className="py-6 text-right">
+                    <p className="text-xl font-black">KES {printingInvoice.totalKES?.toLocaleString()}</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-12 flex justify-between items-end border-t-2 border-black pt-8">
+            <div>
+              <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">Authenticator Signature</p>
+              <div className="w-48 h-12 border-b-2 border-neutral-200"></div>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Status</p>
+              <p className="text-xl font-black uppercase tracking-widest">{printingInvoice.status}</p>
+            </div>
+          </div>
+
+          <div className="mt-20 pt-8 border-t border-dashed border-gray-200 text-center">
+            <p className="text-[9px] font-black uppercase tracking-[0.5em] text-gray-300 italic">Authenticity Guaranteed by LEGIT GRINDER • Logistics Dept</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

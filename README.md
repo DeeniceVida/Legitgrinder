@@ -1,20 +1,25 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# LegitGrinder 2026: Elite Sourcing & Logistics
 
-# Run and deploy your AI Studio app
+LegitGrinder is a premium sourcing and logistics platform specializing in high-ticket electronics (iPhones, Samsung Galaxy, Google Pixel) imported from the USA and China to Kenya. 
 
-This contains everything you need to run your app locally.
+## 💎 Features
+- **Elite Storefront**: High-fidelity product displays with real-time stock and logistics intelligence.
+- **Automated Pricing**: Dynamic KES price calculation based on US market trends, shipping fees, and local taxes.
+- **Secure Payments**: Integrated with **Paystack** for verified, server-side transaction processing.
+- **Order Tracking**: Comprehensive pipeline for monitoring orders from "Order Placed" to "Last-Mile Delivery."
+- **Admin Dashboard**: Advanced inventory, client, and financial management suite.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1Qqdd60_41NOIjaqtEUuRtLuT3xIU_AWL
+## 🛠️ Tech Stack
+- **Frontend**: React, Vite, Tailwind CSS, Lucide Icons.
+- **Backend**: Supabase (Database, Auth, Edge Functions).
+- **Automation**: Cloudflare Workers for market price synchronization.
+- **Payments**: Paystack.
 
-## Run Locally
+## 🚀 Development
+1. Clone the repository.
+2. Install dependencies: `npm install`.
+3. Configure your `.env.local` with Supabase and Paystack keys.
+4. Run locally: `npm run dev`.
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+*Authenticity Guaranteed by LEGIT GRINDER • Logistics Dept*

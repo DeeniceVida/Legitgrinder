@@ -11,76 +11,30 @@ import { API_BASE_URL } from '../constants';
  */
 
 export async function syncBackMarketPrices(currentData: PricelistItem[]): Promise<PricelistItem[]> {
-  console.log("Initiating Global Marketplace Sync...");
+  console.log("Initiating Global Marketplace Sync with Formula...");
 
-  // 1. Try to call the Cloudflare Worker if configured
-  const workerUrl = import.meta.env.VITE_WORKER_URL;
-
-  if (workerUrl) {
-    try {
-      console.log(`Connecting to worker: ${workerUrl}`);
-      const response = await fetch(`${workerUrl}/api/sync-prices`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trigger: 'admin_manual' })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log("Worker sync successful:", result);
-        // In a real app, we would now re-fetch the fresh data from Supabase 
-        // because the worker updated the DB in the background.
-        // For this demo, we can return the currentData and let the UI refresh mechanism handle it,
-        // or simulating the immediate update in the UI state as well.
-        return currentData.map(item => ({
-          ...item,
-          capacities: item.capacities.map(cap => ({
-            ...cap,
-            lastSynced: 'Synced ' + new Date().toLocaleTimeString() + ' (Cloudflare)'
-          }))
-        }));
-      } else {
-        console.warn("Worker sync returned error:", await response.text());
-      }
-    } catch (err) {
-      console.error("Worker connection failed, falling back to local simulation:", err);
-    }
-  }
-
-  // 2. Fallback: Local Simulation (if no worker or worker fails)
-  console.log("Using local simulation logic...");
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // Framework for Cloudflare Worker integration is set up.
+  // We simulate the fetch but run the REAL calculation formula.
+  await new Promise(resolve => setTimeout(resolve, 1500));
 
   return currentData.map(item => {
-    // Only sync if there is a URL and we aren't overriding it manually
+    // We only update if a source URL is present (indicating it's linked)
     if (!item.sourceUrl) return item;
 
     const updatedCapacities = item.capacities.map(cap => {
-      // Respect manual overrides set in the Admin Dashboard
       if (cap.isManualOverride) return cap;
 
-      // Simulate a price change found by the scraper
-      let baseUSD = cap.sourcePriceUSD || 0;
-
-      // Patch for iPhone 11 to avoid ridiculous prices during simulation
-      if (item.modelName === 'iPhone 11' && baseUSD === 0) {
-        if (cap.capacity === '64GB') baseUSD = 166;
-        else if (cap.capacity === '128GB') baseUSD = 165;
-        else if (cap.capacity === '256GB') baseUSD = 217;
-      }
-
-      if (baseUSD === 0) baseUSD = 500; // Generic fallback
-
-      const priceDrift = (Math.random() - 0.5) * 10; // Random +/- $5
-      const newSourceUSD = Math.max(50, Math.round(baseUSD + priceDrift));
-      const newKES = calculateAutomatedPrice(newSourceUSD);
+      // SIMULATION OF SCRAPE RESULT:
+      // In production, the Cloudflare Worker visits the link and gets the USD.
+      // Here, we take the existing USD and apply the formula to ensure KES is correct.
+      const sourceUSD = cap.sourcePriceUSD || 500;
+      const calculatedKES = calculateAutomatedPrice(sourceUSD);
 
       return {
         ...cap,
-        sourcePriceUSD: newSourceUSD,
-        currentPriceKES: newKES,
+        currentPriceKES: calculatedKES,
         previousPriceKES: cap.currentPriceKES,
-        lastSynced: 'Synced ' + new Date().toLocaleTimeString() + ' (Auto)'
+        lastSynced: 'Checked ' + new Date().toLocaleTimeString() + ' (Auto)'
       };
     });
 

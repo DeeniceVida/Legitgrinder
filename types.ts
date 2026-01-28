@@ -68,12 +68,16 @@ export interface Product {
 export interface Invoice {
   id: string;
   invoiceNumber: string;
+  userId?: string;
   clientName: string;
   productName: string;
   status: OrderStatus;
   progress: number;
   lastUpdate: string;
   isPaid: boolean;
+  totalKES?: number;
+  date?: string;
+  paystackReference?: string;
 }
 
 export interface Client {
@@ -143,4 +147,21 @@ export interface CalculationResult {
   shippingFeeKES: number;
   serviceFeeKES: number;
   totalKES: number;
+}
+export type SourcingStatus = 'pending' | 'viewed' | 'contacted' | 'completed';
+
+export interface SourcingRequest {
+  id?: number;
+  clientName: string;
+  clientWhatsapp: string;
+  productName: string;
+  productCategory?: string;
+  productLink?: string;
+  estimatedQuantity: number;
+  shippingPreference: 'Air' | 'Sea';
+  itemType: 'Fragile' | 'Heavy' | 'General';
+  targetBudgetKES?: number;
+  urgency: 'High' | 'Medium' | 'Low';
+  status: SourcingStatus;
+  createdAt?: string;
 }

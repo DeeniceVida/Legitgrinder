@@ -1,8 +1,0 @@
-{
-  "name": "Copy of LegitGrinder",
-  "description": "Premium logistics and sourcing platform for importing goods from China and USA to Kenya. Features AI-powered assistant, real-time calculators, and order tracking.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
-}

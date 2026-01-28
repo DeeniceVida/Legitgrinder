@@ -1,31 +1,26 @@
 
 import React, { useState } from 'react';
-import { Menu, X, User } from 'lucide-react';
+import { Menu, X, User, ArrowRight } from 'lucide-react';
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
   currentPage: string;
-  isLoggedIn?: boolean;
-  isAdmin?: boolean;
-  onLogout?: () => void;
+  isAdmin: boolean;
+  isLoggedIn: boolean;
+  onLogout: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = false, isAdmin = false, onLogout }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin, isLoggedIn, onLogout }) => {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
     { name: 'Shop', id: 'shop' },
     { name: 'Pricelist', id: 'pricelist' },
     { name: 'Calculators', id: 'calculators' },
     { name: 'Blogs', id: 'blogs' },
-    { name: 'Tracking', id: 'tracking' },
     { name: 'Consult', id: 'consultation' },
   ];
-
-  // Add Admin link only if isAdmin is true
-  if (isAdmin) {
-    navLinks.push({ name: 'Admin', id: 'admin' });
-  }
 
   return (
     <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-7xl">
@@ -56,32 +51,69 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = f
               {link.name}
             </button>
           ))}
+
+          {/* My Tracker - Public for all users including guests */}
+          <button
+            onClick={() => onNavigate('tracking')}
+            className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === 'tracking'
+              ? 'bg-white text-[#3D8593] shadow-md shadow-teal-900/5'
+              : 'text-gray-400 hover:text-[#FF9900]'
+              }`}
+          >
+            My Tracker
+          </button>
+
+          {/* Order History - Only for logged-in users */}
+          {isLoggedIn && (
+            <button
+              onClick={() => onNavigate('history')}
+              className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === 'history'
+                ? 'bg-white text-[#3D8593] shadow-md shadow-teal-900/5'
+                : 'text-gray-400 hover:text-[#FF9900]'
+                }`}
+            >
+              Order History
+            </button>
+          )}
+
+          {/* Admin Link */}
+          {isAdmin && (
+            <button
+              onClick={() => onNavigate('admin')}
+              className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${currentPage === 'admin'
+                ? 'bg-white text-rose-600 shadow-md shadow-teal-900/5'
+                : 'text-gray-400 hover:text-rose-600'
+                }`}
+            >
+              Admin Hub
+            </button>
+          )}
         </div>
 
         <div className="flex items-center space-x-3">
           {isLoggedIn ? (
             <button
               onClick={onLogout}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white px-4 md:px-6 py-3 rounded-full hover:bg-rose-600 transition-all shadow-lg shadow-rose-100"
+              className="hidden md:flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
             >
               Logout
             </button>
           ) : (
             <button
               onClick={() => onNavigate('login')}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-4 md:px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
+              className="hidden md:flex items-center gap-2 text-[10px] font-black uppercase tracking-widest bg-[#3D8593] text-white px-6 py-3 rounded-full hover:bg-[#2c636e] transition-all shadow-lg shadow-teal-100"
             >
-              <User className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Account</span>
+              Join Elite <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
-          <button className="lg:hidden p-2 text-gray-900" onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          <button className="lg:hidden p-2 text-gray-900" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
-      {isOpen && (
+      {mobileMenuOpen && (
         <div className="absolute top-20 left-0 w-full glass rounded-[2rem] p-6 lg:hidden animate-in slide-in-from-top-4 shadow-2xl border-teal-100">
           <div className="flex flex-col space-y-2">
             {navLinks.map((link) => (
@@ -89,7 +121,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = f
                 key={link.id}
                 onClick={() => {
                   onNavigate(link.id);
-                  setIsOpen(false);
+                  setMobileMenuOpen(false);
                 }}
                 className={`text-xl font-bold p-4 rounded-2xl text-left transition-all ${currentPage === link.id ? 'bg-teal-50 text-[#3D8593]' : 'text-gray-400 hover:text-[#FF9900]'
                   }`}
@@ -97,16 +129,72 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isLoggedIn = f
                 {link.name}
               </button>
             ))}
-            <div className="h-px bg-gray-100 my-2"></div>
+
+            {/* My Tracker - Public */}
             <button
               onClick={() => {
-                onNavigate('login');
-                setIsOpen(false);
+                onNavigate('tracking');
+                setMobileMenuOpen(false);
               }}
-              className="text-xl font-bold p-4 rounded-2xl text-left text-[#3D8593] flex items-center gap-3"
+              className={`text-xl font-bold p-4 rounded-2xl text-left transition-all ${currentPage === 'tracking' ? 'bg-teal-50 text-[#3D8593]' : 'text-gray-400 hover:text-[#FF9900]'
+                }`}
             >
-              <User className="w-5 h-5" /> Account / Login
+              My Tracker
             </button>
+
+            {/* Order History - Only for logged-in users */}
+            {isLoggedIn && (
+              <button
+                onClick={() => {
+                  onNavigate('history');
+                  setMobileMenuOpen(false);
+                }}
+                className={`text-xl font-bold p-4 rounded-2xl text-left transition-all ${currentPage === 'history' ? 'bg-teal-50 text-[#3D8593]' : 'text-gray-400 hover:text-[#FF9900]'
+                  }`}
+              >
+                Order History
+              </button>
+            )}
+
+            {/* Admin Hub - Conditional */}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  onNavigate('admin');
+                  setMobileMenuOpen(false);
+                }}
+                className={`text-xl font-bold p-4 rounded-2xl text-left transition-all ${currentPage === 'admin' ? 'bg-rose-50 text-rose-600' : 'text-gray-400 hover:text-rose-600'
+                  }`}
+              >
+                Admin Hub
+              </button>
+            )}
+
+            {/* Divider */}
+            <div className="h-px bg-gray-200 my-2"></div>
+
+            {/* Login/Logout */}
+            {isLoggedIn ? (
+              <button
+                onClick={() => {
+                  onLogout();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full bg-[#3D8593] text-white py-4 px-6 rounded-2xl font-bold uppercase text-xs tracking-widest hover:bg-[#2c636e] transition-all"
+              >
+                Logout
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  onNavigate('login');
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full bg-[#3D8593] text-white py-4 px-6 rounded-2xl font-bold uppercase text-xs tracking-widest hover:bg-[#2c636e] transition-all flex items-center justify-center gap-2"
+              >
+                Join Elite <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       )}

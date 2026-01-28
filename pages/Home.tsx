@@ -18,20 +18,20 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">Elite Concierge Sourcing</span>
             </div>
             <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tighter text-gray-900 leading-[0.95] overflow-visible">
-              Your Private <br />
+              Your Private <br/>
               <span className="text-[#3D8593] italic font-light heading-accent">Sourcing Agent.</span>
             </h1>
             <p className="text-xl md:text-2xl max-w-lg mb-12 text-gray-500 font-light leading-relaxed">
               I bridge the gap between your vision and global suppliers. From negotiation to doorstep delivery in Kenya, I handle the complexity so you don't have to.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <button
+              <button 
                 onClick={() => onNavigate('shop')}
                 className="btn-vibrant-orange px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
               >
                 View Inventory <ArrowRight className="w-4 h-4" />
               </button>
-              <button
+              <button 
                 onClick={() => onNavigate('consultation')}
                 className="bg-white border-2 border-teal-50 text-[#3D8593] px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest hover:bg-teal-50 transition-all shadow-sm"
               >
@@ -42,8 +42,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
           <div className="relative animate-in fade-in zoom-in-95 duration-1000 delay-300">
             <div className="absolute inset-0 bg-gradient-to-tr from-[#FF9900]/20 to-[#3D8593]/20 rounded-[4.5rem] rotate-2 opacity-50 blur-2xl"></div>
-            <img
-              src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg"
+            <img 
+              src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg" 
               className="relative z-10 w-full h-[650px] object-cover rounded-[3.5rem] shadow-2xl border-4 border-white"
               alt="Import Hub"
             />
@@ -57,7 +57,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">How I Work <span className="text-[#3D8593] italic heading-accent font-light">For You</span></h2>
           <p className="text-gray-500 text-lg font-light max-w-2xl mx-auto">A high-touch sourcing model designed for transparency and reliability.</p>
         </div>
-
+        
         <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-8">
           {[
             { step: '01', title: 'Consult', desc: 'Tell me your needs—whether it\'s elite tech, industrial tools, or bulk supplies.', icon: <Search /> },
@@ -68,7 +68,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <div key={i} className="group p-10 rounded-[3rem] bg-neutral-50 border border-transparent hover:border-teal-100 hover:bg-white transition-all duration-500">
               <span className="text-4xl font-black text-teal-100 group-hover:text-[#3D8593]/20 transition-colors block mb-6">{item.step}</span>
               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#3D8593] shadow-sm mb-6 group-hover:scale-110 transition-transform">
-                {React.createElement(item.icon.type, { size: 24 })}
+                {React.cloneElement(item.icon as React.ReactElement, { size: 24 })}
               </div>
               <h3 className="text-xl font-bold mb-4">{item.title}</h3>
               <p className="text-gray-500 text-sm font-light leading-relaxed">{item.desc}</p>
@@ -95,12 +95,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               ))}
             </div>
           </div>
-
+          
           <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-10 leading-[1.1]">
-            Trusted by <span className="text-[#3D8593] italic heading-accent font-light">2,000+ Importers</span> <br />
+            Trusted by <span className="text-[#3D8593] italic heading-accent font-light">2,000+ Importers</span> <br/>
             Across East Africa.
           </h2>
-
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mt-20">
             <div className="space-y-2">
               <p className="text-5xl font-black text-gray-900 tracking-tighter">98.4%</p>
@@ -143,13 +143,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <h2 className="text-5xl md:text-7xl font-bold mb-10 tracking-tight leading-none">Ready to Source?</h2>
           <p className="text-teal-50 text-xl font-light mb-16 max-w-2xl mx-auto">Skip the middleman and the guesswork. Let's get your products from the global warehouse to your hands.</p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <button
+            <button 
               onClick={() => onNavigate('calculators')}
               className="bg-white text-[#3D8593] px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-teal-50 transition-all shadow-xl"
             >
               Get a Free Quote
             </button>
-            <button
+            <button 
               onClick={() => onNavigate('collaboration')}
               className="border-2 border-white/30 text-white px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-white/10 transition-all"
             >
