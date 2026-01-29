@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight } from 'lucide-react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment } from '../services/supabaseData';
@@ -395,29 +395,100 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   }
 
   return (
-    <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
-      <div className="max-w-7xl mx-auto text-center mb-16 md:mb-24">
-        <h1 className="text-4xl md:text-8xl font-bold mb-6 md:mb-8 tracking-tighter text-gray-900 leading-tight">Elite <span className="text-[#3D8593] italic font-light heading-accent">Inventory.</span></h1>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
-        {products.map((p) => (
-          <div key={p.id} className="group flex flex-col cursor-pointer text-left animate-in fade-in slide-in-from-bottom-8">
-            <div className="aspect-[4/5] bg-neutral-100 relative overflow-hidden rounded-[3rem] mb-8 shadow-sm group-hover:shadow-2xl transition-all border border-white">
-              <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
-              <div className={`absolute top-6 right-6 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-lg ${p.stockCount === 0 ? 'bg-red-500 text-white' :
-                p.stockCount <= 5 ? 'bg-yellow-500 text-white' :
-                  'bg-green-500 text-white'
-                }`}>{getStockStatus(p.stockCount)}</div>
+    <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32">
+      {/* APP-STYLE HEADER NODE */}
+      <div className="px-6 mb-12">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-8">Elite Marketplace</h1>
+
+          {/* SEARCH & SCAN BAR */}
+          <div className="relative mb-12 group">
+            <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 text-gray-400" />
             </div>
-            <div className="px-2 flex justify-between items-center">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-1 truncate">{p.name}</h3>
-                <span className="text-xl md:text-2xl font-black text-[#FF9900]">KES {(p.discountPriceKES || p.priceKES).toLocaleString()}</span>
-              </div>
-              <button onClick={() => setSelectedProduct(p)} className="bg-[#3D8593] text-white px-6 md:px-8 py-3 rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shrink-0">View</button>
+            <input
+              type="text"
+              placeholder="Search assets..."
+              className="w-full h-[72px] bg-white border border-neutral-100 rounded-[2.5rem] pl-16 pr-20 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[#3D8593]/5 transition-all shadow-sm"
+            />
+            <div className="absolute inset-y-2 right-2 p-4 bg-neutral-50 rounded-[2rem] flex items-center justify-center cursor-pointer hover:bg-neutral-100 transition-colors">
+              <Maximize className="w-5 h-5 text-gray-900" />
             </div>
           </div>
-        ))}
+
+          {/* SHOP MARKETS (CATEGORIES) */}
+          <div className="mb-12">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-xl font-bold text-gray-900 tracking-tight">Shop Markets</h2>
+              <button className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">See All</button>
+            </div>
+            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide -mx-6 px-6">
+              {[
+                { name: 'Electronics', img: 'https://images.unsplash.com/photo-1491933315934-4055675c1314?auto=format&fit=crop&q=80&w=200' },
+                { name: 'Laptops', img: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&q=80&w=200' },
+                { name: 'Audio', img: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=200' },
+                { name: 'Watches', img: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=200' },
+                { name: 'Phones', img: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=200' },
+              ].map((cat, i) => (
+                <div key={i} className="flex flex-col items-center gap-3 shrink-0 group cursor-pointer">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white shadow-md group-hover:scale-110 transition-transform duration-500">
+                    <img src={cat.img} className="w-full h-full object-cover" alt={cat.name} />
+                  </div>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{cat.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Popular Items</h2>
+            <button className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">See All</button>
+          </div>
+        </div>
+      </div>
+
+      {/* PRODUCT GRID - DYNAMIC 2-COLUMN MOBILE */}
+      <div className="px-6">
+        <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-3 gap-6 md:gap-12">
+          {products.map((p) => (
+            <div key={p.id} className="group flex flex-col cursor-pointer animate-in fade-in slide-in-from-bottom-8">
+              <div
+                className="aspect-[4/5] bg-white relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] mb-6 shadow-sm border border-neutral-100 group-hover:shadow-2xl transition-all"
+                onClick={() => setSelectedProduct(p)}
+              >
+                <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+
+                {/* HEART OVERLAY */}
+                <div className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/heart">
+                  <Heart className="w-4 h-4 md:w-5 h-5 text-gray-900 group-hover/heart:text-white" />
+                </div>
+
+                <div className={`absolute bottom-4 left-4 md:bottom-6 md:left-6 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.stockCount === 0 ? 'bg-red-500/90 text-white' :
+                  p.stockCount <= 5 ? 'bg-yellow-500/90 text-white' :
+                    'bg-green-500/90 text-white'
+                  }`}>{getStockStatus(p.stockCount)}</div>
+              </div>
+
+              <div className="px-1 relative">
+                <h3 className="text-sm md:text-xl font-bold text-gray-900 mb-1 truncate pr-10">{p.name}</h3>
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-sm md:text-xl font-black text-[#3D8593]">KES {(p.discountPriceKES || p.priceKES).toLocaleString()}</span>
+                  {p.discountPriceKES && (
+                    <span className="text-[10px] md:text-sm text-gray-400 line-through">KES {p.priceKES.toLocaleString()}</span>
+                  )}
+                </div>
+
+                {/* CIRCULAR ACTION BUTTON */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedProduct(p); }}
+                  className="absolute bottom-4 right-0 md:bottom-6 w-10 h-10 md:w-12 md:h-12 bg-black text-white rounded-full flex items-center justify-center shadow-xl hover:bg-[#3D8593] transition-all transform group-hover:scale-110 active:scale-95"
+                >
+                  <ArrowUpRight className="w-5 h-5 md:w-6 h-6" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
