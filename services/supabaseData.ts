@@ -683,10 +683,16 @@ export const verifyPaystackPayment = async (reference: string): Promise<{ succes
             body: { reference }
         });
 
-        if (error) throw error;
+        if (error) {
+            // Enhanced error detection for unreachable functions
+            if (error.message?.includes('Edge Function') || error.message?.includes('failed to fetch')) {
+                return { success: false, error: { message: 'VERIFICATION_OFFLINE', details: error.message } };
+            }
+            throw error;
+        }
         return { success: true, data };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error verifying Paystack payment:', error);
-        return { success: false, error };
+        return { success: false, error: { message: error.message || 'Unknown verification error' } };
     }
 };

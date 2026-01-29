@@ -47,10 +47,18 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       const verification = await verifyPaystackPayment(response.reference);
 
       if (!verification.success) {
-        const errorMsg = verification.error?.message || verification.data?.message || "Unknown verification failure.";
-        alert(`Payment verification failed: ${errorMsg}\n\nPlease share your reference (${response.reference}) on WhatsApp for manual sync.`);
-        setPaymentLoading(false);
-        return;
+        const isOffline = verification.error?.message === 'VERIFICATION_OFFLINE';
+
+        if (isOffline && isTestMode) {
+          console.warn("💎 Paystack Verification Service Offline. Bypassing for TEST Reference:", response.reference);
+          alert("🔧 Verification service is currently offline.\n\nSince this is a TEST payment, we are automatically proceeding to record your invoice and order history.");
+          // Fall through to Create Invoice
+        } else {
+          const errorMsg = verification.error?.message || verification.data?.message || "Unknown verification failure.";
+          alert(`Payment verification failed: ${errorMsg}\n\nPlease share your reference (${response.reference}) on WhatsApp for manual sync.`);
+          setPaymentLoading(false);
+          return;
+        }
       }
 
       // 2. Create Invoice
