@@ -625,6 +625,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <thead>
                   <tr className="bg-neutral-50/50 border-b border-neutral-100">
                     <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Order/Invoice</th>
+                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">QTY</th>
                     <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Status</th>
                     <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Logistics Phase</th>
                     <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Management</th>
@@ -636,6 +637,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="px-12 py-10">
                         <p className="font-black text-gray-900 text-xl tracking-tight leading-none">#{inv.invoiceNumber}</p>
                         <p className="text-[10px] text-[#3D8593] font-black uppercase tracking-widest mt-2">{inv.productName}</p>
+                        <p className="text-[8px] text-gray-400 font-bold mt-1 uppercase tracking-tighter">{inv.createdAt ? new Date(inv.createdAt).toLocaleString() : 'Date Unknown'}</p>
+                      </td>
+                      <td className="px-10 py-10">
+                        <span className="bg-neutral-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-black">×{inv.quantity || 1}</span>
                       </td>
                       <td className="px-10 py-10">
                         <div className="flex items-center justify-between">
@@ -662,7 +667,89 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div className="flex justify-end gap-3">
                           <button
                             onClick={() => {
-                              const msg = encodeURIComponent(`Hi ${inv.clientName}, I've received your payment for ${inv.productName} (Ref: ${inv.paystackReference}). I'm starting the processing now.`);
+                              const printWin = window.open('', '', 'width=800,height=900');
+                              if (!printWin) return;
+                              printWin.document.write(`
+                                <html>
+                                  <head><title>LegitGrinder Invoice #${inv.invoiceNumber}</title></head>
+                                  <body style="font-family: sans-serif; padding: 40px; line-height: 1.6;">
+                                    <div style="text-align: center; margin-bottom: 40px;">
+                                      <h1 style="margin:0; color:#3D8593;">LEGITGRINDER</h1>
+                                      <p style="text-transform:uppercase; font-size:12px; font-weight:bold; letter-spacing:2px; color:#666;">Official Purchase Invoice</p>
+                                    </div>
+                                    <div style="border-top:2px solid #3D8593; padding-top:20px; display:flex; justify-content:space-between;">
+                                      <div>
+                                        <p><strong>Bill To:</strong><br/>${inv.clientName}</p>
+                                      </div>
+                                      <div>
+                                        <p><strong>Invoice #:</strong> ${inv.invoiceNumber}<br/>
+                                        <strong>Date:</strong> ${new Date(inv.date || '').toLocaleDateString()}</p>
+                                      </div>
+                                    </div>
+                                    <table style="width:100%; border-collapse:collapse; margin-top:40px;">
+                                      <tr style="background:#f9f9f9;">
+                                        <th style="padding:15px; text-align:left; border-bottom:1px solid #eee;">Item Specification</th>
+                                        <th style="padding:15px; text-align:center; border-bottom:1px solid #eee;">Quantity</th>
+                                        <th style="padding:15px; text-align:right; border-bottom:1px solid #eee;">Total</th>
+                                      </tr>
+                                      <tr>
+                                        <td style="padding:15px; border-bottom:1px solid #eee;">${inv.productName}</td>
+                                        <td style="padding:15px; text-align:center; border-bottom:1px solid #eee;">${inv.quantity || 1}</td>
+                                        <td style="padding:15px; text-align:right; border-bottom:1px solid #eee;">KES ${inv.totalKES?.toLocaleString()}</td>
+                                      </tr>
+                                    </table>
+                                    <div style="margin-top:40px; text-align:right;">
+                                      <p style="font-size:18px;"><strong>Status: ${inv.isPaid ? 'PAID' : 'PENDING'}</strong></p>
+                                      <p style="font-size:12px; color:#666;">Payment Ref: ${inv.paystackReference || 'Manual Sync'}</p>
+                                    </div>
+                                    <div style="margin-top:60px; font-size:10px; color:#999; text-align:center;">
+                                      Thank you for choosing LegitGrinder. Your elite asset is protected.
+                                    </div>
+                                  </body>
+                                </html>
+                              `);
+                              printWin.document.close();
+                              printWin.print();
+                            }}
+                            className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
+                            title="Generate Professional Invoice"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const printWin = window.open('', '', 'width=500,height=400');
+                              if (!printWin) return;
+                              printWin.document.write(`
+                                <html>
+                                  <body style="font-family: sans-serif; padding: 20px; border: 2px dashed #000; width: 400px; margin: auto;">
+                                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px;">
+                                      <h2 style="margin: 0;">LEGITGRINDER SHIPPING</h2>
+                                      <p style="font-size: 10px; margin: 0;">TRACKING CODE: <strong>${inv.paystackReference || 'MANUAL-SYNC'}</strong></p>
+                                    </div>
+                                    <p><strong>TO:</strong> ${inv.clientName}</p>
+                                    <p><strong>ITEM:</strong> ${inv.productName} (Qty: ${inv.quantity || 1})</p>
+                                    <p><strong>REF:</strong> #${inv.invoiceNumber}</p>
+                                    <div style="margin-top: 20px; text-align: center; font-size: 12px; font-weight: bold;">
+                                      ${inv.status.toUpperCase()}
+                                    </div>
+                                    <div style="margin-top: 20px; border: 1px solid #000; height: 50px; display: flex; align-items: center; justify-content: center;">
+                                      ||| |||| || ||||| ||| ||
+                                    </div>
+                                  </body>
+                                </html>
+                              `);
+                              printWin.document.close();
+                              printWin.print();
+                            }}
+                            className="p-4 bg-neutral-900 text-white rounded-2xl hover:bg-teal-600 transition-all"
+                            title="Print Shipping Label"
+                          >
+                            <Truck className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const msg = encodeURIComponent(`Hi ${inv.clientName}, I've received your payment (Ref: ${inv.paystackReference}). Your order for ${inv.productName} is now: ${inv.status}.`);
                               window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
                             }}
                             className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all"
@@ -670,7 +757,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           >
                             <MessageCircle className="w-4 h-4" />
                           </button>
-                          <button className="p-4 bg-neutral-900 text-white rounded-2xl"><ExternalLink className="w-4 h-4" /></button>
                         </div>
                       </td>
                     </tr>

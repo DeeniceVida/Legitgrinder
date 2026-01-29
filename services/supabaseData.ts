@@ -228,13 +228,15 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             invoiceNumber: inv.invoice_number,
             clientName: inv.client_name,
             productName: inv.product_name,
+            quantity: inv.quantity || 1,
             status: inv.status as OrderStatus,
             progress: inv.progress || 0,
             lastUpdate: inv.last_update ? new Date(inv.last_update).toLocaleString() : 'Never',
             isPaid: inv.is_paid,
             totalKES: parseFloat(inv.total_kes || 0),
             paystackReference: inv.paystack_reference,
-            date: inv.created_at
+            date: inv.created_at,
+            createdAt: inv.created_at
         }));
     } catch (error) {
         console.error('Error fetching invoices:', error);
@@ -659,9 +661,10 @@ export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ succes
                 user_id: invoice.userId,
                 client_name: invoice.clientName,
                 product_name: invoice.productName,
+                quantity: invoice.quantity || 1,
                 total_kes: invoice.totalKES,
                 is_paid: invoice.isPaid || false,
-                status: invoice.status || 'Received by Agent',
+                status: invoice.status || OrderStatus.RECEIVED_BY_AGENT,
                 invoice_number: invoice.invoiceNumber || `INV-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
                 paystack_reference: invoice.paystackReference,
                 progress: invoice.progress || 0

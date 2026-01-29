@@ -11,11 +11,15 @@ export enum Origin {
 
 export enum OrderStatus {
   RECEIVED_BY_AGENT = 'Received by Agent',
+  PREPARING = 'Preparing Order',
+  COLLECTED = 'Collected by Agent',
   LEFT_WAREHOUSE = 'Left Warehouse',
   SHIPPING = 'Now Shipping',
   LANDED_CUSTOMS = 'Landed & In Customs',
   EN_ROUTE_NAIROBI = 'En route to Nairobi',
-  READY_FOR_COLLECTION = 'Ready to Collect'
+  READY_FOR_COLLECTION = 'Ready to Collect',
+  DROPPED_BY_RIDER = 'Dropped by Rider',
+  DELIVERED = 'Delivered & Completed'
 }
 
 export enum ConsultationStatus {
@@ -71,12 +75,14 @@ export interface Invoice {
   userId?: string;
   clientName: string;
   productName: string;
+  quantity?: number;
   status: OrderStatus;
   progress: number;
   lastUpdate: string;
   isPaid: boolean;
   totalKES?: number;
   date?: string;
+  createdAt?: string;
   paystackReference?: string;
 }
 

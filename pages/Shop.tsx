@@ -69,22 +69,28 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         userId: user?.id,
         clientName: user?.user_metadata?.full_name || 'Guest Elite',
         productName: product.name,
+        quantity: quantity,
         totalKES: totalPrice * quantity,
         isPaid: true,
         status: OrderStatus.RECEIVED_BY_AGENT,
         paystackReference: response.reference
       });
 
-      // 3. Close the loop with Admin via WhatsApp
+      // 3. Close the loop with Admin via WhatsApp (Include Tracking Code)
+      const trackingCode = response.reference;
+      const trackingLink = `https://legitgrinder.site/track?ref=${trackingCode}`;
+
       const whatsappMsg = encodeURIComponent(
         `✅ SUCCESSFUL PAYMENT\n\n` +
-        `Ref: ${response.reference}\n` +
+        `Tracking Code: ${trackingCode}\n` +
         `Item: ${product.name}\n` +
+        `Quantity: ${quantity}\n` +
         `Total: KES ${(totalPrice * quantity).toLocaleString()}\n\n` +
+        `Track Status here: ${trackingLink}\n\n` +
         `Please confirm receipt and start agent processing.`
       );
 
-      alert("Secure Payment Verified! Your elite asset is being prepared.");
+      alert(`Secure Payment Verified!\n\nTracking Code: ${trackingCode}\n\nYour elite asset is being prepared.`);
       window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`, '_blank');
       setSelectedProduct(null);
     } catch (error) {
