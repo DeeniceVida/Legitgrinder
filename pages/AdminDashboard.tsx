@@ -178,7 +178,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // const newProducts = await fetchInventoryProducts();
       // onUpdateProducts(newProducts);
 
-      alert(`Success! Restored ${result.productCount} models and ${result.variantCount} price variants.`);
+      alert(`Success! Restored ${result.productCount} models and ${result.variantCount} price variants across all brands.`);
       window.location.reload(); // Temporary full refresh until fetch functions are implemented
     } catch (error) {
       console.error("Seed failed:", error);

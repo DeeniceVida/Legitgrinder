@@ -58,7 +58,7 @@ export const syncAllMasterLinks = async () => {
 };
 
 export const seedFullInventory = async () => {
-    console.log("🌱 Seeding Global Inventory from Schema...");
+    console.log("🌱 Seeding Global Inventory from Schema (60 Models)...");
     let productCount = 0;
     let variantCount = 0;
 
@@ -118,5 +118,10 @@ export const seedFullInventory = async () => {
             }
         }
     }
+
+    // 3. Final Step: Sync all Master Links to ensures links are attached
+    console.log("🔗 Finalizing: Linking Master URLs...");
+    await syncAllMasterLinks();
+
     return { productCount, variantCount };
 };
