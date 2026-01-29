@@ -162,13 +162,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const runSeed = async () => {
-    if (!confirm('This will populate your database with 50+ phone models from the schema. It may create duplicates if already seeded. Proceed?')) return;
+    if (!window.confirm("Restore full inventory schema? This will create any missing phone models and reset baseline prices.")) return;
+
     setSeeding(true);
-    const result = await seedFullInventory();
-    setSeeding(false);
-    alert(`Seeding complete! Added ${result.productCount} products and ${result.variantCount} variants.`);
-    // Refresh the page or data
-    window.location.reload();
+    try {
+      console.log("🌱 Admin: Triggering Inventory Seed...");
+      const result = await seedFullInventory();
+      console.log("✅ Seed Complete:", result);
+
+      // Refresh local state to show new items
+      // Assuming fetchPricelistData and fetchInventoryProducts are available or will be added
+      // const newList = await fetchPricelistData();
+      // onUpdatePricelist(newList);
+
+      // const newProducts = await fetchInventoryProducts();
+      // onUpdateProducts(newProducts);
+
+      alert(`Success! Restored ${result.productCount} models and ${result.variantCount} price variants.`);
+      window.location.reload(); // Temporary full refresh until fetch functions are implemented
+    } catch (error) {
+      console.error("Seed failed:", error);
+      alert("Inventory restoration failed. Check database connection.");
+    } finally {
+      setSeeding(false);
+    }
   };
 
   const refreshLeads = async () => {

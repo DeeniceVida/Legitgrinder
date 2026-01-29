@@ -77,12 +77,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       }
 
       // 2. Create Invoice
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
       const totalPrice = (product.discountPriceKES || product.priceKES) + (selectedVariation?.priceKES || 0);
 
-      await createInvoice({
-        userId: user?.id,
-        clientName: user?.user_metadata?.full_name || 'Guest Elite',
+      const invoiceResult = await createInvoice({
+        userId: authUser?.id,
+        clientName: authUser?.user_metadata?.full_name || 'Guest Elite',
         productName: product.name,
         quantity: quantity,
         totalKES: totalPrice * quantity,
@@ -90,6 +90,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         status: OrderStatus.RECEIVED_BY_AGENT,
         paystackReference: response.reference
       });
+
+      if (!invoiceResult.success) {
+        throw new Error("Failed to record invoice. Please screenshot this reference: " + response.reference);
+      }
 
       // 3. Close the loop with Admin via WhatsApp (Include Tracking Code)
       const trackingCode = response.reference;
@@ -105,12 +109,16 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         `Please confirm receipt and start agent processing.`
       );
 
-      alert(`Secure Payment Verified!\n\nTracking Code: ${trackingCode}\n\nYour elite asset is being prepared.`);
-      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`, '_blank');
+      // REDIRECTION FIX: Directly change location to avoid popup blockers
+      const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`;
+
+      alert(`Secure Payment Verified!\n\nTracking Code: ${trackingCode}\n\nYou will now be redirected to WhatsApp to finalize.`);
+
+      window.location.href = waUrl;
       setSelectedProduct(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Payment sync error:", error);
-      alert("Payment successful but sync failed. Please share your reference on WhatsApp.");
+      alert(error.message || "Payment successful but sync failed. Please share your reference on WhatsApp.");
     } finally {
       setPaymentLoading(false);
     }
