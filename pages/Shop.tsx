@@ -33,7 +33,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   }, []);
 
   // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
-  const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc7f4b8b958974';
+  const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
   const handleWhatsAppInquiry = (p: Product) => {
     const totalPrice = (p.discountPriceKES || p.priceKES) + (selectedVariation?.priceKES || 0);
@@ -260,7 +260,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                         <div className="flex-1 flex flex-col gap-3">
                           <PaystackButton
                             className="w-full h-[64px] bg-[#3D8593] text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-black transition-all shadow-2xl shadow-teal-900/10"
-                            publicKey="pk_live_b11692e8994766a02428b1176fc7f4b8b958974"
+                            publicKey="pk_live_b11692e8994766a02428b1176fc67f4b8b958974"
                             amount={Math.round(currentPrice * 100 * quantity)}
                             currency="KES"
                             email={user?.email || "client@legitgrinder.com"}
