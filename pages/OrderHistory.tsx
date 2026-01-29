@@ -5,32 +5,12 @@ import { getUserInvoices } from '../services/supabaseData';
 import { Invoice, OrderStatus, getOrderProgress } from '../types';
 
 interface OrderHistoryProps {
-    user: any;
+    invoices: Invoice[];
     onNavigate: (page: string) => void;
 }
 
-const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onNavigate }) => {
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const loadHistory = async () => {
-            if (user?.id) {
-                const data = await getUserInvoices(user.id);
-                setInvoices(data);
-            }
-            setLoading(false);
-        };
-        loadHistory();
-    }, [user]);
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-mesh">
-                <RefreshCcw className="w-10 h-10 text-[#3D8593] animate-spin" />
-            </div>
-        );
-    }
+const OrderHistory: React.FC<OrderHistoryProps> = ({ invoices, onNavigate }) => {
+    // Standardized to use props for real-time sync with AdminDashboard updates
 
     return (
         <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">

@@ -41,118 +41,20 @@ const App: React.FC = () => {
   // --- GLOBAL STATE ---
 
   // Pricelist State
-  const [pricelist, setPricelist] = useState<PricelistItem[]>(() => {
-    const items: PricelistItem[] = [];
-    Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {
-      models.forEach((m, idx) => {
-        items.push({
-          id: `${brand}-${idx}`,
-          modelName: m.name,
-          brand: brand as 'iphone' | 'samsung' | 'pixel',
-          series: m.series,
-          syncAlert: false,
-          capacities: m.capacities.map(cap => ({
-            capacity: cap,
-            currentPriceKES: 120000 + Math.floor(Math.random() * 50000), // Mock initial prices
-            previousPriceKES: 0,
-            lastSynced: 'System Init',
-            sourcePriceUSD: 800,
-            isManualOverride: false
-          }))
-        });
-      });
-    });
-    return items;
-  });
+  const [pricelist, setPricelist] = useState<PricelistItem[]>([]);
 
   // Shop Products
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 'p1',
-      name: 'iPhone 15 Pro Max',
-      priceKES: 175000,
-      discountPriceKES: 168000,
-      imageUrls: ['https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800'],
-      variations: [
-        { type: 'Capacity', name: '256GB', priceKES: 0 },
-        { type: 'Capacity', name: '512GB', priceKES: 15000 },
-        { type: 'Capacity', name: '1TB', priceKES: 30000 }
-      ],
-      availability: Availability.IMPORT,
-      shippingDuration: '2-3 Weeks Air',
-      description: 'The ultimate iPhone experience with titanium build and advanced zoom.',
-      category: 'Electronics',
-      stockCount: 10
-    },
-    {
-      id: 'p2',
-      name: 'Samsung S24 Ultra',
-      priceKES: 165000,
-      discountPriceKES: 158000,
-      imageUrls: ['https://images.unsplash.com/photo-1707055745727-465494191d57?auto=format&fit=crop&q=80&w=800'],
-      variations: [
-        { type: 'Capacity', name: '256GB', priceKES: 0 },
-        { type: 'Capacity', name: '512GB', priceKES: 12000 }
-      ],
-      availability: Availability.LOCAL,
-      shippingDuration: '2-3 Business Days',
-      description: 'Galaxy AI is here. Stunning 200MP camera and built-in S Pen.',
-      category: 'Electronics',
-      stockCount: 5
-    }
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   // Blogs and FAQs
-  const [blogs, setBlogs] = useState<BlogPost[]>([
-    {
-      id: 'b1',
-      title: 'How to Avoid Hidden Import Taxes in 2026',
-      excerpt: 'Navigating the latest Kenya Revenue Authority updates for tech imports.',
-      content: 'Importing tech into Kenya can be a minefield of unexpected costs. In this guide, we break down the VAT, Excise Duty, and Railway Development Levy...',
-      imageUrl: 'https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?auto=format&fit=crop&q=80&w=800',
-      category: 'Guides',
-      date: 'Jan 12, 2026',
-      author: 'LegitGrinder'
-    },
-    {
-      id: 'b2',
-      title: 'China vs USA: Which Source is Best for Your Business?',
-      excerpt: 'Comparing lead times, quality, and shipping rates across the two largest hubs.',
-      content: 'Choosing the right sourcing origin is the first step in building a successful import business...',
-      imageUrl: 'https://images.unsplash.com/photo-1494412574743-019485b78287?auto=format&fit=crop&q=80&w=800',
-      category: 'Sourcing',
-      date: 'Jan 15, 2026',
-      author: 'LegitGrinder'
-    }
-  ]);
-
-  const [faqs, setFaqs] = useState<FAQItem[]>([
-    { id: 'f1', question: 'How long does shipping really take?', answer: 'USA Air takes 2-3 weeks, while China Sea freight takes 45-50 days average.', category: 'Logistics' },
-    { id: 'f2', question: 'Do I pay for customs separately?', answer: 'No, all our quotes are all-inclusive of customs and handling to Nairobi CBD.', category: 'Pricing' }
-  ]);
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [faqs, setFaqs] = useState<FAQItem[]>([]);
 
   // Clients
-  const [clients, setClients] = useState<Client[]>([
-    {
-      id: 'u1',
-      name: 'Munga Kamau',
-      email: 'munga@legit.co.ke',
-      phone: '+254 711 222 333',
-      location: 'Nairobi, Westlands',
-      joinedDate: '2025-06-12',
-      totalSpentKES: 845000,
-      orderCount: 5,
-      lastOrderDate: '2026-01-05',
-      interests: ['iPhones', 'USA Sourcing'],
-      purchasedItems: ['iPhone 15 Pro Max', 'MacBook Air M2'],
-      purchaseFrequency: 'High'
-    }
-  ]);
+  const [clients, setClients] = useState<Client[]>([]);
 
   // Invoices/Tracking
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: 'inv-001', invoiceNumber: '4932', clientName: 'Munga Kamau', productName: 'iPhone 15 Pro Max', status: OrderStatus.SHIPPING, progress: 60, lastUpdate: '2 hours ago', isPaid: true }
-  ]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   // Consultations
   const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -261,7 +163,7 @@ const App: React.FC = () => {
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-      case 'history': return <OrderHistory user={user} onNavigate={setCurrentPage} />;
+      case 'history': return <OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} onNavigate={setCurrentPage} />;
       case 'admin': return (
         <AdminDashboard
           blogs={blogs}

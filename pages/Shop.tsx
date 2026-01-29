@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
@@ -13,6 +13,7 @@ interface ShopProps {
 }
 
 const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
+  const [user, setUser] = useState<any>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -20,6 +21,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [activeAccordion, setActiveAccordion] = useState<string | null>('description');
   const [showPaystack, setShowPaystack] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+
+  // Fetch logged in user for metadata
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    };
+    getUser();
+  }, []);
 
   // Robust key loading for Paystack
   const PAYSTACK_PUBLIC_KEY = (
@@ -29,8 +39,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
   const isTestMode = PAYSTACK_PUBLIC_KEY.startsWith('pk_test');
 
-  // STICKY DIAGNOSTIC: Do not remove until Paystack is confirmed working
-  console.log(`💎 Paystack Info -> Mode: ${isTestMode ? 'TEST' : 'LIVE'}, Key prefix: ${PAYSTACK_PUBLIC_KEY.substring(0, 8)}...`);
+  // Diagnostic log for Paystack initialization (Dev/Diagnostic only)
+  useEffect(() => {
+    if ((import.meta as any).env?.DEV) {
+      console.log(`💎 Paystack Info -> Mode: ${isTestMode ? 'TEST' : 'LIVE'}, Key prefix: ${PAYSTACK_PUBLIC_KEY.substring(0, 8)}...`);
+    }
+  }, [isTestMode, PAYSTACK_PUBLIC_KEY]);
 
   const handleWhatsAppInquiry = (p: Product) => {
     const totalPrice = (p.discountPriceKES || p.priceKES) + (selectedVariation?.priceKES || 0);
@@ -160,7 +174,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
             {/* RIGHT: INTELLIGENCE NODE */}
             <div className="flex flex-col">
               <div className="mb-10">
-                <h1 className="text-6xl font-bold text-gray-900 mb-4 tracking-tighter leading-tight">{p.name}</h1>
+                <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tighter leading-[1.1]">{p.name}</h1>
                 <div className="flex items-center gap-4">
                   <span className="text-4xl font-black text-[#3D8593]">KES {currentPrice.toLocaleString()}</span>
                   {selectedVariation && selectedVariation.priceKES > 0 && (
@@ -260,6 +274,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                             email="client@legitgrinder.com"
                             metadata={{
                               custom_fields: [
+                                { display_name: "Customer Name", variable_name: "customer_name", value: user?.user_metadata?.full_name || 'Guest Elite' },
                                 { display_name: "Product", variable_name: "product", value: p.name },
                                 { display_name: "Quantity", variable_name: "quantity", value: quantity }
                               ]
@@ -381,10 +396,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
   return (
     <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
-      <div className="max-w-7xl mx-auto text-center mb-24">
-        <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tighter text-gray-900">Elite <span className="text-[#3D8593] italic font-light heading-accent">Inventory.</span></h1>
+      <div className="max-w-7xl mx-auto text-center mb-16 md:mb-24">
+        <h1 className="text-4xl md:text-8xl font-bold mb-6 md:mb-8 tracking-tighter text-gray-900 leading-tight">Elite <span className="text-[#3D8593] italic font-light heading-accent">Inventory.</span></h1>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12">
         {products.map((p) => (
           <div key={p.id} className="group flex flex-col cursor-pointer text-left animate-in fade-in slide-in-from-bottom-8">
             <div className="aspect-[4/5] bg-neutral-100 relative overflow-hidden rounded-[3rem] mb-8 shadow-sm group-hover:shadow-2xl transition-all border border-white">
@@ -394,12 +409,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   'bg-green-500 text-white'
                 }`}>{getStockStatus(p.stockCount)}</div>
             </div>
-            <div className="px-4 flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-1">{p.name}</h3>
-                <span className="text-2xl font-black text-[#FF9900]">KES {(p.discountPriceKES || p.priceKES).toLocaleString()}</span>
+            <div className="px-2 flex justify-between items-center">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-1 truncate">{p.name}</h3>
+                <span className="text-xl md:text-2xl font-black text-[#FF9900]">KES {(p.discountPriceKES || p.priceKES).toLocaleString()}</span>
               </div>
-              <button onClick={() => setSelectedProduct(p)} className="bg-[#3D8593] text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">View <ChevronRight className="w-4 h-4" /></button>
+              <button onClick={() => setSelectedProduct(p)} className="bg-[#3D8593] text-white px-6 md:px-8 py-3 rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all shrink-0">View</button>
             </div>
           </div>
         ))}
