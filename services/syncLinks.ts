@@ -79,7 +79,7 @@ export const seedFullInventory = async () => {
                         .from('products')
                         .insert({
                             name: m.name,
-                            brand: brand,
+                            brand: brand.toLowerCase(), // Force lowercase
                             series: m.series,
                             category: 'Phones',
                             stock_status: 'On Import'

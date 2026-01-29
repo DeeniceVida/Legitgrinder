@@ -36,7 +36,7 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
                 groupedData[product.id] = {
                     id: product.id,
                     modelName: product.name,
-                    brand: product.brand as 'iphone' | 'samsung' | 'pixel',
+                    brand: (product.brand?.toLowerCase() || 'iphone') as 'iphone' | 'samsung' | 'pixel',
                     series: product.series,
                     capacities: [],
                     syncAlert: false,
@@ -45,6 +45,7 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
             }
 
             groupedData[product.id].capacities.push({
+                id: v.id, // Populate variant ID
                 capacity: v.capacity,
                 currentPriceKES: v.price_kes || 0,
                 previousPriceKES: 0,
@@ -494,10 +495,11 @@ export const getStockStatus = (quantity: number): string => {
 export const updatePricelistItem = async (
     variantId: string,
     priceUSD: number,
-    manualOverride: boolean = false
+    manualOverride: boolean = false,
+    manualKES?: number
 ): Promise<{ success: boolean; calculatedKES?: number; error?: any }> => {
     try {
-        let priceKES;
+        let priceKES = manualKES;
 
         if (!manualOverride) {
             // Auto-calculate using the price calculator
@@ -511,7 +513,7 @@ export const updatePricelistItem = async (
             is_manual_override: manualOverride
         };
 
-        if (!manualOverride && priceKES) {
+        if (priceKES) {
             updateData.price_kes = priceKES;
         }
 

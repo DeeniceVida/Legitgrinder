@@ -111,6 +111,7 @@ export interface UserProfile {
 }
 
 export interface CapacityPrice {
+  id: string; // The variant UUID from database
   capacity: string;
   sourcePriceUSD: number | null;
   currentPriceKES: number;

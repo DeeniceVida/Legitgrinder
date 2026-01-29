@@ -340,18 +340,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setPriceSaving(true);
 
     try {
-      // Find the variant ID (this is simplified - you'd need actual variant IDs from database)
       const item = pricelist.find(p => p.id === editingPrice.plId);
       if (item && item.capacities[editingPrice.capIdx]) {
-        // In real implementation, you'd have variant IDs
-        // For now, update local state
+        const cap = item.capacities[editingPrice.capIdx];
+
+        // 1. Persist to DB
+        const result = await updatePricelistItem(
+          cap.id, // Current capacity variant ID
+          usd,
+          priceManualOverride,
+          priceEditKES || undefined
+        );
+
+        if (!result.success) throw result.error;
+
+        // 2. Update local state for immediate feedback
         const updated = pricelist.map(p => {
           if (p.id === editingPrice.plId) {
             const newCaps = [...p.capacities];
             newCaps[editingPrice.capIdx] = {
               ...newCaps[editingPrice.capIdx],
               sourcePriceUSD: usd,
-              currentPriceKES: priceEditKES || newCaps[editingPrice.capIdx].currentPriceKES,
+              currentPriceKES: priceEditKES || result.calculatedKES || newCaps[editingPrice.capIdx].currentPriceKES,
               isManualOverride: priceManualOverride,
               lastSynced: new Date().toLocaleString()
             };
@@ -364,11 +374,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setEditingPrice(null);
         setPriceEditUSD('');
         setPriceEditKES(null);
-        alert('Price updated successfully!');
+        alert('Price strategy cemented successfully!');
       }
     } catch (error) {
       console.error('Error saving price:', error);
-      alert('Failed to save price. Please try again.');
+      alert('Failed to save price strategy. Check connection.');
     }
 
     setPriceSaving(false);
@@ -991,7 +1001,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50">
-              {pricelist.filter(item => item.brand === syncBrandFilter && item.modelName.toLowerCase().includes(adminSearchTerm.toLowerCase())).map(item => (
+              {pricelist.filter(item => item.brand.toLowerCase() === syncBrandFilter.toLowerCase() && item.modelName.toLowerCase().includes(adminSearchTerm.toLowerCase())).map(item => (
                 <div key={item.id} className="p-12 hover:bg-neutral-50/50 transition-all">
                   <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
                     <div>
