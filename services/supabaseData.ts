@@ -684,6 +684,8 @@ export const updateSourcingStatus = async (id: number, status: string): Promise<
 // Payment & Invoice Management (Phase 5)
 export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string }> => {
     try {
+        console.log("💾 Recording Invoice for reference:", invoice.paystackReference);
+
         const { data, error } = await supabase
             .from('invoices')
             .insert({
@@ -701,11 +703,14 @@ export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ succes
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('CRITICAL: Invoice Persistence Failed:', error.message);
+            throw error;
+        }
+
         return { success: true, id: data.id };
-    } catch (error) {
-        console.error('Error creating invoice:', error);
-        return { success: false, error };
+    } catch (error: any) {
+        return { success: false, error: error.message || error };
     }
 };
 

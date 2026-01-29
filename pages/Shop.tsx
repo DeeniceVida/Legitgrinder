@@ -97,8 +97,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
     const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`;
 
-    // IMMEDIATE REDIRECTION
-    window.location.href = waUrl;
+    // IMMEDIATE REDIRECTION (Bulletproof with fallback)
+    try {
+      window.location.href = waUrl;
+    } catch (e) {
+      console.error("Redirection failed, opening in new window:", e);
+      window.open(waUrl, '_blank');
+    }
+
+    // Clean up
     setSelectedProduct(null);
     setPaymentLoading(false);
   };
