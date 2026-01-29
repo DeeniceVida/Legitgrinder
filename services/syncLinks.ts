@@ -93,6 +93,12 @@ export const seedFullInventory = async () => {
                     }
                     productId = product.id;
                     productCount++;
+                } else {
+                    // Ensure existing product has the correct brand for filtering
+                    await supabase
+                        .from('products')
+                        .update({ brand: brand.toLowerCase() })
+                        .eq('id', productId);
                 }
 
                 // 2. Create Variants (This is what shows up in Sync/Pricelist)

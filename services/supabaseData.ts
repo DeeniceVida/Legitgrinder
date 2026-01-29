@@ -7,29 +7,33 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
         const { data: variants, error } = await supabase
             .from('product_variants')
             .select(`
-        id,
-        capacity,
-        price_usd,
-        price_kes,
-        last_updated,
-        source_url,
-        is_manual_override,
-        products (
-          id,
-          name,
-          brand,
-          series
-        )
-      `)
-            .eq('status', 'active');
+                id,
+                capacity,
+                price_usd,
+                price_kes,
+                last_updated,
+                source_url,
+                is_manual_override,
+                status,
+                products (
+                  id,
+                  name,
+                  brand,
+                  series
+                )
+            `);
+        // Removed .eq('status', 'active') temporarily to see if it makes a difference
 
         if (error) throw error;
+
+        console.log(`🔍 DEBUG: Found ${variants?.length || 0} variants in DB.`);
 
         // Group variants by product
         const groupedData: Record<string, PricelistItem> = {};
 
         variants?.forEach((v: any) => {
-            const product = v.products;
+            // Support both singular and plural join keys
+            const product = v.products || v.product;
             if (!product) return;
 
             if (!groupedData[product.id]) {
@@ -45,7 +49,7 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
             }
 
             groupedData[product.id].capacities.push({
-                id: v.id, // Populate variant ID
+                id: v.id,
                 capacity: v.capacity,
                 currentPriceKES: v.price_kes || 0,
                 previousPriceKES: 0,
@@ -55,7 +59,9 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
             });
         });
 
-        return Object.values(groupedData);
+        const result = Object.values(groupedData);
+        console.log(`🔍 DEBUG: Grouped into ${result.length} unique products.`);
+        return result;
     } catch (error) {
         console.error('Error fetching pricelist:', error);
         return [];
