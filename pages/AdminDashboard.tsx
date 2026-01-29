@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { syncBackMarketPrices } from '../services/scraper';
 import { syncAllMasterLinks, seedFullInventory } from '../services/syncLinks';
+import { WHATSAPP_NUMBER } from '../constants';
 import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus,
@@ -117,10 +118,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [leads, setLeads] = useState<SourcingRequest[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
 
+  const hasNewPaidOrders = invoices.some(inv => inv.isPaid && inv.status === OrderStatus.RECEIVED_BY_AGENT);
+
   const tabs = [
     { id: 'overview', name: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'clients', name: 'Clients', icon: <Users className="w-4 h-4" /> },
-    { id: 'invoices', name: 'Invoices', icon: <FileText className="w-4 h-4" /> },
+    {
+      id: 'invoices', name: 'Invoices', icon: (
+        <div className="relative">
+          <FileText className="w-4 h-4" />
+          {hasNewPaidOrders && <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full border border-white pulse"></span>}
+        </div>
+      )
+    },
     { id: 'products', name: 'Inventory', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consult', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Content', icon: <List className="w-4 h-4" /> },
@@ -628,10 +638,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <p className="text-[10px] text-[#3D8593] font-black uppercase tracking-widest mt-2">{inv.productName}</p>
                       </td>
                       <td className="px-10 py-10">
-                        <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`w-2 h-2 rounded-full ${inv.isPaid ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                          <p className="text-[9px] text-gray-400 font-black uppercase tracking-widest">{inv.isPaid ? 'Transaction Paid' : 'Payment Pending'}</p>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
+                            <p className="text-[9px] text-gray-400 font-medium mt-1">Ref: {inv.paystackReference || 'Manual Sync'}</p>
+                          </div>
+                          <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 ${inv.isPaid ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
+                            {inv.isPaid ? <ShieldCheck className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            <span className="text-[9px] font-black uppercase tracking-widest">{inv.isPaid ? 'Paid' : 'Unpaid'}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-10 py-10">
@@ -646,11 +661,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="px-12 py-10 text-right">
                         <div className="flex justify-end gap-3">
                           <button
-                            onClick={() => handlePrintInvoice(inv)}
-                            className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
-                            title="Print Invoice / Label"
+                            onClick={() => {
+                              const msg = encodeURIComponent(`Hi ${inv.clientName}, I've received your payment for ${inv.productName} (Ref: ${inv.paystackReference}). I'm starting the processing now.`);
+                              window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+                            }}
+                            className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all"
+                            title="Quick Response (WhatsApp)"
                           >
-                            <Printer className="w-4 h-4" />
+                            <MessageCircle className="w-4 h-4" />
                           </button>
                           <button className="p-4 bg-neutral-900 text-white rounded-2xl"><ExternalLink className="w-4 h-4" /></button>
                         </div>

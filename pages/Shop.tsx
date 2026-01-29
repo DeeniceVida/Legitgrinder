@@ -24,7 +24,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   // Robust key loading for Paystack
   const PAYSTACK_PUBLIC_KEY = (
     (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY ||
-    (typeof __PAYSTACK_KEY__ !== 'undefined' ? (__PAYSTACK_KEY__ as string) : '')
+    (typeof (window as any).__PAYSTACK_KEY__ !== 'undefined' ? (window as any).__PAYSTACK_KEY__ : '')
   ).trim();
 
   const isTestMode = PAYSTACK_PUBLIC_KEY.startsWith('pk_test');
@@ -75,7 +75,17 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         paystackReference: response.reference
       });
 
+      // 3. Close the loop with Admin via WhatsApp
+      const whatsappMsg = encodeURIComponent(
+        `✅ SUCCESSFUL PAYMENT\n\n` +
+        `Ref: ${response.reference}\n` +
+        `Item: ${product.name}\n` +
+        `Total: KES ${(totalPrice * quantity).toLocaleString()}\n\n` +
+        `Please confirm receipt and start agent processing.`
+      );
+
       alert("Secure Payment Verified! Your elite asset is being prepared.");
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`, '_blank');
       setSelectedProduct(null);
     } catch (error) {
       console.error("Payment sync error:", error);
