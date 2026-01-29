@@ -993,7 +993,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                   <button onClick={runSeed} disabled={seeding} className="px-10 py-4 bg-emerald-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
                     {seeding ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    {seeding ? 'Seeding Database...' : 'Seed Prices From Schema'}
+                    {seeding ? 'Restoring Global Inventory...' : 'RESTORE GLOBAL INVENTORY'}
                   </button>
                 </div>
                 <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Connected to Cloudflare Worker (legit-sync-master)</p>
