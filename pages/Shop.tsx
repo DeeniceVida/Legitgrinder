@@ -80,8 +80,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       }
     };
 
-    // Trigger sync in background or wait briefly
-    await performSync().catch(console.error);
+    // Trigger sync in background (Non-blocking for immediate redirect)
+    performSync().catch(console.error);
 
     // 3. ALWAYS Close the loop with Admin via WhatsApp (Include Tracking Code)
     const trackingLink = `https://legitgrinder.site/track?ref=${trackingCode}`;
