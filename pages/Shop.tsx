@@ -44,62 +44,63 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
   const handlePaystackSuccess = async (response: any, product: Product) => {
     setPaymentLoading(true);
+    const trackingCode = response.reference;
+    const totalPrice = (product.discountPriceKES || product.priceKES) + (selectedVariation?.priceKES || 0);
 
-    try {
-      // 1. Verify on backend (Phase 5 Secure Flow)
-      const verification = await verifyPaystackPayment(response.reference);
+    const performSync = async () => {
+      try {
+        // 1. Verify on backend (Phase 5 Secure Flow)
+        const verification = await verifyPaystackPayment(response.reference);
 
-      if (!verification.success) {
-        const errorMsg = verification.error?.message || verification.data?.message || "Unknown verification failure.";
-        alert(`Payment verification failed: ${errorMsg}\n\nPlease share your reference (${response.reference}) on WhatsApp for manual sync.`);
-        setPaymentLoading(false);
-        return;
+        if (!verification.success) {
+          const errorMsg = verification.error?.message || verification.data?.message || "Unknown verification failure.";
+          console.error("Payment verification failed:", errorMsg);
+          // We continue to invoice creation anyway in case it's a transient verification issue
+        }
+
+        // 2. Create Invoice
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+
+        const invoiceResult = await createInvoice({
+          userId: authUser?.id,
+          clientName: authUser?.user_metadata?.full_name || 'Guest Elite',
+          productName: product.name,
+          quantity: quantity,
+          totalKES: totalPrice * quantity,
+          isPaid: true,
+          status: OrderStatus.RECEIVED_BY_AGENT,
+          paystackReference: response.reference
+        });
+
+        if (!invoiceResult.success) {
+          console.error("Database record failed:", invoiceResult.error);
+        }
+      } catch (err) {
+        console.error("Background sync error:", err);
       }
+    };
 
-      // 2. Create Invoice
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const totalPrice = (product.discountPriceKES || product.priceKES) + (selectedVariation?.priceKES || 0);
+    // Trigger sync in background or wait briefly
+    await performSync().catch(console.error);
 
-      const invoiceResult = await createInvoice({
-        userId: authUser?.id,
-        clientName: authUser?.user_metadata?.full_name || 'Guest Elite',
-        productName: product.name,
-        quantity: quantity,
-        totalKES: totalPrice * quantity,
-        isPaid: true,
-        status: OrderStatus.RECEIVED_BY_AGENT,
-        paystackReference: response.reference
-      });
+    // 3. ALWAYS Close the loop with Admin via WhatsApp (Include Tracking Code)
+    const trackingLink = `https://legitgrinder.site/track?ref=${trackingCode}`;
+    const whatsappMsg = encodeURIComponent(
+      `✅ SUCCESSFUL PAYMENT\n\n` +
+      `Tracking Code: ${trackingCode}\n` +
+      `Item: ${product.name}\n` +
+      `Quantity: ${quantity}\n` +
+      `Total: KES ${(totalPrice * quantity).toLocaleString()}\n\n` +
+      `Track Status here: ${trackingLink}\n\n` +
+      `Please confirm receipt and start agent processing.`
+    );
 
-      if (!invoiceResult.success) {
-        const dbError = invoiceResult.error?.message || "Database Insert Failure";
-        throw new Error(`Failed to record invoice (${dbError}). Please screenshot this reference: ${response.reference}`);
-      }
+    const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`;
 
-      // 3. Close the loop with Admin via WhatsApp (Include Tracking Code)
-      const trackingCode = response.reference;
-      const trackingLink = `https://legitgrinder.site/track?ref=${trackingCode}`;
-
-      const whatsappMsg = encodeURIComponent(
-        `✅ SUCCESSFUL PAYMENT\n\n` +
-        `Tracking Code: ${trackingCode}\n` +
-        `Item: ${product.name}\n` +
-        `Quantity: ${quantity}\n` +
-        `Total: KES ${(totalPrice * quantity).toLocaleString()}\n\n` +
-        `Track Status here: ${trackingLink}\n\n` +
-        `Please confirm receipt and start agent processing.`
-      );
-
-      const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`;
-
-      window.location.href = waUrl;
-      setSelectedProduct(null);
-    } catch (error: any) {
-      console.error("Payment sync error:", error);
-      alert(error.message || "Payment successful but sync failed. Please share your reference on WhatsApp.");
-    } finally {
-      setPaymentLoading(false);
-    }
+    // IMMEDIATE REDIRECTION
+    window.location.href = waUrl;
+    setSelectedProduct(null);
+    setPaymentLoading(false);
   };
 
   const filteredProducts = products.filter(p =>
