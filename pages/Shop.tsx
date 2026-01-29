@@ -106,10 +106,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         `Please confirm receipt and start agent processing.`
       );
 
-      // REDIRECTION FIX: Directly change location to avoid popup blockers
       const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMsg}`;
-
-      alert(`Secure Payment Verified!\n\nTracking Code: ${trackingCode}\n\nYou will now be redirected to WhatsApp to finalize.`);
 
       window.location.href = waUrl;
       setSelectedProduct(null);
@@ -279,10 +276,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                         <div className="flex-1 flex flex-col gap-3">
                           <PaystackButton
                             className="w-full h-[64px] bg-[#3D8593] text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-black transition-all shadow-2xl shadow-teal-900/10"
-                            publicKey={PAYSTACK_PUBLIC_KEY}
+                            publicKey="pk_live_b11692e8994766a02428b1176fc7f4b8b958974"
                             amount={currentPrice * 100 * quantity}
                             currency="KES"
-                            email="client@legitgrinder.com"
+                            email={user?.email || "client@legitgrinder.com"}
                             metadata={{
                               custom_fields: [
                                 { display_name: "Customer Name", variable_name: "customer_name", value: user?.user_metadata?.full_name || 'Guest Elite' },
