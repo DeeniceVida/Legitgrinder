@@ -261,7 +261,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                           <PaystackButton
                             className="w-full h-[64px] bg-[#3D8593] text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-black transition-all shadow-2xl shadow-teal-900/10"
                             publicKey="pk_live_b11692e8994766a02428b1176fc7f4b8b958974"
-                            amount={currentPrice * 100 * quantity}
+                            amount={Math.round(currentPrice * 100 * quantity)}
                             currency="KES"
                             email={user?.email || "client@legitgrinder.com"}
                             metadata={{
