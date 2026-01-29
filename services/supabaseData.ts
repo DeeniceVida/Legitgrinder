@@ -439,9 +439,16 @@ export const updateConsultation = async (
     status: ConsultationStatus
 ): Promise<{ success: boolean; error?: any }> => {
     try {
+        // Map UI status back to database format
+        let dbStatus = status as string;
+        if (status === ConsultationStatus.PENDING) dbStatus = 'pending_approval';
+        if (status === ConsultationStatus.DOABLE) dbStatus = 'doable';
+        if (status === ConsultationStatus.PAID) dbStatus = 'paid';
+        if (status === ConsultationStatus.CANCELLED) dbStatus = 'cancelled';
+
         const { error } = await supabase
             .from('consultations')
-            .update({ status })
+            .update({ status: dbStatus })
             .eq('id', consultationId);
 
         if (error) throw error;
