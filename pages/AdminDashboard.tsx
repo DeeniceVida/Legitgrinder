@@ -707,13 +707,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <p className="text-[10px] font-black text-gray-400 mt-1 uppercase tracking-widest italic">{lead.clientWhatsapp}</p>
                       </td>
                       <td className="px-10 py-10">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.shippingPreference === 'Air' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'}`}>
-                            {lead.shippingPreference} Freight
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.urgency === 'High' ? 'bg-rose-50 text-rose-500' : 'bg-neutral-50 text-gray-400'}`}>
-                            {lead.urgency} Urgency
-                          </span>
+                        <div className="flex flex-col gap-2 mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.shippingPreference === 'Air' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'}`}>
+                              {lead.shippingPreference} Freight
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.urgency === 'High' ? 'bg-rose-50 text-rose-500' : 'bg-neutral-50 text-gray-400'}`}>
+                              {lead.urgency} Urgency
+                            </span>
+                          </div>
+
+                          {/* Shipping Calculator Data */}
+                          <div className="space-y-1">
+                            {lead.shippingPreference === 'Air' && lead.shippingWeight && (
+                              <p className="text-[10px] font-black text-cyan-700 uppercase tracking-widest">Weight: {lead.shippingWeight} kg</p>
+                            )}
+                            {lead.shippingPreference === 'Sea' && lead.calculatedCBM && (
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Volume: {lead.calculatedCBM.toFixed(4)} CBM</p>
+                                <p className="text-[9px] font-bold text-gray-400 uppercase italic">Dim: {lead.packageLength || '?'}{'x'}{lead.packageWidth || '?'}{'x'}{lead.packageHeight || '?'} cm</p>
+                              </div>
+                            )}
+                            {lead.estimatedShippingCost && (
+                              <p className="text-[11px] font-black text-[#FF9900] uppercase tracking-widest">Est. Shipping: KES {lead.estimatedShippingCost.toLocaleString()}</p>
+                            )}
+                          </div>
                         </div>
                         <p className="text-[10px] font-bold text-gray-300 uppercase italic">Type: {lead.itemType}</p>
                       </td>
