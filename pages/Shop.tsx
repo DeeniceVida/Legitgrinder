@@ -21,6 +21,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [activeAccordion, setActiveAccordion] = useState<string | null>('description');
   const [showPaystack, setShowPaystack] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch logged in user for metadata
   useEffect(() => {
@@ -114,6 +115,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       setPaymentLoading(false);
     }
   };
+
+  const filteredProducts = products.filter(p =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (selectedProduct) {
     const p = selectedProduct;
@@ -402,13 +408,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           <h1 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-8">Elite Marketplace</h1>
 
           {/* SEARCH & SCAN BAR */}
-          <div className="relative mb-12 group">
+          <div className="relative mb-8 group">
             <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
               <Search className="w-5 h-5 text-gray-400" />
             </div>
             <input
               type="text"
               placeholder="Search assets..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full h-[72px] bg-white border border-neutral-100 rounded-[2.5rem] pl-16 pr-20 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[#3D8593]/5 transition-all shadow-sm"
             />
             <div className="absolute inset-y-2 right-2 p-4 bg-neutral-50 rounded-[2rem] flex items-center justify-center cursor-pointer hover:bg-neutral-100 transition-colors">
@@ -416,33 +424,18 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
             </div>
           </div>
 
-          {/* SHOP MARKETS (CATEGORIES) */}
-          <div className="mb-12">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-bold text-gray-900 tracking-tight">Shop Markets</h2>
-              <button className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">See All</button>
-            </div>
-            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide -mx-6 px-6">
-              {[
-                { name: 'Electronics', img: 'https://images.unsplash.com/photo-1491933315934-4055675c1314?auto=format&fit=crop&q=80&w=200' },
-                { name: 'Laptops', img: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&q=80&w=200' },
-                { name: 'Audio', img: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=200' },
-                { name: 'Watches', img: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=200' },
-                { name: 'Phones', img: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=200' },
-              ].map((cat, i) => (
-                <div key={i} className="flex flex-col items-center gap-3 shrink-0 group cursor-pointer">
-                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white shadow-md group-hover:scale-110 transition-transform duration-500">
-                    <img src={cat.img} className="w-full h-full object-cover" alt={cat.name} />
-                  </div>
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{cat.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className="flex justify-between items-center mb-10">
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Popular Items</h2>
-            <button className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">See All</button>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+              {searchQuery ? `Search results for "${searchQuery}"` : 'Popular Items'}
+            </h2>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-[10px] font-black uppercase tracking-widest text-red-500"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -450,7 +443,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       {/* PRODUCT GRID - DYNAMIC 2-COLUMN MOBILE */}
       <div className="px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-3 gap-6 md:gap-12">
-          {products.map((p) => (
+          {filteredProducts.map((p) => (
             <div key={p.id} className="group flex flex-col cursor-pointer animate-in fade-in slide-in-from-bottom-8">
               <div
                 className="aspect-[4/5] bg-white relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] mb-6 shadow-sm border border-neutral-100 group-hover:shadow-2xl transition-all"
