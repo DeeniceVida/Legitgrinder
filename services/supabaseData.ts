@@ -149,22 +149,36 @@ export const fetchConsultations = async (): Promise<Consultation[]> => {
         const { data, error } = await supabase
             .from('consultations')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('requested_date', { ascending: false });
 
         if (error) throw error;
 
-        return data.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            email: c.email,
-            phone: c.phone,
-            whatsapp: c.whatsapp,
-            date: c.date,
-            time: c.time,
-            topic: c.topic,
-            status: c.status as ConsultationStatus,
-            feeUSD: parseFloat(c.fee_usd || 15)
-        }));
+        return (data || []).map((c: any) => {
+            // Parse requested_date (ISO string) into date and time
+            const dateObj = new Date(c.requested_date);
+            const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); // e.g. 29 Jan 2026
+            const timeStr = dateObj.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }); // e.g. 04:30 PM
+
+            // Normalize status: Map database string to enum string if necessary
+            let status = c.status;
+            if (status === 'pending_approval') status = ConsultationStatus.PENDING;
+            if (status === 'doable') status = ConsultationStatus.DOABLE;
+            if (status === 'paid') status = ConsultationStatus.PAID;
+            if (status === 'cancelled') status = ConsultationStatus.CANCELLED;
+
+            return {
+                id: c.id.toString(),
+                name: c.client_name || 'Individual Client',
+                email: c.client_email || 'N/A',
+                phone: c.client_phone || 'N/A',
+                whatsapp: c.client_whatsapp || '',
+                date: dateStr,
+                time: timeStr,
+                topic: c.topic || 'General Sourcing Discussion',
+                status: status as ConsultationStatus,
+                feeUSD: parseFloat(c.fee_usd || 15)
+            };
+        });
     } catch (error) {
         console.error('Error fetching consultations:', error);
         return [];
