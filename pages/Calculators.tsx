@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Package, Mail, MessageCircle, ChevronRight, ChevronLeft, Send, CheckCircle2, User, Globe, DollarSign, List, ShieldCheck } from 'lucide-react';
+import { Smartphone, Package, Mail, MessageCircle, ChevronRight, ChevronLeft, Send, CheckCircle2, User, Globe, DollarSign, List, ShieldCheck, Calculator } from 'lucide-react';
 import { KES_PER_USD, FEE_STRUCTURE, WHATSAPP_NUMBER } from '../constants';
 import { CalculationResult, SourcingRequest } from '../types';
 import { submitSourcingRequest } from '../services/supabaseData';
@@ -17,6 +18,7 @@ const Calculators: React.FC = () => {
   const [questStep, setQuestStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [questError, setQuestError] = useState<string | null>(null);
   const [questData, setQuestData] = useState<Partial<SourcingRequest>>({
     productName: '',
     productLink: '',
@@ -65,22 +67,80 @@ const Calculators: React.FC = () => {
 
   const handleQuestSubmit = async () => {
     setIsSubmitting(true);
-    const result = await submitSourcingRequest(questData);
-    if (result.success) {
-      setIsComplete(true);
-      // Generate WhatsApp follow-up
-      const text = encodeURIComponent(
-        `Hi LegitGrinder, I have finished my Elite Sourcing Quest for ${questData.productName}.\n\n` +
-        `Target Budget: KES ${questData.targetBudgetKES?.toLocaleString()}\n` +
-        `Shipping: ${questData.shippingPreference}\n\n` +
-        `Please confirm receipt of my request.`
-      );
-      setTimeout(() => {
-        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
-      }, 2000);
+    setQuestError(null);
+
+    try {
+      const result = await submitSourcingRequest(questData);
+
+      if (result.success) {
+        setIsComplete(true);
+        // Generate WhatsApp follow-up
+        let shippingInfo = '';
+        if (questData.shippingPreference === 'Air' && questData.shippingWeight) {
+          shippingInfo = `Shipping: Air (${questData.shippingWeight}kg) - Estimated Cost: KES ${questData.estimatedShippingCost?.toLocaleString()}`;
+        } else if (questData.shippingPreference === 'Sea' && questData.calculatedCBM) {
+          shippingInfo = `Shipping: Sea (${questData.calculatedCBM.toFixed(4)} CBM) - Estimated Cost: KES ${questData.estimatedShippingCost?.toLocaleString()}`;
+        }
+
+        const text = encodeURIComponent(
+          `Hi LegitGrinder, I have finished my Elite Sourcing Quest for ${questData.productName}.\n\n` +
+          `${shippingInfo}\n` +
+          `Target Budget: KES ${questData.targetBudgetKES?.toLocaleString()}\n` +
+          `Urgency: ${questData.urgency}\n\n` +
+          `Please confirm receipt of my request.`
+        );
+        setTimeout(() => {
+          window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+        }, 2000);
+      } else {
+        throw new Error(result.error?.message || 'Failed to submit sourcing request');
+      }
+    } catch (error: any) {
+      console.error('Sourcing quest error:', error);
+      setQuestError(error.message || 'Failed to submit request. Please try again or contact us on WhatsApp.');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
+
+  // Calculate shipping costs in real-time
+  useEffect(() => {
+    const KES_RATE = KES_PER_USD;
+    const FIXED_FEE_KES = 135; // Fixed fee is 135 KES (not USD)
+
+    if (questData.shippingPreference === 'Air' && questData.shippingWeight) {
+      // Air freight: $13/kg converted to KES + 135 KES fixed fee
+      const airCostUSD = questData.shippingWeight * 13;
+      const airCostKES = airCostUSD * KES_RATE;
+      const totalShipping = airCostKES + FIXED_FEE_KES;
+
+      setQuestData(prev => ({
+        ...prev,
+        estimatedShippingCost: Math.round(totalShipping)
+      }));
+    } else if (questData.shippingPreference === 'Sea' &&
+      questData.packageLength &&
+      questData.packageWidth &&
+      questData.packageHeight) {
+      // Sea freight: Calculate CBM then multiply by 60,000 KES + $135 fixed fee
+      const cbm = (questData.packageLength * questData.packageWidth * questData.packageHeight) / 1000000;
+      const seaCostKES = cbm * 60000;
+      const totalShipping = seaCostKES + FIXED_FEE_KES;
+
+      setQuestData(prev => ({
+        ...prev,
+        calculatedCBM: cbm,
+        estimatedShippingCost: Math.round(totalShipping)
+      }));
+    } else {
+      setQuestData(prev => ({
+        ...prev,
+        calculatedCBM: undefined,
+        estimatedShippingCost: undefined
+      }));
+    }
+  }, [questData.shippingPreference, questData.shippingWeight,
+  questData.packageLength, questData.packageWidth, questData.packageHeight]);
 
   return (
     <div className="max-w-5xl mx-auto p-6 py-24 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -281,6 +341,96 @@ const Calculators: React.FC = () => {
                       <p className="text-xs text-neutral-500 leading-relaxed font-bold italic">"Air freight takes 7-14 days. Sea freight takes 45-60 days but saves up to 70% on heavy items."</p>
                     </div>
                   </div>
+
+                  {/* Shipping Calculator */}
+                  <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-3xl p-8 border-2 border-orange-100">
+                    <div className="flex items-center gap-3 mb-6">
+                      <Calculator className="w-5 h-5 text-[#FF9900]" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#FF9900]">Shipping Cost Calculator</span>
+                    </div>
+
+                    {questData.shippingPreference === 'Air' ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-3">Estimated Weight (kg)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            placeholder="e.g., 5.5"
+                            className="w-full bg-white border-2 border-orange-200 rounded-xl px-5 py-4 text-lg font-bold text-neutral-900 focus:ring-2 focus:ring-[#FF9900] focus:border-[#FF9900] transition-all"
+                            value={questData.shippingWeight || ''}
+                            onChange={(e) => setQuestData({ ...questData, shippingWeight: parseFloat(e.target.value) || undefined })}
+                          />
+                        </div>
+
+                        {questData.shippingWeight && questData.estimatedShippingCost && (
+                          <div className="bg-white rounded-xl p-5 space-y-2 border-2 border-orange-200">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-neutral-600 font-bold">Air Freight ({questData.shippingWeight}kg × $13)</span>
+                              <span className="font-black text-neutral-900">KES {Math.round(questData.shippingWeight * 13 * KES_PER_USD).toLocaleString()}</span>
+                            </div>
+                            <div className="border-t-2 border-orange-100 pt-2 flex justify-between">
+                              <span className="text-sm font-black text-[#FF9900] uppercase">Total Shipping</span>
+                              <span className="text-lg font-black text-[#FF9900]">KES {questData.estimatedShippingCost.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[9px] font-black uppercase tracking-widest text-neutral-600 mb-2">Length (cm)</label>
+                            <input
+                              type="number"
+                              placeholder="L"
+                              className="w-full bg-white border-2 border-orange-200 rounded-xl px-4 py-3 text-sm font-bold text-neutral-900 focus:ring-2 focus:ring-[#FF9900] focus:border-[#FF9900] transition-all"
+                              value={questData.packageLength || ''}
+                              onChange={(e) => setQuestData({ ...questData, packageLength: parseFloat(e.target.value) || undefined })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-black uppercase tracking-widest text-neutral-600 mb-2">Width (cm)</label>
+                            <input
+                              type="number"
+                              placeholder="W"
+                              className="w-full bg-white border-2 border-orange-200 rounded-xl px-4 py-3 text-sm font-bold text-neutral-900 focus:ring-2 focus:ring-[#FF9900] focus:border-[#FF9900] transition-all"
+                              value={questData.packageWidth || ''}
+                              onChange={(e) => setQuestData({ ...questData, packageWidth: parseFloat(e.target.value) || undefined })}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-black uppercase tracking-widest text-neutral-600 mb-2">Height (cm)</label>
+                            <input
+                              type="number"
+                              placeholder="H"
+                              className="w-full bg-white border-2 border-orange-200 rounded-xl px-4 py-3 text-sm font-bold text-neutral-900 focus:ring-2 focus:ring-[#FF9900] focus:border-[#FF9900] transition-all"
+                              value={questData.packageHeight || ''}
+                              onChange={(e) => setQuestData({ ...questData, packageHeight: parseFloat(e.target.value) || undefined })}
+                            />
+                          </div>
+                        </div>
+
+                        {questData.calculatedCBM && questData.estimatedShippingCost && (
+                          <div className="bg-white rounded-xl p-5 space-y-2 border-2 border-orange-200">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-neutral-600 font-bold">Volume (CBM)</span>
+                              <span className="font-black text-neutral-900">{questData.calculatedCBM.toFixed(4)} m³</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-neutral-600 font-bold">Sea Freight ({questData.calculatedCBM.toFixed(4)} × 60,000)</span>
+                              <span className="font-black text-neutral-900">KES {Math.round(questData.calculatedCBM * 60000).toLocaleString()}</span>
+                            </div>
+                            <div className="border-t-2 border-orange-100 pt-2 flex justify-between">
+                              <span className="text-sm font-black text-[#FF9900] uppercase">Total Shipping</span>
+                              <span className="text-lg font-black text-[#FF9900]">KES {questData.estimatedShippingCost.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex justify-between items-center">
                     <button onClick={() => setQuestStep(1)} className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-900 transition-colors">Back</button>
                     <button
@@ -336,6 +486,17 @@ const Calculators: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  {questError && (
+                    <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 flex items-start gap-4">
+                      <ShieldCheck className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-bold text-red-900 mb-1">Submission Failed</p>
+                        <p className="text-xs text-red-600">{questError}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center">
                     <button onClick={() => setQuestStep(2)} className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-900 transition-colors">Review Nodes</button>
                     <button

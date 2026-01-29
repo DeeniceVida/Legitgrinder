@@ -564,7 +564,14 @@ export const submitSourcingRequest = async (request: Partial<SourcingRequest>): 
                 item_type: request.itemType,
                 target_budget_kes: request.targetBudgetKES,
                 urgency: request.urgency || 'Medium',
-                status: 'pending'
+                status: 'pending',
+                // Shipping calculator fields
+                shipping_weight: request.shippingWeight,
+                package_length: request.packageLength,
+                package_width: request.packageWidth,
+                package_height: request.packageHeight,
+                calculated_cbm: request.calculatedCBM,
+                estimated_shipping_cost: request.estimatedShippingCost
             })
             .select()
             .single();

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, MessageSquare, ShieldCheck, User, Mail, Phone, MessageCircle, ArrowRight, Sparkles } from 'lucide-react';
 import { WHATSAPP_NUMBER } from '../constants';
+import { supabase } from '../lib/supabase';
 
 const Consultation: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -14,10 +15,45 @@ const Consultation: React.FC = () => {
     topic: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Combine date and time into a proper timestamp
+      const requestedDateTime = new Date(`${formData.date}T${formData.time}`);
+
+      // Insert consultation into database
+      const { error: insertError } = await supabase
+        .from('consultations')
+        .insert({
+          client_name: formData.name,
+          client_email: formData.email,
+          client_phone: formData.phone,
+          client_whatsapp: formData.whatsapp,
+          requested_date: requestedDateTime.toISOString(),
+          topic: formData.topic,
+          status: 'pending_approval',
+          payment_status: 'unpaid',
+          fee_usd: 15
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      // Success - show confirmation
+      setIsSubmitted(true);
+    } catch (err: any) {
+      console.error('Error submitting consultation:', err);
+      setError(err.message || 'Failed to submit consultation. Please try again or contact us on WhatsApp.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSubmitted) {
@@ -31,7 +67,7 @@ const Consultation: React.FC = () => {
           <p className="text-gray-500 font-light mb-10 leading-relaxed">
             Our sourcing team is checking if your project is doable. You will receive a WhatsApp notification shortly with confirmation and payment details for the <span className="text-[#3D8593] font-bold">$15 session fee</span>.
           </p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="btn-vibrant-teal w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest"
           >
@@ -52,13 +88,13 @@ const Consultation: React.FC = () => {
               <span className="text-[10px] font-black uppercase tracking-widest text-[#FF9900]">Expert Strategy Session</span>
             </div>
             <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tighter text-gray-900 leading-[0.95]">
-              Unlock Your <br/>
+              Unlock Your <br />
               <span className="text-[#3D8593] italic font-light heading-accent">Import Potential.</span>
             </h1>
             <p className="text-xl md:text-2xl max-w-lg mb-12 text-gray-500 font-light leading-relaxed">
               Book a 1-on-1 session to discuss your sourcing needs, verify suppliers, and build a precision import strategy.
             </p>
-            
+
             <div className="space-y-6">
               <div className="flex gap-6 items-center">
                 <div className="w-14 h-14 bg-teal-50 rounded-2xl flex items-center justify-center">
@@ -88,12 +124,12 @@ const Consultation: React.FC = () => {
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Full Name</label>
                   <div className="relative">
                     <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input 
+                    <input
                       required
                       className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
                       placeholder="Jane Doe"
                       value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     />
                   </div>
                 </div>
@@ -101,13 +137,13 @@ const Consultation: React.FC = () => {
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Email</label>
                   <div className="relative">
                     <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input 
+                    <input
                       required
                       type="email"
                       className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
                       placeholder="jane@example.com"
                       value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
                 </div>
@@ -118,12 +154,12 @@ const Consultation: React.FC = () => {
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">WhatsApp Number</label>
                   <div className="relative">
                     <MessageCircle className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input 
+                    <input
                       required
                       className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
                       placeholder="+254..."
                       value={formData.whatsapp}
-                      onChange={(e) => setFormData({...formData, whatsapp: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                     />
                   </div>
                 </div>
@@ -131,12 +167,12 @@ const Consultation: React.FC = () => {
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Preferred Date</label>
                   <div className="relative">
                     <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input 
+                    <input
                       required
                       type="date"
                       className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
                       value={formData.date}
-                      onChange={(e) => setFormData({...formData, date: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                     />
                   </div>
                 </div>
@@ -146,12 +182,12 @@ const Consultation: React.FC = () => {
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Preferred Time</label>
                 <div className="relative">
                   <Clock className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                  <input 
+                  <input
                     required
                     type="time"
                     className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
                     value={formData.time}
-                    onChange={(e) => setFormData({...formData, time: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                   />
                 </div>
               </div>
@@ -160,22 +196,33 @@ const Consultation: React.FC = () => {
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">What would you like to discuss?</label>
                 <div className="relative">
                   <MessageSquare className="absolute left-5 top-6 w-4 h-4 text-teal-300" />
-                  <textarea 
+                  <textarea
                     required
                     rows={4}
                     className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-5 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all resize-none"
                     placeholder="Tell us about the products you want to import..."
                     value={formData.topic}
-                    onChange={(e) => setFormData({...formData, topic: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
                   />
                 </div>
               </div>
 
-              <button 
+              {error && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 flex items-start gap-4">
+                  <ShieldCheck className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-red-900 mb-1">Submission Failed</p>
+                    <p className="text-xs text-red-600">{error}</p>
+                  </div>
+                </div>
+              )}
+
+              <button
                 type="submit"
-                className="btn-vibrant-orange w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
+                disabled={isSubmitting}
+                className="btn-vibrant-orange w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Request Session <ArrowRight className="w-4 h-4" />
+                {isSubmitting ? 'Submitting...' : 'Request Session'} <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           </div>

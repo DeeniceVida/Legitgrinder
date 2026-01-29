@@ -164,4 +164,13 @@ export interface SourcingRequest {
   urgency: 'High' | 'Medium' | 'Low';
   status: SourcingStatus;
   createdAt?: string;
+
+  // Shipping calculator fields
+  shippingWeight?: number; // for air freight (kg)
+  packageLength?: number; // for sea freight (cm)
+  packageWidth?: number; // for sea freight (cm)
+  packageHeight?: number; // for sea freight (cm)
+  calculatedCBM?: number; // auto-calculated cubic meters
+  estimatedShippingCost?: number; // calculated shipping cost in KES
 }
+
