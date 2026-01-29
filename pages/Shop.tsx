@@ -92,7 +92,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       });
 
       if (!invoiceResult.success) {
-        throw new Error("Failed to record invoice. Please screenshot this reference: " + response.reference);
+        const dbError = invoiceResult.error?.message || "Database Insert Failure";
+        throw new Error(`Failed to record invoice (${dbError}). Please screenshot this reference: ${response.reference}`);
       }
 
       // 3. Close the loop with Admin via WhatsApp (Include Tracking Code)
