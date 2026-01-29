@@ -65,37 +65,50 @@ export const seedFullInventory = async () => {
     for (const [brand, models] of Object.entries(PHONE_MODELS_SCHEMA)) {
         for (const m of models) {
             try {
-                // 1. Create Product
-                const { data: product, error: pError } = await supabase
+                // 1. Create or Find Product
+                const { data: existingProduct } = await supabase
                     .from('products')
-                    .insert({
-                        name: m.name,
-                        brand: brand,
-                        series: m.series,
-                        category: 'Phones',
-                        stock_status: 'On Import'
-                    })
                     .select('id')
-                    .single();
+                    .eq('name', m.name)
+                    .maybeSingle();
 
-                if (pError) {
-                    console.error(`Error creating product ${m.name}:`, pError);
-                    continue;
+                let productId = existingProduct?.id;
+
+                if (!productId) {
+                    const { data: product, error: pError } = await supabase
+                        .from('products')
+                        .insert({
+                            name: m.name,
+                            brand: brand,
+                            series: m.series,
+                            category: 'Phones',
+                            stock_status: 'On Import'
+                        })
+                        .select('id')
+                        .single();
+
+                    if (pError) {
+                        console.error(`Error creating product ${m.name}:`, pError);
+                        continue;
+                    }
+                    productId = product.id;
+                    productCount++;
                 }
-                productCount++;
 
-                // 2. Create Variants
+                // 2. Create Variants (This is what shows up in Sync/Pricelist)
                 const variants = m.capacities.map(cap => ({
-                    product_id: product.id,
+                    product_id: productId,
                     capacity: cap,
                     price_usd: 500, // Starting baseline
                     price_kes: Math.ceil((500 + 20 + 30) * 135), // Correct calculation
-                    status: 'active'
+                    status: 'active',
+                    is_manual_override: false
                 }));
 
+                // Use upsert to avoid duplicate capacity errors
                 const { error: vError } = await supabase
                     .from('product_variants')
-                    .insert(variants);
+                    .upsert(variants, { onConflict: 'product_id,capacity' });
 
                 if (vError) console.error(`Error variants for ${m.name}:`, vError);
                 else variantCount += variants.length;
