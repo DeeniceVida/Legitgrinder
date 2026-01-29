@@ -5,7 +5,8 @@ import {
   MessageSquare, CreditCard, Trash2, Edit3,
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
-  Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer
+  Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
+  ShieldCheck, MessageCircle
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -901,22 +902,64 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-4 py-1.5 rounded-full">{consultations.length} Active Requests</span>
             </div>
             {consultations.map(c => (
-              <div key={c.id} className="p-12 flex flex-col xl:flex-row gap-12 hover:bg-neutral-50/20 transition-all">
+              <div key={c.id} className="p-12 flex flex-col xl:flex-row gap-12 hover:bg-neutral-50/20 transition-all border-b border-neutral-50 last:border-none">
                 <div className="flex-1">
                   <div className="flex items-center gap-6 mb-8">
-                    <div className="w-20 h-20 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center text-indigo-600 shadow-sm border border-white">
-                      <User className="w-10 h-10" />
+                    <div className={`w-20 h-20 rounded-[2.5rem] flex items-center justify-center shadow-sm border border-white transition-all ${c.status === ConsultationStatus.PAID ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                      {c.status === ConsultationStatus.PAID ? <ShieldCheck className="w-10 h-10" /> : <User className="w-10 h-10" />}
                     </div>
                     <div>
-                      <h4 className="text-3xl font-black text-gray-900 tracking-tight leading-none">{c.name}</h4>
+                      <div className="flex items-center gap-3">
+                        <h4 className="text-3xl font-black text-gray-900 tracking-tight leading-none">{c.name}</h4>
+                        {c.status === ConsultationStatus.PAID && (
+                          <span className="bg-emerald-500 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Locked
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-gray-400 font-bold mt-4 uppercase tracking-[0.2em]">{c.whatsapp} • {c.email}</p>
                     </div>
                   </div>
-                  <div className="bg-white/80 p-10 rounded-[2.5rem] border border-neutral-100 shadow-sm">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-4">Strategic Objective</p>
-                    <p className="text-lg font-bold text-gray-600 leading-relaxed italic">"{c.topic}"</p>
+
+                  <div className="grid md:grid-cols-2 gap-6 mb-8">
+                    <div className="bg-white/80 p-8 rounded-[2rem] border border-neutral-100 shadow-sm">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] mb-3 flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5" /> Booked Timeline
+                      </p>
+                      <div className="flex items-end gap-3">
+                        <p className="text-xl font-black text-gray-900 leading-none">{c.date}</p>
+                        <span className="text-sm font-bold text-gray-300">at</span>
+                        <p className="text-xl font-black text-gray-900 leading-none">{c.time}</p>
+                      </div>
+                    </div>
+                    <div className="bg-white/80 p-8 rounded-[2rem] border border-neutral-100 shadow-sm">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-3">Strategic Objective</p>
+                      <p className="text-sm font-bold text-gray-600 leading-relaxed italic truncate">"{c.topic}"</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-4">
+                    <button
+                      onClick={() => {
+                        const message = encodeURIComponent(
+                          `Hi ${c.name}, your expert logistics consultation for "${c.topic}" is suggested for ${c.date} at ${c.time}.\n\n` +
+                          `Please confirm if this works for you and complete the $15 (approx. KES 2,025) commitment fee to lock your slot.\n\n` +
+                          `Once confirmed, the date will be locked in our master calendar.`
+                        );
+                        window.open(`https://wa.me/${c.whatsapp.replace(/\+/g, '')}?text=${message}`, '_blank');
+                      }}
+                      className="px-6 py-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center gap-2 border border-emerald-100"
+                    >
+                      <MessageCircle className="w-4 h-4" /> Confirm & Request $15
+                    </button>
+                    {c.status === ConsultationStatus.PAID && (
+                      <button className="px-6 py-4 bg-indigo-50 text-indigo-600 rounded-2xl text-[9px] font-black uppercase tracking-widest opacity-50 cursor-not-allowed flex items-center gap-2 border border-indigo-100">
+                        <Calendar className="w-4 h-4" /> Locked on Calendar
+                      </button>
+                    )}
                   </div>
                 </div>
+
                 <div className="w-full xl:w-80 flex flex-col justify-center gap-6">
                   <div className="grid grid-cols-2 gap-3">
                     {[ConsultationStatus.PENDING, ConsultationStatus.DOABLE, ConsultationStatus.PAID, ConsultationStatus.CANCELLED].map(s => (
