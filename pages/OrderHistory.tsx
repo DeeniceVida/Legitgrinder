@@ -112,21 +112,43 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onNavigate }) => {
                                             <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">Current Phase</p>
                                             <p className="font-bold text-gray-900">{inv.status}</p>
                                         </div>
-                                        <div className="w-24 h-24 rounded-full border-8 border-neutral-50 flex items-center justify-center relative">
-                                            <svg className="w-full h-full transform -rotate-90">
+                                        <div className="w-24 h-24 relative flex items-center justify-center group/progress">
+                                            {/* Background Track */}
+                                            <svg className="absolute inset-0 transform -rotate-90">
                                                 <circle
                                                     cx="48"
                                                     cy="48"
-                                                    r="40"
-                                                    stroke="currentColor"
+                                                    r="38"
+                                                    stroke="#f3f4f6"
                                                     strokeWidth="8"
                                                     fill="transparent"
-                                                    className="text-[#3D8593] transition-all duration-1000"
-                                                    strokeDasharray={251.2}
-                                                    strokeDashoffset={251.2 - (251.2 * getOrderProgress(inv.status)) / 100}
                                                 />
                                             </svg>
-                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black">{getOrderProgress(inv.status)}%</span>
+                                            {/* Progress Track */}
+                                            <svg className="absolute inset-0 transform -rotate-90">
+                                                <defs>
+                                                    <linearGradient id={`grad-${inv.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                                        <stop offset="0%" stopColor="#3D8593" />
+                                                        <stop offset="100%" stopColor="#2c626d" />
+                                                    </linearGradient>
+                                                </defs>
+                                                <circle
+                                                    cx="48"
+                                                    cy="48"
+                                                    r="38"
+                                                    stroke={`url(#grad-${inv.id})`}
+                                                    strokeWidth="8"
+                                                    strokeLinecap="round"
+                                                    fill="transparent"
+                                                    className="transition-all duration-[1.5s] ease-out shadow-2xl"
+                                                    strokeDasharray={238.7}
+                                                    strokeDashoffset={238.7 - (238.7 * getOrderProgress(inv.status)) / 100}
+                                                />
+                                            </svg>
+                                            <div className="flex flex-col items-center">
+                                                <span className="text-[12px] font-black leading-tight">{getOrderProgress(inv.status)}%</span>
+                                                <span className="text-[6px] text-gray-400 font-bold uppercase tracking-tighter">Done</span>
+                                            </div>
                                         </div>
                                         <ChevronRight className="w-6 h-6 text-neutral-200 group-hover:text-[#3D8593] transition-colors" />
                                     </div>
