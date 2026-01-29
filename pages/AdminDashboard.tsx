@@ -15,9 +15,9 @@ import {
 import { syncBackMarketPrices } from '../services/scraper';
 import { syncAllMasterLinks, seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB } from '../services/supabaseData';
 import {
-  PricelistItem, Product, OrderStatus,
+  PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice,
   BlogPost, FAQItem, Client, ProductVariation, SourcingRequest
 } from '../types';
@@ -212,9 +212,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setLocalVariations(localVariations.map((v, i) => i === index ? { ...v, ...updates } : v));
   };
 
-  const updateInvoiceStatus = (id: string, newStatus: OrderStatus) => {
-    const updated = invoices.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv);
+  const updateInvoiceStatus = async (id: string, newStatus: OrderStatus) => {
+    const progress = getOrderProgress(newStatus);
+
+    // 1. Optimistic Update
+    const updated = invoices.map(inv => inv.id === id ? { ...inv, status: newStatus, progress } : inv);
     onUpdateInvoices(updated);
+
+    // 2. Persist to DB
+    const result = await updateInvoiceStatusInDB(id, newStatus, progress);
+    if (!result.success) {
+      alert("⚠️ Service Sync Delayed: Status updated locally but database persistence failed. Check connection.");
+    }
   };
 
   const handleSaveProduct = async (e: React.FormEvent<HTMLFormElement>) => {

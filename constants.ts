@@ -5,7 +5,7 @@ export const KES_PER_USD = 135;
 export const WHATSAPP_NUMBER = '254791873538';
 
 // Foundation for Cloudflare Worker integration
-export const API_BASE_URL = 'https://api.legitgrinder.com'; 
+export const API_BASE_URL = 'https://api.legitgrinder.com';
 
 export const PHONE_MODELS_SCHEMA = {
   iphone: [
@@ -86,9 +86,10 @@ export const FEE_STRUCTURE = {
 
 export const STATUS_SEQUENCE = [
   OrderStatus.RECEIVED_BY_AGENT,
-  OrderStatus.LEFT_WAREHOUSE,
+  OrderStatus.PREPARING,
+  OrderStatus.COLLECTED,
   OrderStatus.SHIPPING,
   OrderStatus.LANDED_CUSTOMS,
-  OrderStatus.EN_ROUTE_NAIROBI,
-  OrderStatus.READY_FOR_COLLECTION
+  OrderStatus.READY_FOR_COLLECTION,
+  OrderStatus.DELIVERED
 ];

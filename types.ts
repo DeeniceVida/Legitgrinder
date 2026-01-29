@@ -180,3 +180,19 @@ export interface SourcingRequest {
   estimatedShippingCost?: number; // calculated shipping cost in KES
 }
 
+export const getOrderProgress = (status: OrderStatus): number => {
+  switch (status) {
+    case OrderStatus.RECEIVED_BY_AGENT: return 10;
+    case OrderStatus.PREPARING: return 20;
+    case OrderStatus.COLLECTED: return 35;
+    case OrderStatus.LEFT_WAREHOUSE: return 50;
+    case OrderStatus.SHIPPING: return 65;
+    case OrderStatus.LANDED_CUSTOMS: return 80;
+    case OrderStatus.EN_ROUTE_NAIROBI: return 90;
+    case OrderStatus.READY_FOR_COLLECTION: return 95;
+    case OrderStatus.DROPPED_BY_RIDER: return 98;
+    case OrderStatus.DELIVERED: return 100;
+    default: return 0;
+  }
+};
+

@@ -259,17 +259,38 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
             invoiceNumber: inv.invoice_number,
             clientName: inv.client_name,
             productName: inv.product_name,
+            quantity: inv.quantity || 1,
             status: inv.status as OrderStatus,
             progress: inv.progress || 0,
             lastUpdate: inv.last_update ? new Date(inv.last_update).toLocaleString() : 'Never',
             isPaid: inv.is_paid,
             totalKES: parseFloat(inv.total_kes || 0),
             paystackReference: inv.paystack_reference,
-            date: inv.created_at
+            date: inv.created_at,
+            createdAt: inv.created_at
         }));
     } catch (error) {
         console.error('Error fetching user invoices:', error);
         return [];
+    }
+};
+
+export const updateInvoiceStatus = async (id: string, status: OrderStatus, progress: number): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('invoices')
+            .update({
+                status,
+                progress,
+                last_update: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating invoice status:', error);
+        return { success: false, error };
     }
 };
 // ========================================

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Clock, ChevronRight, ShoppingBag, ArrowLeft, RefreshCcw } from 'lucide-react';
 import { getUserInvoices } from '../services/supabaseData';
-import { Invoice, OrderStatus } from '../types';
+import { Invoice, OrderStatus, getOrderProgress } from '../types';
 
 interface OrderHistoryProps {
     user: any;
@@ -123,10 +123,10 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ user, onNavigate }) => {
                                                     fill="transparent"
                                                     className="text-[#3D8593] transition-all duration-1000"
                                                     strokeDasharray={251.2}
-                                                    strokeDashoffset={251.2 - (251.2 * inv.progress) / 100}
+                                                    strokeDashoffset={251.2 - (251.2 * getOrderProgress(inv.status)) / 100}
                                                 />
                                             </svg>
-                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black">{inv.progress}%</span>
+                                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black">{getOrderProgress(inv.status)}%</span>
                                         </div>
                                         <ChevronRight className="w-6 h-6 text-neutral-200 group-hover:text-[#3D8593] transition-colors" />
                                     </div>
