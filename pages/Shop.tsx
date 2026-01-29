@@ -32,13 +32,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     getUser();
   }, []);
 
-  // Robust key loading for Paystack
-  const PAYSTACK_PUBLIC_KEY = (
-    (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY ||
-    (typeof (window as any).__PAYSTACK_KEY__ !== 'undefined' ? (window as any).__PAYSTACK_KEY__ : '')
-  ).trim();
-
-  const isTestMode = PAYSTACK_PUBLIC_KEY.startsWith('pk_test');
+  // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
+  const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc7f4b8b958974';
+  const isTestMode = false;
 
   // Diagnostic log for Paystack initialization (Dev/Diagnostic only)
   useEffect(() => {
