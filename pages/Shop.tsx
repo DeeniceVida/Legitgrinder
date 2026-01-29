@@ -21,14 +21,16 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [showPaystack, setShowPaystack] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
 
+  // Robust key loading for Paystack
   const PAYSTACK_PUBLIC_KEY = (
-    (typeof (window as any).__PAYSTACK_KEY__ !== 'undefined' ? (window as any).__PAYSTACK_KEY__ : null) ||
-    (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY ||
-    ""
+    (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY ||
+    (typeof __PAYSTACK_KEY__ !== 'undefined' ? (__PAYSTACK_KEY__ as string) : '')
   ).trim();
 
+  const isTestMode = PAYSTACK_PUBLIC_KEY.startsWith('pk_test');
+
   // STICKY DIAGNOSTIC: Do not remove until Paystack is confirmed working
-  console.log(`💎 Paystack Check -> Length: ${PAYSTACK_PUBLIC_KEY.length}, StartsWith: ${PAYSTACK_PUBLIC_KEY.substring(0, 8)}`);
+  console.log(`💎 Paystack Info -> Mode: ${isTestMode ? 'TEST' : 'LIVE'}, Key prefix: ${PAYSTACK_PUBLIC_KEY.substring(0, 8)}...`);
 
   const handleWhatsAppInquiry = (p: Product) => {
     const totalPrice = (p.discountPriceKES || p.priceKES) + (selectedVariation?.priceKES || 0);
