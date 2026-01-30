@@ -59,8 +59,44 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
             });
         });
 
+
         const result = Object.values(groupedData);
         console.log(`🔍 DEBUG: Grouped into ${result.length} unique products.`);
+
+        // --- FALLBACK MECHANISM ---
+        // If database is empty (wiped or connection issue), generate from static schema
+        // to prevent "No models found" error.
+        if (result.length === 0) {
+            console.warn('⚠️ WARNING: Database returned 0 items. Activating Failover Protocol.');
+            const { PHONE_MODELS_SCHEMA, KES_PER_USD } = await import('../constants'); // Dynamic import to avoid cycles if any
+
+            const fallbackList: PricelistItem[] = [];
+
+            Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {
+                models.forEach((m: any) => {
+                    fallbackList.push({
+                        id: `fallback-${m.name}`,
+                        modelName: m.name,
+                        brand: brand as any,
+                        series: m.series,
+                        syncAlert: true, // Mark as requiring sync
+                        capacities: m.capacities.map((cap: string, idx: number) => ({
+                            id: `fallback-${m.name}-${cap}`,
+                            capacity: cap,
+                            currentPriceKES: 0, // Indicate "On Request" or 0
+                            previousPriceKES: 0,
+                            lastSynced: 'System Fallback',
+                            sourcePriceUSD: 0,
+                            isManualOverride: false
+                        }))
+                    });
+                });
+            });
+            console.log(`🛡️ FAILOVER: Generated ${fallbackList.length} static fallback items.`);
+            return fallbackList;
+        }
+        // --------------------------
+
         return result;
     } catch (error) {
         console.error('Error fetching pricelist:', error);

@@ -505,6 +505,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-12 animate-in fade-in duration-1000">
+            {products.length < 10 && (
+              <div className="bg-rose-50 border-l-4 border-rose-500 p-8 rounded-r-xl flex justify-between items-center shadow-lg">
+                <div className="flex gap-6 items-center">
+                  <div className="p-4 bg-rose-100 rounded-full text-rose-600">
+                    <Trash2 className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-rose-700 uppercase tracking-tight">System Alert: Inventory Integrity Compromised</h3>
+                    <p className="text-sm font-bold text-rose-500 mt-1">
+                      Critical data loss detected. Only {products.length} models found (expected 60+). Using fallback restoration protocol.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={runSeed}
+                  disabled={seeding}
+                  className="px-8 py-4 bg-rose-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-rose-700 transition-all flex items-center gap-3 shadow-xl"
+                >
+                  {seeding ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                  {seeding ? 'Restoring System...' : 'EXECUTE EMERGENCY RESTORE'}
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {[
                 { label: 'Total Revenue', val: `KES ${(invoices.reduce((acc, inv) => acc + (inv.totalKES || 0), 0) / 1000000).toFixed(1)}M`, trend: '+14.2%', icon: <DollarSign className="text-emerald-500" />, bg: 'bg-emerald-50' },
@@ -982,21 +1006,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <input type="text" placeholder="Search Master Pricelist Registry..." className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-black uppercase tracking-widest outline-none focus:ring-8 focus:ring-[#3D8593]/5 transition-all shadow-xl" value={adminSearchTerm} onChange={(e) => setAdminSearchTerm(e.target.value)} />
               </div>
               <div className="flex justify-center flex-col items-center gap-4">
-                <button onClick={runSync} disabled={syncing} className="btn-vibrant-teal px-12 py-6 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
-                  {syncing ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
-                  {syncing ? 'Global Pulse Sync In Progress...' : 'Force Global Price Sync'}
-                </button>
                 <div className="flex gap-4">
-                  <button onClick={runMasterSync} disabled={syncingMaster} className="px-10 py-4 bg-indigo-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
-                    {syncingMaster ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-                    {syncingMaster ? 'Associating Master Links...' : 'Sync Master Links'}
-                  </button>
-                  <button onClick={runSeed} disabled={seeding} className="px-10 py-4 bg-emerald-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-4 shadow-2xl">
-                    {seeding ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    {seeding ? 'Restoring Global Inventory...' : 'RESTORE GLOBAL INVENTORY'}
+                  <button onClick={runSeed} disabled={seeding} className="px-10 py-5 bg-emerald-600 text-white rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 shadow-2xl hover:bg-emerald-700 transition-all">
+                    {seeding ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                    {seeding ? 'Restoring Global Inventory...' : 'RESTORE PHONE MODELS'}
                   </button>
                 </div>
-                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Connected to Cloudflare Worker (legit-sync-master)</p>
+                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Manual Price Management Mode Active</p>
               </div>
             </div>
 
