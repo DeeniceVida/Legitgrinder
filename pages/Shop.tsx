@@ -232,7 +232,21 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
               {/* ACTION CENTER */}
               <div className="space-y-6 mb-12">
-                {selectedProduct.stockCount > 0 ? (
+                {p.availability === Availability.IMPORT && (
+                  <div className="bg-[#3D8593]/5 p-6 rounded-[2rem] border border-[#3D8593]/20 flex items-start gap-4 mb-4">
+                    <div className="w-10 h-10 bg-[#3D8593]/10 rounded-xl flex items-center justify-center shrink-0">
+                      <Truck className="w-5 h-5 text-[#3D8593]" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-[0.2em] mb-1">Import Notice</p>
+                      <p className="text-xs text-gray-600 font-medium leading-relaxed">
+                        This is an **Import on Order** item. We will source this specifically for you. Estimated delivery: {p.shippingDuration || '3-4 Weeks'}.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {(p.stockCount && p.stockCount > 0) || p.availability === Availability.IMPORT ? (
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-4">
                       {/* QUANTITY CONTROL */}
