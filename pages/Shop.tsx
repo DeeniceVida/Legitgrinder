@@ -149,11 +149,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-700"
                   alt={p.name}
                 />
-                <div className={`absolute top-8 left-8 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl backdrop-blur-md ${p.stockCount === 0 ? 'bg-red-500/90 text-white' :
-                  p.stockCount <= 5 ? 'bg-[#FF9900]/90 text-white' :
-                    'bg-green-500/90 text-white'
+                <div className={`absolute top-8 left-8 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593] text-white' :
+                  p.stockCount === 0 ? 'bg-red-500/90 text-white' :
+                    p.stockCount <= 5 ? 'bg-[#FF9900]/90 text-white' :
+                      'bg-green-500/90 text-white'
                   }`}>
-                  {getStockStatus(p.stockCount)}
+                  {p.availability === Availability.IMPORT ? 'Import on Order' : getStockStatus(p.stockCount || 0)}
                 </div>
               </div>
 
@@ -286,6 +287,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                         </div>
                       )}
                     </div>
+
+                    <button
+                      onClick={() => handleWhatsAppInquiry(p)}
+                      className="w-full h-[64px] bg-[#25D366] text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-[#128C7E] transition-all shadow-xl flex items-center justify-center gap-3"
+                    >
+                      Order via WhatsApp
+                    </button>
 
                     {showPaystack && (
                       <button
@@ -450,10 +458,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   <Heart className="w-4 h-4 md:w-5 h-5 text-gray-900 group-hover/heart:text-white" />
                 </div>
 
-                <div className={`absolute bottom-4 left-4 md:bottom-6 md:left-6 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.stockCount === 0 ? 'bg-red-500/90 text-white' :
-                  p.stockCount <= 5 ? 'bg-yellow-500/90 text-white' :
-                    'bg-green-500/90 text-white'
-                  }`}>{getStockStatus(p.stockCount)}</div>
+                <div className={`absolute bottom-4 left-4 md:bottom-6 md:left-6 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593] text-white' :
+                  p.stockCount === 0 ? 'bg-red-500/90 text-white' :
+                    p.stockCount <= 5 ? 'bg-yellow-500/90 text-white' :
+                      'bg-green-500/90 text-white'
+                  }`}>{p.availability === Availability.IMPORT ? 'Import on Order' : getStockStatus(p.stockCount || 0)}</div>
               </div>
 
               <div className="px-1 relative">
