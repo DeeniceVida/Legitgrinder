@@ -18,20 +18,20 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">Elite Concierge Sourcing</span>
             </div>
             <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tighter text-gray-900 leading-[0.95] overflow-visible">
-              Your Private <br/>
+              Your Private <br />
               <span className="text-[#3D8593] italic font-light heading-accent">Sourcing Agent.</span>
             </h1>
             <p className="text-xl md:text-2xl max-w-lg mb-12 text-gray-500 font-light leading-relaxed">
               I bridge the gap between your vision and global suppliers. From negotiation to doorstep delivery in Kenya, I handle the complexity so you don't have to.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <button 
+              <button
                 onClick={() => onNavigate('shop')}
                 className="btn-vibrant-orange px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
               >
                 View Inventory <ArrowRight className="w-4 h-4" />
               </button>
-              <button 
+              <button
                 onClick={() => onNavigate('consultation')}
                 className="bg-white border-2 border-teal-50 text-[#3D8593] px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest hover:bg-teal-50 transition-all shadow-sm"
               >
@@ -42,8 +42,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
           <div className="relative animate-in fade-in zoom-in-95 duration-1000 delay-300">
             <div className="absolute inset-0 bg-gradient-to-tr from-[#FF9900]/20 to-[#3D8593]/20 rounded-[4.5rem] rotate-2 opacity-50 blur-2xl"></div>
-            <img 
-              src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg" 
+            <img
+              src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg"
               className="relative z-10 w-full h-[650px] object-cover rounded-[3.5rem] shadow-2xl border-4 border-white"
               alt="Import Hub"
             />
@@ -57,7 +57,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">How I Work <span className="text-[#3D8593] italic heading-accent font-light">For You</span></h2>
           <p className="text-gray-500 text-lg font-light max-w-2xl mx-auto">A high-touch sourcing model designed for transparency and reliability.</p>
         </div>
-        
+
         <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-8">
           {[
             { step: '01', title: 'Consult', desc: 'Tell me your needs—whether it\'s elite tech, industrial tools, or bulk supplies.', icon: <Search /> },
@@ -95,12 +95,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               ))}
             </div>
           </div>
-          
+
           <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-10 leading-[1.1]">
-            Trusted by <span className="text-[#3D8593] italic heading-accent font-light">2,000+ Importers</span> <br/>
+            Trusted by <span className="text-[#3D8593] italic heading-accent font-light">2,000+ Importers</span> <br />
             Across East Africa.
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-16 mt-20">
             <div className="space-y-2">
               <p className="text-5xl font-black text-gray-900 tracking-tighter">98.4%</p>
@@ -116,22 +116,52 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </div>
           </div>
 
-          <div className="mt-24 p-12 glass rounded-[4rem] border-white/50 text-left relative overflow-hidden shadow-2xl">
-            <div className="absolute -top-10 -right-10 opacity-10">
-              <ShieldCheck size={200} className="text-[#3D8593]" />
-            </div>
-            <div className="relative z-10 max-w-2xl">
-              <p className="text-2xl italic font-light heading-accent text-gray-700 leading-relaxed mb-8">
-                "Finding a sourcing agent who understands the balance between global standards and local Kenyan realities is rare. LegitGrinder is that bridge."
-              </p>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center font-bold text-[#3D8593]">MK</div>
-                <div>
-                  <p className="font-bold text-gray-900">Munga Kamau</p>
-                  <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Enterprise Tech Importer</p>
+          <div className="mt-24 grid md:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
+            {[
+              {
+                name: "Uniquebysherah Operations",
+                initials: "US",
+                text: "Legit grinder was incredible! From China to Kenya, everything was handled professionally and arrived right at my doorstep. Communication was fast, updates were clear, and delivery was so swift.",
+                tag: "Business Importer"
+              },
+              {
+                name: "MD",
+                initials: "MD",
+                text: "Imported my monitor, chair and lights from Dennis and the process was smooth plus the quality was way better than what's found locally in Nairobi.",
+                tag: "Tech Enthusiast"
+              },
+              {
+                name: "Abbywanjohi",
+                initials: "AW",
+                text: "It's unbelievable how my expectations were surpassed. The phone is clean practically new. Lovely customer care services. Literally Legit.",
+                tag: "Phone Buyer"
+              }
+            ].map((review, i) => (
+              <div key={i} className="glass p-10 rounded-[3rem] border-white/50 relative overflow-hidden shadow-xl hover:scale-[1.02] transition-transform">
+                <div className="absolute top-6 right-8 opacity-5">
+                  <ShieldCheck size={80} className="text-[#3D8593]" />
+                </div>
+                <div className="relative z-10">
+                  <div className="flex gap-1 mb-6">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Sparkles key={star} className="w-3 h-3 text-[#FF9900]" />
+                    ))}
+                  </div>
+                  <p className="text-lg font-light text-gray-700 leading-relaxed mb-8 italic">
+                    "{review.text}"
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center font-bold text-[#3D8593] uppercase">
+                      {review.initials}
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900">{review.name}</p>
+                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{review.tag}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -143,13 +173,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <h2 className="text-5xl md:text-7xl font-bold mb-10 tracking-tight leading-none">Ready to Source?</h2>
           <p className="text-teal-50 text-xl font-light mb-16 max-w-2xl mx-auto">Skip the middleman and the guesswork. Let's get your products from the global warehouse to your hands.</p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <button 
+            <button
               onClick={() => onNavigate('calculators')}
               className="bg-white text-[#3D8593] px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-teal-50 transition-all shadow-xl"
             >
               Get a Free Quote
             </button>
-            <button 
+            <button
               onClick={() => onNavigate('collaboration')}
               className="border-2 border-white/30 text-white px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-white/10 transition-all"
             >

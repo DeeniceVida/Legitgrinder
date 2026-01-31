@@ -630,6 +630,31 @@ export const deleteBlog = async (blogId: string): Promise<{ success: boolean; er
     }
 };
 
+// Consultation Request (Public)
+export const submitConsultation = async (consultationData: any): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('consultations')
+            .insert({
+                client_name: consultationData.client_name,
+                client_email: consultationData.client_email || 'not-provided@legitgrinder.com',
+                client_phone: consultationData.client_phone || consultationData.client_whatsapp,
+                client_whatsapp: consultationData.client_whatsapp,
+                requested_date: consultationData.requested_date || new Date().toISOString(),
+                topic: consultationData.topic,
+                status: 'pending_approval',
+                payment_status: 'unpaid',
+                fee_usd: 15
+            });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error submitting consultation:', error);
+        return { success: false, error };
+    }
+};
+
 // Sourcing Management (Phase 4)
 export const submitSourcingRequest = async (request: Partial<SourcingRequest>): Promise<{ success: boolean; error?: any; id?: number }> => {
     try {

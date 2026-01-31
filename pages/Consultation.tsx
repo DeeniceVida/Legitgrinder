@@ -1,8 +1,6 @@
-
 import React, { useState } from 'react';
 import { Calendar, Clock, MessageSquare, ShieldCheck, User, Mail, Phone, MessageCircle, ArrowRight, Sparkles } from 'lucide-react';
-import { WHATSAPP_NUMBER } from '../constants';
-import { supabase } from '../lib/supabase';
+import { submitConsultation } from '../services/supabaseData';
 
 const Consultation: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -27,23 +25,17 @@ const Consultation: React.FC = () => {
       // Combine date and time into a proper timestamp
       const requestedDateTime = new Date(`${formData.date}T${formData.time}`);
 
-      // Insert consultation into database
-      const { error: insertError } = await supabase
-        .from('consultations')
-        .insert({
-          client_name: formData.name,
-          client_email: formData.email,
-          client_phone: formData.phone,
-          client_whatsapp: formData.whatsapp,
-          requested_date: requestedDateTime.toISOString(),
-          topic: formData.topic,
-          status: 'pending_approval',
-          payment_status: 'unpaid',
-          fee_usd: 15
-        });
+      const result = await submitConsultation({
+        client_name: formData.name,
+        client_email: formData.email,
+        client_phone: formData.phone,
+        client_whatsapp: formData.whatsapp,
+        requested_date: requestedDateTime.toISOString(),
+        topic: formData.topic
+      });
 
-      if (insertError) {
-        throw insertError;
+      if (!result.success) {
+        throw result.error;
       }
 
       // Success - show confirmation
