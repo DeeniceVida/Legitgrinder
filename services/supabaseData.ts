@@ -4,65 +4,57 @@ import { PricelistItem, Product, Availability, Client, Consultation, Consultatio
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
     try {
-        const { data: variants, error } = await supabase
+        // High Reliability Fetch: Get models and variants separately to bypass schema cache issues
+        const { data: models, error: mError } = await supabase
+            .from('pricelist_models')
+            .select('*')
+            .order('name');
+
+        const { data: variants, error: vError } = await supabase
             .from('pricelist_variants')
-            .select(`
-                id,
-                capacity,
-                price_usd,
-                price_kes,
-                last_updated,
-                is_manual_override,
-                status,
-                pricelist_models (
-                  id,
-                  name,
-                  brand,
-                  series
-                )
-            `);
+            .select('*');
 
-        if (error) {
-            console.error('❌ DATABASE ERROR (Pricelist):', error.message);
-            throw error;
+        if (mError) {
+            console.error('❌ DATABASE ERROR (Models):', mError.message);
+            throw mError;
+        }
+        if (vError) {
+            console.error('❌ DATABASE ERROR (Variants):', vError.message);
+            throw vError;
         }
 
-        if (!variants || variants.length === 0) {
-            console.log('ℹ️ NOTICE: pricelist_variants table is currently empty in Supabase.');
-        } else {
-            console.log(`✅ SUCCESS: Found ${variants.length} independent pricelist items.`);
-        }
+        console.log(`✅ DATA ACQUISITION: Fetched ${models?.length || 0} models and ${variants?.length || 0} variants.`);
 
-        // Group variants by model
+        // Manual Merge (Bulletproof)
         const groupedData: Record<string, PricelistItem> = {};
 
-        variants?.forEach((v: any) => {
-            const model = v.pricelist_models;
-            if (!model) return;
-
-            if (!groupedData[model.id]) {
-                groupedData[model.id] = {
-                    id: model.id,
-                    modelName: model.name,
-                    brand: (model.brand?.toLowerCase() || 'iphone') as 'iphone' | 'samsung' | 'pixel',
-                    series: model.series,
-                    capacities: [],
-                    syncAlert: false
-                };
-            }
-
-            groupedData[model.id].capacities.push({
-                id: v.id,
-                capacity: v.capacity,
-                currentPriceKES: v.price_kes || 0,
-                previousPriceKES: 0,
-                lastSynced: v.last_updated ? new Date(v.last_updated).toLocaleString() : 'Never',
-                sourcePriceUSD: v.price_usd || 0,
-                isManualOverride: v.is_manual_override || false
-            });
+        models?.forEach((m: any) => {
+            groupedData[m.id] = {
+                id: m.id,
+                modelName: m.name,
+                brand: (m.brand?.toLowerCase() || 'iphone') as 'iphone' | 'samsung' | 'pixel',
+                series: m.series,
+                capacities: [],
+                syncAlert: false
+            };
         });
 
-        const result = Object.values(groupedData);
+        variants?.forEach((v: any) => {
+            if (groupedData[v.model_id]) {
+                groupedData[v.model_id].capacities.push({
+                    id: v.id,
+                    capacity: v.capacity,
+                    currentPriceKES: v.price_kes || 0,
+                    previousPriceKES: 0,
+                    lastSynced: v.last_updated ? new Date(v.last_updated).toLocaleString() : 'Never',
+                    sourcePriceUSD: v.price_usd || 0,
+                    isManualOverride: v.is_manual_override || false
+                });
+            }
+        });
+
+        // Filter out models with no prices and convert to array
+        const result = Object.values(groupedData).filter(m => m.capacities.length > 0);
         console.log(`🔍 DEBUG: Grouped into ${result.length} unique phone models.`);
 
         // --- FALLBACK MECHANISM ---
