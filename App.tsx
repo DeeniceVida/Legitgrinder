@@ -125,12 +125,12 @@ const App: React.FC = () => {
           fetchInvoicesData()
         ]);
 
-        if (plist.length > 0) setPricelist(plist);
-        if (prods.length > 0) setProducts(prods);
-        if (clist.length > 0) setClients(clist);
-        if (cons.length > 0) setConsultations(cons);
-        if (blogsData.length > 0) setBlogs(blogsData);
-        if (invs.length > 0) setInvoices(invs);
+        setPricelist(plist || []);
+        setProducts(prods || []);
+        setClients(clist || []);
+        setConsultations(cons || []);
+        setBlogs(blogsData || []);
+        setInvoices(invs || []);
       } catch (error) {
         console.error('Error loading data from Supabase:', error);
       }

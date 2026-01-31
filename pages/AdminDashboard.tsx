@@ -13,8 +13,9 @@ import {
   PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
 import { syncBackMarketPrices } from '../services/scraper';
-import { syncAllMasterLinks, seedFullInventory } from '../services/syncLinks';
+import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
+import { supabase } from '../lib/supabase';
 import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
@@ -131,7 +132,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )
     },
-    { id: 'products', name: 'Inventory', icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'products', name: 'Stock (Non-Phones)', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consult', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Content', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Sync', icon: <RefreshCcw className="w-4 h-4" /> },
@@ -153,22 +154,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setSyncing(false);
   };
 
-  const runMasterSync = async () => {
-    if (!confirm('This will connect all products to their Back Market master links. Proceed?')) return;
-    setSyncingMaster(true);
-    const count = await syncAllMasterLinks();
-    setSyncingMaster(false);
-    alert(`Successfully synced ${count} master links!`);
-  };
 
   const runSeed = async () => {
     if (!window.confirm("Restore full inventory schema? This will create any missing phone models and reset baseline prices.")) return;
 
     setSeeding(true);
     try {
-      console.log("🌱 Admin: Triggering Inventory Seed...");
+      console.log("🌱 Admin: Triggering Phone Pricelist Sync...");
       const result = await seedFullInventory();
-      console.log("✅ Seed Complete:", result);
+      console.log("✅ Pricelist Sync Complete:", result);
 
       // Refresh local state to show new items
       // Assuming fetchPricelistData and fetchInventoryProducts are available or will be added
@@ -178,11 +172,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // const newProducts = await fetchInventoryProducts();
       // onUpdateProducts(newProducts);
 
-      alert(`Success! Restored ${result.productCount} models and ${result.variantCount} price variants across all brands.`);
-      window.location.reload(); // Temporary full refresh until fetch functions are implemented
+      alert(`Success! Restored ${result.productCount} phone models and ${result.variantCount} price variants.`);
+      window.location.reload();
     } catch (error) {
-      console.error("Seed failed:", error);
-      alert("Inventory restoration failed. Check database connection.");
+      console.error("Sync failed:", error);
+      alert("Phone Pricelist Sync failed. Check connection.");
     } finally {
       setSeeding(false);
     }
@@ -492,12 +486,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             )}
             {activeTab === 'products' && (
-              <button
-                onClick={() => setEditingProduct('new')}
-                className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Global Stock Unit
-              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={async () => {
+                    if (confirm('CRITICAL: This will permanently delete ALL phone models from your Shop Inventory (Pipe B). Your Price List (Pipe A) is safe. Continue?')) {
+                      const { error } = await supabase
+                        .from('products')
+                        .delete()
+                        .or('category.ilike.%Phone%,category.ilike.%Smartphone%,name.ilike.%iPhone%,name.ilike.%Galaxy%,name.ilike.%Samsung%,name.ilike.%Pixel%,name.ilike.%Google%,name.ilike.%Ultra%,name.ilike.%S20%,name.ilike.%S21%,name.ilike.%S22%,name.ilike.%S23%,name.ilike.%S24%,name.ilike.%S25%,name.ilike.%Plus%,name.ilike.%Note%,name.ilike.%Fold%,name.ilike.%Flip%,name.ilike.%Apple%,name.ilike.%GB%');
+
+                      if (error) alert("Purge failed: " + error.message);
+                      else {
+                        alert("✅ Inventory Purged! Refreshing...");
+                        window.location.reload();
+                      }
+                    }
+                  }}
+                  className="flex-1 md:flex-none bg-rose-50 text-rose-600 px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest border border-rose-100 shadow-xl hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" /> Purge Legacy Models
+                </button>
+                <button
+                  onClick={() => setEditingProduct('new')}
+                  className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> New Shop Asset
+                </button>
+              </div>
             )}
           </div>
         </header>
@@ -505,26 +520,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-12 animate-in fade-in duration-1000">
-            {products.length < 10 && (
-              <div className="bg-rose-50 border-l-4 border-rose-500 p-8 rounded-r-xl flex justify-between items-center shadow-lg">
+            {pricelist.length < 10 && (
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-8 rounded-r-xl flex justify-between items-center shadow-lg">
                 <div className="flex gap-6 items-center">
-                  <div className="p-4 bg-rose-100 rounded-full text-rose-600">
-                    <Trash2 className="w-8 h-8" />
+                  <div className="p-4 bg-amber-100 rounded-full text-amber-600">
+                    <RefreshCcw className="w-8 h-8" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-rose-700 uppercase tracking-tight">System Alert: Inventory Integrity Compromised</h3>
-                    <p className="text-sm font-bold text-rose-500 mt-1">
-                      Critical data loss detected. Only {products.length} models found (expected 60+). Using fallback restoration protocol.
+                    <h3 className="text-xl font-black text-amber-700 uppercase tracking-tight">Phone Price List: Sync Required</h3>
+                    <p className="text-sm font-bold text-amber-500 mt-1">
+                      The market price registry for phones is currently empty or incomplete. <br />
+                      <span className="text-amber-600 font-black">Note: This will ONLY restore phone prices and will NOT affect your Shop Inventory (golf clubs, kits, etc.)</span>
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={runSeed}
                   disabled={seeding}
-                  className="px-8 py-4 bg-rose-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-rose-700 transition-all flex items-center gap-3 shadow-xl"
+                  className="px-8 py-4 bg-amber-600 text-white rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all flex items-center gap-3 shadow-xl"
                 >
                   {seeding ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                  {seeding ? 'Restoring System...' : 'EXECUTE EMERGENCY RESTORE'}
+                  {seeding ? 'Syncing Phones...' : 'RESTORE PHONE PRICE LIST'}
                 </button>
               </div>
             )}
@@ -934,9 +950,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* INVENTORY TAB */}
+        {/* SHOP INVENTORY TAB (STOCK) */}
         {activeTab === 'products' && (
           <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-xl mb-8">
+              <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2">
+                <Info className="w-4 h-4" /> Decoupled Stock Manager
+              </p>
+              <p className="text-[9px] font-bold text-amber-600 mt-1">
+                Phones are managed in the <span className="font-black">SYNC</span> tab. This list is for accessories, special items, and legacy stock cleanup.
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
               {products.map(p => (
                 <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">

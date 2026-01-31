@@ -28,93 +28,55 @@ const PRODUCT_LINKS: Record<string, string> = {
     "Pixel 7 Pro": "https://www.backmarket.com/en-us/p/google-pixel-7-pro"
 };
 
-export const syncAllMasterLinks = async () => {
-    console.log("💎 Initiating Master Link Sync...");
-    let count = 0;
-
-    for (const [name, url] of Object.entries(PRODUCT_LINKS)) {
-        try {
-            // Find products matching the name
-            const { data: products, error: pError } = await supabase
-                .from('products')
-                .select('id')
-                .ilike('name', `%${name}%`);
-
-            if (pError || !products) continue;
-
-            for (const p of products) {
-                const { error: vError } = await supabase
-                    .from('product_variants')
-                    .update({ source_url: url })
-                    .eq('product_id', p.id);
-
-                if (!vError) count++;
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-    return count;
-};
-
 export const seedFullInventory = async () => {
-    console.log("🌱 Seeding Global Inventory from Schema (60 Models)...");
+    console.log("🌱 Seeding Dedicated Pricelist Tables...");
     let productCount = 0;
     let variantCount = 0;
 
     for (const [brand, models] of Object.entries(PHONE_MODELS_SCHEMA)) {
         for (const m of models) {
             try {
-                // 1. Create or Find Product
-                const { data: existingProduct } = await supabase
-                    .from('products')
+                // 1. Create or Find Model in dedicated table
+                const { data: existingModel } = await supabase
+                    .from('pricelist_models')
                     .select('id')
                     .eq('name', m.name)
                     .maybeSingle();
 
-                let productId = existingProduct?.id;
+                let modelId = existingModel?.id;
 
-                if (!productId) {
-                    const { data: product, error: pError } = await supabase
-                        .from('products')
+                if (!modelId) {
+                    const { data: model, error: pError } = await supabase
+                        .from('pricelist_models')
                         .insert({
                             name: m.name,
-                            brand: brand.toLowerCase(), // Force lowercase
-                            series: m.series,
-                            category: 'Phones',
-                            stock_status: 'On Import'
+                            brand: brand.toLowerCase(),
+                            series: m.series
                         })
                         .select('id')
                         .single();
 
                     if (pError) {
-                        console.error(`Error creating product ${m.name}:`, pError);
+                        console.error(`Error creating model ${m.name}:`, pError);
                         continue;
                     }
-                    productId = product.id;
+                    modelId = model.id;
                     productCount++;
-                } else {
-                    // Ensure existing product has the correct brand for filtering
-                    await supabase
-                        .from('products')
-                        .update({ brand: brand.toLowerCase() })
-                        .eq('id', productId);
                 }
 
-                // 2. Create Variants (This is what shows up in Sync/Pricelist)
+                // 2. Create Variants
                 const variants = m.capacities.map(cap => ({
-                    product_id: productId,
+                    model_id: modelId,
                     capacity: cap,
                     price_usd: 500, // Starting baseline
-                    price_kes: Math.ceil((500 + 20 + 30) * 135), // Correct calculation
+                    price_kes: Math.ceil((500 + 20 + 30) * 135),
                     status: 'active',
                     is_manual_override: false
                 }));
 
-                // Use upsert to avoid duplicate capacity errors
                 const { error: vError } = await supabase
-                    .from('product_variants')
-                    .upsert(variants, { onConflict: 'product_id,capacity' });
+                    .from('pricelist_variants')
+                    .upsert(variants, { onConflict: 'model_id,capacity' });
 
                 if (vError) console.error(`Error variants for ${m.name}:`, vError);
                 else variantCount += variants.length;
@@ -124,10 +86,6 @@ export const seedFullInventory = async () => {
             }
         }
     }
-
-    // 3. Final Step: Sync all Master Links to ensures links are attached
-    console.log("🔗 Finalizing: Linking Master URLs...");
-    await syncAllMasterLinks();
 
     return { productCount, variantCount };
 };

@@ -5,50 +5,53 @@ import { PricelistItem, Product, Availability, Client, Consultation, Consultatio
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
     try {
         const { data: variants, error } = await supabase
-            .from('product_variants')
+            .from('pricelist_variants')
             .select(`
                 id,
                 capacity,
                 price_usd,
                 price_kes,
                 last_updated,
-                source_url,
                 is_manual_override,
                 status,
-                products (
+                pricelist_models (
                   id,
                   name,
                   brand,
                   series
                 )
             `);
-        // Removed .eq('status', 'active') temporarily to see if it makes a difference
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ DATABASE ERROR (Pricelist):', error.message);
+            throw error;
+        }
 
-        console.log(`🔍 DEBUG: Found ${variants?.length || 0} variants in DB.`);
+        if (!variants || variants.length === 0) {
+            console.log('ℹ️ NOTICE: pricelist_variants table is currently empty in Supabase.');
+        } else {
+            console.log(`✅ SUCCESS: Found ${variants.length} independent pricelist items.`);
+        }
 
-        // Group variants by product
+        // Group variants by model
         const groupedData: Record<string, PricelistItem> = {};
 
         variants?.forEach((v: any) => {
-            // Support both singular and plural join keys
-            const product = v.products || v.product;
-            if (!product) return;
+            const model = v.pricelist_models;
+            if (!model) return;
 
-            if (!groupedData[product.id]) {
-                groupedData[product.id] = {
-                    id: product.id,
-                    modelName: product.name,
-                    brand: (product.brand?.toLowerCase() || 'iphone') as 'iphone' | 'samsung' | 'pixel',
-                    series: product.series,
+            if (!groupedData[model.id]) {
+                groupedData[model.id] = {
+                    id: model.id,
+                    modelName: model.name,
+                    brand: (model.brand?.toLowerCase() || 'iphone') as 'iphone' | 'samsung' | 'pixel',
+                    series: model.series,
                     capacities: [],
-                    syncAlert: false,
-                    sourceUrl: v.source_url
+                    syncAlert: false
                 };
             }
 
-            groupedData[product.id].capacities.push({
+            groupedData[model.id].capacities.push({
                 id: v.id,
                 capacity: v.capacity,
                 currentPriceKES: v.price_kes || 0,
@@ -59,9 +62,8 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
             });
         });
 
-
         const result = Object.values(groupedData);
-        console.log(`🔍 DEBUG: Grouped into ${result.length} unique products.`);
+        console.log(`🔍 DEBUG: Grouped into ${result.length} unique phone models.`);
 
         // --- FALLBACK MECHANISM ---
         // If database is empty (wiped or connection issue), generate from static schema
@@ -109,7 +111,7 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
         const { data, error } = await supabase
             .from('products')
             .select('*')
-            .not('price_kes', 'is', null);
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
@@ -560,7 +562,7 @@ export const updatePricelistItem = async (
         }
 
         const { error } = await supabase
-            .from('product_variants')
+            .from('pricelist_variants')
             .update(updateData)
             .eq('id', variantId);
 
