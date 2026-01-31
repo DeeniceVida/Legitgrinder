@@ -12,12 +12,12 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
   const [activeBrand, setActiveBrand] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Dynamic Title based on current date (Targeting February 2026 for the upcoming month)
-  const currentMonth = new Date().toLocaleString('default', { month: 'long' });
-  const currentYear = new Date().getFullYear();
-  // If it's late January, show February prices
-  const displayMonth = new Date().getDate() > 20 && currentMonth === 'January' ? 'February' : currentMonth;
-  const listTitle = `${displayMonth} ${currentYear} Price List`;
+  // Dynamic Title: If it's after the 20th, show the next month's name
+  const now = new Date();
+  const displayDate = new Date(now.getFullYear(), now.getMonth() + (now.getDate() > 20 ? 1 : 0), 1);
+  const displayMonth = displayDate.toLocaleString('default', { month: 'long' });
+  const displayYear = displayDate.getFullYear();
+  const listTitle = `${displayMonth} ${displayYear} Price List`;
 
   const filteredModels = useMemo(() => {
     return pricelist.filter(item =>
@@ -66,8 +66,8 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
                   key={brand}
                   onClick={() => setActiveBrand(brand)}
                   className={`whitespace-nowrap px-8 md:px-16 py-4 md:py-5 rounded-[1.8rem] md:rounded-[2.5rem] text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all ${activeBrand === brand
-                      ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-200'
-                      : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+                    ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-200'
+                    : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
                     }`}
                 >
                   {brand}
