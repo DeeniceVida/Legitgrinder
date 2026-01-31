@@ -170,9 +170,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // onUpdatePricelist(newList);
 
       // const newProducts = await fetchInventoryProducts();
-      // onUpdateProducts(newProducts);
+      console.log("✅ Seed Complete:", result);
 
-      alert(`Success! Restored ${result.productCount} phone models and ${result.variantCount} price variants.`);
+      const message = result.productCount > 0
+        ? `Success! Created ${result.productCount} new models and synchronized ${result.variantCount} prices.`
+        : `Success! Price registry is already full. Synchronized ${result.variantCount} prices across all models.`;
+
+      alert(message);
       window.location.reload();
     } catch (error) {
       console.error("Sync failed:", error);
