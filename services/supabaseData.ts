@@ -633,7 +633,7 @@ export const deleteBlog = async (blogId: string): Promise<{ success: boolean; er
 // Sourcing Management (Phase 4)
 export const submitSourcingRequest = async (request: Partial<SourcingRequest>): Promise<{ success: boolean; error?: any; id?: number }> => {
     try {
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('sourcing_requests')
             .insert({
                 client_name: request.clientName,
@@ -654,12 +654,10 @@ export const submitSourcingRequest = async (request: Partial<SourcingRequest>): 
                 package_height: request.packageHeight,
                 calculated_cbm: request.calculatedCBM,
                 estimated_shipping_cost: request.estimatedShippingCost
-            })
-            .select()
-            .single();
+            });
 
         if (error) throw error;
-        return { success: true, id: data.id };
+        return { success: true };
     } catch (error) {
         console.error('Error submitting sourcing request:', error);
         return { success: false, error };
