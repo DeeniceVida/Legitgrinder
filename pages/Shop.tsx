@@ -240,7 +240,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     <div>
                       <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-[0.2em] mb-1">Import Notice</p>
                       <p className="text-xs text-gray-600 font-medium leading-relaxed">
-                        This is an **Import on Order** item. We will source this specifically for you. Estimated delivery: {p.shippingDuration || '3-4 Weeks'}.
+                        This is an **Import on Order** item. We will source this specifically for you.
+                        <span className="block mt-1 font-bold text-gray-900 text-[10px] uppercase">
+                          2-3 Weeks via Air | 4-5 Weeks via Sea
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -351,7 +354,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 <div className="bg-white border border-neutral-100 p-8 rounded-[2rem] shadow-sm group hover:border-[#3D8593]/30 transition-all">
                   <div className="w-10 h-10 bg-neutral-50 rounded-xl flex items-center justify-center mb-6"><Clock className="w-5 h-5 text-gray-400" /></div>
                   <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Arrival</p>
-                  <p className="text-sm font-black text-gray-900">{isLocal ? 'Immediate' : (p.shippingDuration || '3-4 Weeks')}</p>
+                  <p className="text-sm font-black text-gray-900">{isLocal ? 'Immediate' : '2-3 Weeks (Air)'}</p>
                 </div>
               </div>
             </div>
