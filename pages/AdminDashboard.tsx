@@ -6,7 +6,7 @@ import {
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
-  ShieldCheck, MessageCircle
+  ShieldCheck, MessageCircle, Youtube
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -256,7 +256,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       description: formData.get('description') as string,
       category: formData.get('category') as string,
       stockCount: formData.get('stockCount') ? parseInt(formData.get('stockCount') as string) : 0,
-      variations: localVariations
+      variations: localVariations,
+      videoUrl: formData.get('videoUrl') as string
     };
 
     if (editingProduct === 'new') {
@@ -274,6 +275,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           shippingDuration: productData.shippingDuration || '',
           description: productData.description || '',
           stockCount: productData.stockCount || 0,
+          videoUrl: productData.videoUrl || '',
           ...productData
         };
         onUpdateProducts([...products, newProduct]);
@@ -1249,6 +1251,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       placeholder="https://image1.com, https://image2.com"
                     />
                   </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Youtube className="w-3.5 h-3.5" /> Product Video URL (Optional)</label>
+                    <input
+                      name="videoUrl"
+                      defaultValue={typeof editingProduct === 'object' ? editingProduct.videoUrl : ''}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
+                      placeholder="https://youtube.com/watch?v=..."
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-6">
@@ -1401,8 +1412,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-
-
       {/* PRICE EDIT MODAL */}
       {editingPrice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1500,7 +1509,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
-
 
       {/* BLOG EDIT MODAL */}
       {editingBlog && (
@@ -1630,24 +1638,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        @media print {
-          body * { visibility: hidden; }
-          #printable-invoice, #printable-invoice * { visibility: visible; }
-          #printable-invoice {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            background: white;
-            padding: 20px;
-          }
-        }
-      `}</style>
-
       {/* HIDDEN PRINT TEMPLATE */}
       {printingInvoice && (
         <div id="printable-invoice" className="hidden print:block fixed inset-0 z-[-1] bg-white p-12 text-black">
@@ -1716,6 +1706,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @media print {
+          body * { visibility: hidden; }
+          #printable-invoice, #printable-invoice * { visibility: visible; }
+          #printable-invoice {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white;
+            padding: 20px;
+          }
+        }
+      `}</style>
     </div>
   );
 };

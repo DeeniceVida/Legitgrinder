@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight } from 'lucide-react';
+import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight, Youtube } from 'lucide-react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment } from '../services/supabaseData';
@@ -143,7 +143,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-start">
             {/* LEFT: VISUAL ECOSYSTEM */}
             <div className="space-y-8 relative lg:sticky lg:top-32">
-              <div className="aspect-[4/5] bg-white rounded-[3rem] overflow-hidden border border-neutral-100 relative group">
+              <div className="aspect-square bg-white rounded-[3rem] overflow-hidden border border-neutral-100 relative group">
                 <img
                   src={displayImage}
                   className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-700"
@@ -200,7 +200,20 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 </button>
                 <div className={`overflow-hidden transition-all duration-500 ${activeAccordion === 'description' ? 'max-h-96' : 'max-h-0'}`}>
                   <div className="px-8 pb-8 text-sm text-gray-500 font-medium leading-relaxed">
-                    {p.description}
+                    <p>{p.description}</p>
+
+                    {p.videoUrl && (
+                      <div className="mt-4 pt-4 border-t border-neutral-100">
+                        <a
+                          href={p.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF9900]/10 text-[#FF9900] rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#FF9900] hover:text-white transition-all shadow-sm"
+                        >
+                          <Youtube className="w-4 h-4" /> Watch Product Video
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -465,7 +478,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           {filteredProducts.map((p) => (
             <div key={p.id} className="group flex flex-col cursor-pointer animate-in fade-in slide-in-from-bottom-8">
               <div
-                className="aspect-[4/5] bg-white relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] mb-6 shadow-sm border border-neutral-100 group-hover:shadow-2xl transition-all"
+                className="aspect-square bg-white relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] mb-6 shadow-sm border border-neutral-100 group-hover:shadow-2xl transition-all"
                 onClick={() => setSelectedProduct(p)}
               >
                 <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />

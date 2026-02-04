@@ -118,7 +118,8 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
             shippingDuration: p.shipping_duration || '2-3 Business Days',
             description: p.description || '',
             category: p.category || 'Electronics',
-            stockCount: parseInt(p.inventory_quantity || 0)
+            stockCount: parseInt(p.inventory_quantity || 0),
+            videoUrl: p.video_url
         }));
     } catch (error) {
         console.error('Error fetching inventory:', error);
@@ -396,7 +397,8 @@ export const createProduct = async (productData: Partial<Product>): Promise<{ su
                 category: productData.category || 'Electronics',
                 stock_status: productData.availability || 'In Stock',
                 inventory_quantity: productData.stockCount || 0,
-                shop_variants: productData.variations || []
+                shop_variants: productData.variations || [],
+                video_url: productData.videoUrl
             })
             .select()
             .single();
@@ -421,6 +423,7 @@ export const updateProduct = async (productId: string, updates: Partial<Product>
         if (updates.availability) updateData.stock_status = updates.availability;
         if (updates.stockCount !== undefined) updateData.inventory_quantity = updates.stockCount;
         if (updates.variations) updateData.shop_variants = updates.variations;
+        if (updates.videoUrl !== undefined) updateData.video_url = updates.videoUrl;
 
         const { error } = await supabase
             .from('products')

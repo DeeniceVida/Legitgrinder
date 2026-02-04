@@ -67,6 +67,7 @@ export interface Product {
   description: string;
   category: string;
   stockCount?: number;
+  videoUrl?: string;
 }
 
 export interface Invoice {
