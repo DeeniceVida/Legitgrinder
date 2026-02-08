@@ -48,19 +48,26 @@ const Calculators: React.FC = () => {
     }
     const serviceFeeKES = serviceFeeUSD * KES_PER_USD;
 
+    let applePickupFeeKES = 0;
+    if (phoneUrl.toLowerCase().includes('apple.com')) {
+      applePickupFeeKES = FEE_STRUCTURE.APPLE_PICKUP_FEE_USD * KES_PER_USD;
+    }
+
     setUsPhoneResult({
       buyingPriceKES,
       shippingFeeKES,
       serviceFeeKES,
-      totalKES: buyingPriceKES + shippingFeeKES + serviceFeeKES
+      applePickupFeeKES: applePickupFeeKES > 0 ? applePickupFeeKES : undefined,
+      totalKES: buyingPriceKES + shippingFeeKES + serviceFeeKES + applePickupFeeKES
     });
-  }, [phonePriceUSD]);
+  }, [phonePriceUSD, phoneUrl]);
 
   const handleShareWhatsApp = (type: string, res: CalculationResult) => {
+    const appleFeeText = res.applePickupFeeKES ? `\nApple Store Pick Up Fee: KES ${res.applePickupFeeKES.toLocaleString()}` : '';
     const text = encodeURIComponent(
       `Hi LegitGrinder, I'd like to place an order for ${type}.\n\n` +
       `Product Link: ${phoneUrl || 'Not provided'}\n` +
-      `Total: KES ${res.totalKES.toLocaleString()}`
+      `Total: KES ${res.totalKES.toLocaleString()}${appleFeeText}`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
@@ -225,6 +232,12 @@ const Calculators: React.FC = () => {
                     <span className="text-neutral-500 text-xs font-bold uppercase tracking-widest group-hover/row:text-white transition-colors">Service Intel</span>
                     <span className="font-black text-lg text-neutral-300">KES {usPhoneResult.serviceFeeKES.toLocaleString()}</span>
                   </div>
+                  {usPhoneResult.applePickupFeeKES && (
+                    <div className="flex justify-between items-center py-2 border-b border-neutral-800 group/row cursor-default bg-[#FF9900]/5 -mx-4 px-4 rounded-lg">
+                      <span className="text-[#FF9900] text-xs font-bold uppercase tracking-widest">Apple Pick Up Fee</span>
+                      <span className="font-black text-lg text-[#FF9900]">KES {usPhoneResult.applePickupFeeKES.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-end pt-10">
                     <div>
                       <span className="text-neutral-500 text-[9px] font-black uppercase tracking-widest block mb-2">Total Acquisition Cost</span>
