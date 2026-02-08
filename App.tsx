@@ -14,6 +14,8 @@ import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import OrderHistory from './pages/OrderHistory';
 import AIAssistant from './components/AIAssistant';
+import ValentineTheme from './components/ValentineTheme';
+import './valentines.css';
 import { supabase } from './lib/supabase';
 import {
   fetchPricelistData,
@@ -188,6 +190,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-[#3D8593] selection:text-white">
+      <ValentineTheme />
       <Navbar onNavigate={setCurrentPage} currentPage={currentPage} isAdmin={isAdmin} isLoggedIn={isLoggedIn} onLogout={handleLogout} />
 
       <main className="flex-1 bg-white">

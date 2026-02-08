@@ -15,7 +15,11 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div className="animate-in fade-in slide-in-from-left-8 duration-1000">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-teal-50 border border-teal-100 rounded-full mb-8">
               <Sparkles className="w-3.5 h-3.5 text-[#3D8593]" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">Elite Concierge Sourcing</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593]">
+                {(new Date().getMonth() === 1 && new Date().getDate() >= 1 && new Date().getDate() <= 15)
+                  ? "💝 Sourcing with Love for You"
+                  : "Elite Concierge Sourcing"}
+              </span>
             </div>
             <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tighter text-gray-900 leading-[0.95] overflow-visible">
               Your Private <br />

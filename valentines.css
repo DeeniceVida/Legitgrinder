@@ -1,0 +1,56 @@
+
+/* Valentines Day Temporary Theme Styles */
+
+@keyframes float-heart {
+  0% {
+    transform: translateY(100vh) scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-20vh) scale(1) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.heart-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.heart {
+  position: absolute;
+  color: #ff4d6d;
+  font-size: 1.5rem;
+  user-select: none;
+  animation: float-heart linear infinite;
+}
+
+/* Add a subtle rose glow to the navbar on hover */
+.glass:hover {
+  box-shadow: 0 20px 25px -5px rgba(255, 77, 109, 0.1), 0 10px 10px -5px rgba(255, 77, 109, 0.04) !important;
+}
+
+/* Adjust some primary colors to be more festive (optional/subtle) */
+.text-valentines {
+  color: #ff4d6d !important;
+}
+
+.bg-valentines {
+  background-color: #ff4d6d !important;
+}
+
+.border-valentines {
+  border-color: #ff4d6d !important;
+}
+
+/* Selection color change to match theme */
+.selection-valentines::selection {
+  background: #ff4d6d;
+  color: white;
+}

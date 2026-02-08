@@ -257,36 +257,52 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       category: formData.get('category') as string,
       stockCount: formData.get('stockCount') ? parseInt(formData.get('stockCount') as string) : 0,
       variations: localVariations,
-      videoUrl: formData.get('videoUrl') as string
+      videoUrl: formData.get('videoUrl') as string,
+      // @ts-ignore - explicitly including this in productData for service use
+      shippingDuration: formData.get('shippingDuration') as string
     };
 
-    if (editingProduct === 'new') {
-      const result = await createProduct(productData);
-      if (result.success && result.id) {
-        // Initialize with minimal data for UI update
-        const newProduct: Product = {
-          id: result.id,
-          name: productData.name || '',
-          priceKES: productData.priceKES || 0,
-          imageUrls: productData.imageUrls || [],
-          variations: [],
-          category: productData.category || 'Electronics',
-          availability: productData.availability || Availability.IMPORT,
-          shippingDuration: productData.shippingDuration || '',
-          description: productData.description || '',
-          stockCount: productData.stockCount || 0,
-          videoUrl: productData.videoUrl || '',
-          ...productData
-        };
-        onUpdateProducts([...products, newProduct]);
-        setEditingProduct(null);
+    console.log('🚀 Initiating Save Protocol:', productData);
+
+    try {
+      if (editingProduct === 'new') {
+        const result = await createProduct(productData);
+        if (result.success && result.id) {
+          const newProduct: Product = {
+            id: result.id,
+            name: productData.name || '',
+            priceKES: productData.priceKES || 0,
+            imageUrls: productData.imageUrls || [],
+            variations: localVariations,
+            category: productData.category || 'Electronics',
+            availability: productData.availability || Availability.IMPORT,
+            shippingDuration: productData.shippingDuration || '',
+            description: productData.description || '',
+            stockCount: productData.stockCount || 0,
+            videoUrl: productData.videoUrl || '',
+            ...productData
+          };
+          onUpdateProducts([...products, newProduct]);
+          setEditingProduct(null);
+          alert("✅ Asset Registered in Global Inventory");
+        } else {
+          console.error('❌ Save Error:', result.error);
+          alert("❌ Failed to register asset: " + (result.error?.message || "Check console for details"));
+        }
+      } else if (editingProduct && typeof editingProduct !== 'string') {
+        const result = await updateProduct(editingProduct.id, productData);
+        if (result.success) {
+          onUpdateProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
+          setEditingProduct(null);
+          alert("✅ Specifications Refined & Synced");
+        } else {
+          console.error('❌ Update Error:', result.error);
+          alert("❌ Failed to update specifications: " + (result.error?.message || "Check console for details"));
+        }
       }
-    } else if (editingProduct && typeof editingProduct !== 'string') {
-      const result = await updateProduct(editingProduct.id, productData);
-      if (result.success) {
-        onUpdateProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
-        setEditingProduct(null);
-      }
+    } catch (err: any) {
+      console.error('💥 Crash in handleSaveProduct:', err);
+      alert("💥 System Crash during save: " + err.message);
     }
   };
 

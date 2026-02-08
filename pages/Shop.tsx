@@ -293,7 +293,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                           }}
                           className="flex-1 h-[64px] bg-black text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-[#3D8593] transition-all shadow-2xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
                         >
-                          Buy Now
+                          {(new Date().getMonth() === 1 && new Date().getDate() >= 1 && new Date().getDate() <= 15) ? "💝 Buy Now" : "Buy Now"}
                         </button>
                       ) : (
                         <div className="flex-1 flex flex-col gap-3">
@@ -485,7 +485,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
                 {/* HEART OVERLAY */}
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/heart">
-                  <Heart className="w-4 h-4 md:w-5 h-5 text-gray-900 group-hover/heart:text-white" />
+                  <Heart className={`w-4 h-4 md:w-5 h-5 group-hover/heart:text-white ${(new Date().getMonth() === 1 && new Date().getDate() >= 1 && new Date().getDate() <= 20) ? 'text-red-500 fill-red-500' : 'text-gray-900'}`} />
                 </div>
 
                 <div className={`absolute bottom-4 left-4 md:bottom-6 md:left-6 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593] text-white' :

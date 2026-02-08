@@ -79,7 +79,9 @@ CREATE TABLE IF NOT EXISTS products (
     colors TEXT[] DEFAULT '{}',
     brand TEXT,
     series TEXT,
-    capacities TEXT[]
+    capacities TEXT[],
+    shipping_duration TEXT,
+    video_url TEXT
 );
 
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;

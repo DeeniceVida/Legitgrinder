@@ -398,7 +398,8 @@ export const createProduct = async (productData: Partial<Product>): Promise<{ su
                 stock_status: productData.availability || 'In Stock',
                 inventory_quantity: productData.stockCount || 0,
                 shop_variants: productData.variations || [],
-                video_url: productData.videoUrl
+                video_url: productData.videoUrl,
+                shipping_duration: (productData as any).shippingDuration
             })
             .select()
             .single();
@@ -406,7 +407,7 @@ export const createProduct = async (productData: Partial<Product>): Promise<{ su
         if (error) throw error;
         return { success: true, id: data.id };
     } catch (error) {
-        console.error('Error creating product:', error);
+        console.error('Error creating product:', error.message || error);
         return { success: false, error };
     }
 };
@@ -424,6 +425,7 @@ export const updateProduct = async (productId: string, updates: Partial<Product>
         if (updates.stockCount !== undefined) updateData.inventory_quantity = updates.stockCount;
         if (updates.variations) updateData.shop_variants = updates.variations;
         if (updates.videoUrl !== undefined) updateData.video_url = updates.videoUrl;
+        if ((updates as any).shippingDuration) updateData.shipping_duration = (updates as any).shippingDuration;
 
         const { error } = await supabase
             .from('products')
@@ -433,7 +435,7 @@ export const updateProduct = async (productId: string, updates: Partial<Product>
         if (error) throw error;
         return { success: true };
     } catch (error) {
-        console.error('Error updating product:', error);
+        console.error('Error updating product:', error.message || error);
         return { success: false, error };
     }
 };

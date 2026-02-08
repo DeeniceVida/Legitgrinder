@@ -26,11 +26,16 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin, isLog
     <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-7xl">
       <div className="glass rounded-[1.8rem] px-6 py-3 flex justify-between items-center shadow-xl shadow-teal-900/5 border-white/50">
         <div className="flex items-center cursor-pointer group" onClick={() => onNavigate('home')}>
-          <img
-            src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg"
-            className="h-10 w-auto rounded-lg transition-transform group-hover:scale-110"
-            alt="LegitGrinder Logo"
-          />
+          <div className="relative">
+            <img
+              src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg"
+              className="h-10 w-auto rounded-lg transition-transform group-hover:scale-110"
+              alt="LegitGrinder Logo"
+            />
+            {(new Date().getMonth() === 1 && new Date().getDate() >= 1 && new Date().getDate() <= 20) && (
+              <span className="absolute -top-2 -right-2 text-xs animate-pulse">❤️</span>
+            )}
+          </div>
           <div className="ml-3 flex flex-col">
             <span className="text-sm font-black text-gray-900 tracking-tight leading-none">LEGIT GRINDER</span>
             <span className="text-[8px] font-bold text-[#3D8593] uppercase tracking-[0.3em] mt-1">Global Logistics</span>
