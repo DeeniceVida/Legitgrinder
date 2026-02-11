@@ -6,6 +6,7 @@ import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment } from '../services/supabaseData';
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../lib/supabase';
+import SafeImage from '../components/SafeImage';
 
 interface ShopProps {
   products: Product[];
@@ -144,7 +145,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
             {/* LEFT: VISUAL ECOSYSTEM */}
             <div className="space-y-8 relative lg:sticky lg:top-32">
               <div className="aspect-square bg-white rounded-[3rem] overflow-hidden border border-neutral-100 relative group">
-                <img
+                <SafeImage
                   src={displayImage}
                   className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-700"
                   alt={p.name}
@@ -166,7 +167,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     className={`aspect-square rounded-[1.5rem] overflow-hidden border-2 transition-all duration-500 ${selectedImageIdx === idx ? 'border-[#3D8593] scale-95' : 'border-transparent opacity-60 hover:opacity-100'
                       }`}
                   >
-                    <img src={url} className="w-full h-full object-cover" />
+                    <SafeImage src={url} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -481,7 +482,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 className="aspect-square bg-white relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] mb-6 shadow-sm border border-neutral-100 group-hover:shadow-2xl transition-all"
                 onClick={() => setSelectedProduct(p)}
               >
-                <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
+                <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
 
                 {/* HEART OVERLAY */}
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/heart">

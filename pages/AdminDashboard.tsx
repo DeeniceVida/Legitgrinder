@@ -22,6 +22,7 @@ import {
   Consultation, ConsultationStatus, Availability, Invoice,
   BlogPost, FAQItem, Client, ProductVariation, SourcingRequest
 } from '../types';
+import SafeImage from '../components/SafeImage';
 
 
 
@@ -987,7 +988,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {products.map(p => (
                 <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">
                   <div className="aspect-square rounded-[2.5rem] overflow-hidden mb-8 relative border border-neutral-50">
-                    <img src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                    <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                     <div className={`absolute top-6 left-6 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-emerald-500 text-white' : 'bg-[#FF9900] text-white'}`}>
                       {p.availability}
                     </div>
@@ -1186,7 +1187,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {blogs.map(b => (
               <div key={b.id} className="bg-white rounded-[4rem] p-10 border border-neutral-100 shadow-2xl group relative overflow-hidden">
                 <div className="aspect-video rounded-[2.5rem] overflow-hidden mb-8 relative">
-                  <img src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                  <SafeImage src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                   <div className="absolute top-6 right-6 flex gap-3">
                     <button onClick={() => setEditingBlog(b)} className="p-4 bg-white/90 backdrop-blur rounded-2xl shadow-xl hover:bg-white hover:scale-110 transition-all"><Edit3 className="w-5 h-5" /></button>
                     <button onClick={() => handleDeleteBlog(b.id)} className="p-4 bg-rose-500 text-white rounded-2xl shadow-xl hover:bg-rose-600 hover:scale-110 transition-all"><Trash2 className="w-5 h-5" /></button>

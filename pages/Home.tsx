@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { ArrowRight, Smartphone, Truck, Package, Sparkles, Zap, Globe, ShieldCheck, Search, Handshake, Box } from 'lucide-react';
+import SafeImage from '../components/SafeImage';
 
 interface HomeProps {
   onNavigate: (page: string) => void;
@@ -46,7 +47,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
           <div className="relative animate-in fade-in zoom-in-95 duration-1000 delay-300">
             <div className="absolute inset-0 bg-gradient-to-tr from-[#FF9900]/20 to-[#3D8593]/20 rounded-[4.5rem] rotate-2 opacity-50 blur-2xl"></div>
-            <img
+            <SafeImage
               src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766833528/pexels-hormel-media-1095814_jxyrhh.jpg"
               className="relative z-10 w-full h-[650px] object-cover rounded-[3.5rem] shadow-2xl border-4 border-white"
               alt="Import Hub"
@@ -94,7 +95,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <div className="flex -space-x-4">
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="w-16 h-16 rounded-full border-4 border-white bg-neutral-100 overflow-hidden shadow-xl">
-                  <img src={`https://i.pravatar.cc/150?u=${i + 10}`} alt="User" />
+                  <SafeImage src={`https://i.pravatar.cc/150?u=${i + 10}`} alt="User" />
                 </div>
               ))}
             </div>

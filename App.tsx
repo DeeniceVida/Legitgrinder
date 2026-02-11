@@ -14,6 +14,7 @@ import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import OrderHistory from './pages/OrderHistory';
 import AIAssistant from './components/AIAssistant';
+import SafeImage from './components/SafeImage';
 import ValentineTheme from './components/ValentineTheme';
 import './valentines.css';
 import { supabase } from './lib/supabase';
@@ -202,7 +203,7 @@ const App: React.FC = () => {
           <div className="grid md:grid-cols-4 gap-20 mb-24">
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center mb-10">
-                <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg" className="h-10 w-auto mr-4 rounded-lg" alt="Logo" />
+                <SafeImage src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg" className="h-10 w-auto mr-4 rounded-lg" alt="Logo" />
                 <span className="text-2xl font-bold tracking-tight">LegitGrinder</span>
               </div>
               <p className="text-gray-400 max-w-sm mb-12 text-lg font-light leading-relaxed">

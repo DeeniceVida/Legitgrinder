@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { Menu, X, User, ArrowRight } from 'lucide-react';
+import SafeImage from './SafeImage';
 
 interface NavbarProps {
   onNavigate: (page: string) => void;
@@ -27,7 +28,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin, isLog
       <div className="glass rounded-[1.8rem] px-6 py-3 flex justify-between items-center shadow-xl shadow-teal-900/5 border-white/50">
         <div className="flex items-center cursor-pointer group" onClick={() => onNavigate('home')}>
           <div className="relative">
-            <img
+            <SafeImage
               src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg"
               className="h-10 w-auto rounded-lg transition-transform group-hover:scale-110"
               alt="LegitGrinder Logo"

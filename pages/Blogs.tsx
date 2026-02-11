@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Clock, User, ArrowRight, Sparkles, Search, MessageCircle } from 'lucide-react';
 import { BlogPost, FAQItem } from '../types';
+import SafeImage from '../components/SafeImage';
 
 interface BlogsProps {
   blogs: BlogPost[];
@@ -12,8 +13,8 @@ const Blogs: React.FC<BlogsProps> = ({ blogs, faqs }) => {
   const [activeFaq, setActiveFaq] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
 
-  const filteredFaqs = faqs.filter(f => 
-    f.question.toLowerCase().includes(filter.toLowerCase()) || 
+  const filteredFaqs = faqs.filter(f =>
+    f.question.toLowerCase().includes(filter.toLowerCase()) ||
     f.answer.toLowerCase().includes(filter.toLowerCase())
   );
 
@@ -39,10 +40,10 @@ const Blogs: React.FC<BlogsProps> = ({ blogs, faqs }) => {
           {blogs.map((blog, idx) => (
             <div key={blog.id} className="group cursor-pointer animate-in fade-in slide-in-from-bottom-8" style={{ animationDelay: `${idx * 150}ms` }}>
               <div className="aspect-[16/9] rounded-[3.5rem] overflow-hidden mb-8 border border-white shadow-2xl relative">
-                <img 
-                  src={blog.imageUrl} 
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-                  alt={blog.title} 
+                <SafeImage
+                  src={blog.imageUrl}
+                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                  alt={blog.title}
                 />
                 <div className="absolute top-8 left-8 bg-white/90 backdrop-blur-md px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#3D8593]">
                   {blog.category}
@@ -70,18 +71,18 @@ const Blogs: React.FC<BlogsProps> = ({ blogs, faqs }) => {
         {/* FAQ Section */}
         <div className="bg-white rounded-[4.5rem] p-12 md:p-24 border border-neutral-100 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-[100px] opacity-50"></div>
-          
+
           <div className="grid lg:grid-cols-2 gap-24 relative z-10">
             <div>
-              <h2 className="text-5xl md:text-7xl font-bold tracking-tight mb-8">Common <br/><span className="text-[#3D8593] italic font-light heading-accent">Questions.</span></h2>
+              <h2 className="text-5xl md:text-7xl font-bold tracking-tight mb-8">Common <br /><span className="text-[#3D8593] italic font-light heading-accent">Questions.</span></h2>
               <p className="text-gray-500 text-lg font-light mb-12">
                 Can't find what you're looking for? Our AI assistant or support team is always ready to help.
               </p>
-              
+
               <div className="relative mb-8">
                 <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Search questions..."
                   className="w-full bg-neutral-50 border-none rounded-3xl pl-16 pr-8 py-5 focus:ring-2 focus:ring-indigo-600/20 outline-none transition-all font-medium"
                   value={filter}
@@ -90,17 +91,17 @@ const Blogs: React.FC<BlogsProps> = ({ blogs, faqs }) => {
               </div>
 
               <div className="p-8 bg-indigo-600 rounded-[2.5rem] text-white">
-                 <MessageCircle className="w-10 h-10 mb-6" />
-                 <h4 className="text-xl font-bold mb-2">Still need help?</h4>
-                 <p className="text-indigo-100 text-sm mb-8 font-light">Get a personalized answer from our logistics experts.</p>
-                 <button className="w-full py-4 bg-white text-indigo-600 rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Contact Support</button>
+                <MessageCircle className="w-10 h-10 mb-6" />
+                <h4 className="text-xl font-bold mb-2">Still need help?</h4>
+                <p className="text-indigo-100 text-sm mb-8 font-light">Get a personalized answer from our logistics experts.</p>
+                <button className="w-full py-4 bg-white text-indigo-600 rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Contact Support</button>
               </div>
             </div>
 
             <div className="space-y-4">
               {filteredFaqs.map((faq) => (
                 <div key={faq.id} className="border border-neutral-100 rounded-[2rem] overflow-hidden transition-all hover:border-indigo-100 hover:shadow-lg">
-                  <button 
+                  <button
                     onClick={() => setActiveFaq(activeFaq === faq.id ? null : faq.id)}
                     className="w-full px-8 py-6 flex justify-between items-center text-left hover:bg-neutral-50 transition-colors"
                   >
