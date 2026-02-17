@@ -24,7 +24,8 @@ import {
   fetchClientsData,
   fetchConsultations,
   fetchBlogsData,
-  fetchInvoicesData
+  fetchInvoicesData,
+  logVisit
 } from './services/supabaseData';
 import {
   Instagram, Youtube, Globe
@@ -89,6 +90,11 @@ const App: React.FC = () => {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Visitor Tracking
+  useEffect(() => {
+    logVisit();
   }, []);
 
   const handleAuthSession = async (session: any) => {

@@ -16,7 +16,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, fetchVisitCount } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice,
@@ -119,6 +119,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Sourcing Leads State
   const [leads, setLeads] = useState<SourcingRequest[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(false);
+  const [visitCount, setVisitCount] = useState<number>(0);
 
   const hasNewPaidOrders = invoices.some(inv => inv.isPaid && inv.status === OrderStatus.RECEIVED_BY_AGENT);
 
@@ -196,6 +197,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     refreshLeads();
+    const loadVisits = async () => {
+      const count = await fetchVisitCount();
+      setVisitCount(count);
+    };
+    loadVisits();
   }, []);
 
   const handlePrintInvoice = (inv: Invoice) => {
@@ -573,7 +579,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 { label: 'Total Revenue', val: `KES ${(invoices.reduce((acc, inv) => acc + (inv.totalKES || 0), 0) / 1000000).toFixed(1)}M`, trend: '+14.2%', icon: <DollarSign className="text-emerald-500" />, bg: 'bg-emerald-50' },
                 { label: 'Gross Profit', val: `KES ${(invoices.reduce((acc, inv) => acc + (inv.totalKES || 0) * 0.25, 0) / 1000000).toFixed(1)}M`, trend: '+18.5%', icon: <TrendingUp className="text-[#3D8593]" />, bg: 'bg-teal-50' },
                 { label: 'Active Clients', val: clients.length.toString(), trend: '+5.4%', icon: <Activity className="text-[#FF9900]" />, bg: 'bg-orange-50' },
-                { label: 'Pending Shipments', val: invoices.filter(i => i.status !== OrderStatus.READY_FOR_COLLECTION).length.toString(), trend: 'High Priority', icon: <Truck className="text-indigo-500" />, bg: 'bg-indigo-50' }
+                { label: 'Total Visitors', val: visitCount.toLocaleString(), trend: 'Live Growth', icon: <Users className="text-indigo-500" />, bg: 'bg-indigo-50' }
               ].map((stat, i) => (
                 <div key={i} className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-neutral-100 relative group">
                   <div className={`w-14 h-14 ${stat.bg} rounded-2xl flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform`}>

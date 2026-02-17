@@ -791,3 +791,35 @@ export const verifyPaystackPayment = async (reference: string): Promise<{ succes
         return { success: false, error: { message: error.message || 'Unknown verification error' } };
     }
 };
+
+// Analytics & Visits
+export const logVisit = async (): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('site_visits')
+            .insert({
+                path: window.location.pathname,
+                user_agent: navigator.userAgent
+            });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error logging visit:', error);
+        return { success: false, error };
+    }
+};
+
+export const fetchVisitCount = async (): Promise<number> => {
+    try {
+        const { count, error } = await supabase
+            .from('site_visits')
+            .select('*', { count: 'exact', head: true });
+
+        if (error) throw error;
+        return count || 0;
+    } catch (error) {
+        console.error('Error fetching visit count:', error);
+        return 0;
+    }
+};

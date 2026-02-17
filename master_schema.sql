@@ -271,4 +271,16 @@ CREATE POLICY "Allow order creation" ON invoices FOR INSERT WITH CHECK (true);
   UPDATE public.profiles 
   SET role = 'admin' 
   WHERE email = 'mungaimports@gmail.com';
-*/
+-- 10. SITE VISITS (For Analytics)
+CREATE TABLE IF NOT EXISTS site_visits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  visited_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  path TEXT,
+  user_agent TEXT
+);
+
+ALTER TABLE site_visits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public insert to site_visits" ON site_visits FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admins can view site_visits" ON site_visits FOR SELECT USING (
+  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+);
