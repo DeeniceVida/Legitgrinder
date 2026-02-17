@@ -16,7 +16,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice,
@@ -144,6 +144,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [ebooks, setEbooks] = useState<EBook[]>([]);
   const [editingBook, setEditingBook] = useState<EBook | 'new' | null>(null);
+  const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
+  const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
+  const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
+
+  const copyTrackingLink = (invoiceNumber: string) => {
+    const link = `${window.location.origin}/tracking?id=${invoiceNumber}`;
+    navigator.clipboard.writeText(link);
+    alert('✅ Tracking link copied to clipboard!');
+  };
+
+  const handleCreateManualOrder = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const invoiceData: Partial<Invoice> = {
+      clientName: formData.get('clientName') as string,
+      productName: formData.get('productName') as string,
+      quantity: parseInt(formData.get('quantity') as string) || 1,
+      totalKES: parseFloat(formData.get('totalKES') as string),
+      isPaid: formData.get('isPaid') === 'on'
+    };
+
+    const result = await createManualInvoice(invoiceData);
+    if (result.success) {
+      setIsCreatingManualInvoice(false);
+      window.location.reload(); // Refresh to show new invoice
+    } else {
+      alert('Error creating order: ' + JSON.stringify(result.error));
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'books') {
@@ -773,6 +802,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* INVOICES MANAGEMENT TAB */}
         {activeTab === 'invoices' && (
           <div className="space-y-10 animate-in fade-in duration-700">
+            <div className="flex justify-between items-center px-4">
+              <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Order <span className="text-[#3D8593]">Control</span></h2>
+              <button
+                onClick={() => setIsCreatingManualInvoice(true)}
+                className="px-8 py-3 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-2 shadow-xl"
+              >
+                <Plus className="w-4 h-4" /> Create Manual Order
+              </button>
+            </div>
+
             <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
@@ -819,45 +858,86 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="px-12 py-10 text-right">
                         <div className="flex justify-end gap-3">
                           <button
+                            onClick={() => copyTrackingLink(inv.invoiceNumber)}
+                            className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all"
+                            title="Copy Tracking Link"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => {
-                              const printWin = window.open('', '', 'width=800,height=900');
+                              const printWin = window.open('', '', 'width=900,height=1000');
                               if (!printWin) return;
+                              const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
                               printWin.document.write(`
                                 <html>
-                                  <head><title>LegitGrinder Invoice #${inv.invoiceNumber}</title></head>
-                                  <body style="font-family: sans-serif; padding: 40px; line-height: 1.6;">
-                                    <div style="text-align: center; margin-bottom: 40px;">
-                                      <h1 style="margin:0; color:#3D8593;">LEGITGRINDER</h1>
-                                      <p style="text-transform:uppercase; font-size:12px; font-weight:bold; letter-spacing:2px; color:#666;">Official Purchase Invoice</p>
-                                    </div>
-                                    <div style="border-top:2px solid #3D8593; padding-top:20px; display:flex; justify-content:space-between;">
-                                      <div>
-                                        <p><strong>Bill To:</strong><br/>${inv.clientName}</p>
+                                  <head>
+                                    <title>Invoice IG-${inv.invoiceNumber}</title>
+                                    <style>
+                                      body { font-family: 'Inter', sans-serif; padding: 60px; color: #1a1a1a; position: relative; }
+                                      .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.03; width: 80%; z-index: -1; }
+                                      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 60px; }
+                                      .brand h1 { margin: 0; font-size: 32px; font-weight: 900; }
+                                      .brand p { margin: 5px 0 0; font-size: 14px; font-weight: 500; color: #666; }
+                                      .logo { width: 120px; }
+                                      .meta { text-align: right; margin-top: 20px; }
+                                      .meta p { margin: 5px 0; font-size: 14px; font-weight: 700; }
+                                      .meta span { font-weight: 400; color: #666; margin-right: 10px; }
+                                      .title { text-align: center; font-size: 24px; font-weight: 500; margin: 40px 0; letter-spacing: 1px; }
+                                      table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+                                      th { background: #3d8593; color: white; padding: 15px; text-align: left; text-transform: uppercase; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
+                                      td { padding: 20px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+                                      .total-row td { border: none; padding-top: 30px; font-size: 18px; font-weight: 900; text-align: right; }
+                                      .terms { margin-top: 60px; border-top: 2px solid #000; pt-20; }
+                                      .terms h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-bottom: 15px; }
+                                      .terms p { font-size: 13px; color: #444; margin: 8px 0; line-height: 1.6; }
+                                      .footer { margin-top: 100px; text-align: center; font-size: 12px; font-weight: 500; color: #999; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <img src="${logoUrl}" class="watermark" />
+                                    <div class="header">
+                                      <div class="brand">
+                                        <h1>LegitGrinder</h1>
+                                        <p>+254791873538</p>
                                       </div>
-                                      <div>
-                                        <p><strong>Invoice #:</strong> ${inv.invoiceNumber}<br/>
-                                        <strong>Date:</strong> ${new Date(inv.date || '').toLocaleDateString()}</p>
-                                      </div>
+                                      <img src="${logoUrl}" class="logo" />
                                     </div>
-                                    <table style="width:100%; border-collapse:collapse; margin-top:40px;">
-                                      <tr style="background:#f9f9f9;">
-                                        <th style="padding:15px; text-align:left; border-bottom:1px solid #eee;">Item Specification</th>
-                                        <th style="padding:15px; text-align:center; border-bottom:1px solid #eee;">Quantity</th>
-                                        <th style="padding:15px; text-align:right; border-bottom:1px solid #eee;">Total</th>
-                                      </tr>
-                                      <tr>
-                                        <td style="padding:15px; border-bottom:1px solid #eee;">${inv.productName}</td>
-                                        <td style="padding:15px; text-align:center; border-bottom:1px solid #eee;">${inv.quantity || 1}</td>
-                                        <td style="padding:15px; text-align:right; border-bottom:1px solid #eee;">KES ${inv.totalKES?.toLocaleString()}</td>
-                                      </tr>
+                                    <div class="meta">
+                                      <p><span>Quote Date:</span> ${new Date(inv.date || inv.createdAt).toLocaleDateString('en-GB')}</p>
+                                      <p><span>Client Details:</span> ${inv.clientName}</p>
+                                      <p><span>Invoice No:</span> IG-${inv.invoiceNumber}</p>
+                                    </div>
+                                    <div class="title">${inv.productName} Invoice</div>
+                                    <table>
+                                      <thead>
+                                        <tr>
+                                          <th style="width: 10%">QTY</th>
+                                          <th style="width: 50%">Description</th>
+                                          <th style="width: 20%">Unit Price</th>
+                                          <th style="width: 20%">Amount</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        <tr>
+                                          <td>${(inv.quantity || 1).toFixed(2)}</td>
+                                          <td>${inv.productName}</td>
+                                          <td>${(inv.totalKES / (inv.quantity || 1)).toLocaleString()}</td>
+                                          <td>KES ${inv.totalKES.toLocaleString()}</td>
+                                        </tr>
+                                        <tr class="total-row">
+                                          <td colspan="3">Total</td>
+                                          <td style="border-bottom: 3px double #000; padding-bottom: 5px;">KES ${inv.totalKES.toLocaleString()}</td>
+                                        </tr>
+                                      </tbody>
                                     </table>
-                                    <div style="margin-top:40px; text-align:right;">
-                                      <p style="font-size:18px;"><strong>Status: ${inv.isPaid ? 'PAID' : 'PENDING'}</strong></p>
-                                      <p style="font-size:12px; color:#666;">Payment Ref: ${inv.paystackReference || 'Manual Sync'}</p>
+                                    <div class="terms">
+                                      <h2>Terms and Conditions</h2>
+                                      <p>The total fee is all inclusive to Nairobi, the client will cater for delivery to their home/work location.</p>
+                                      <p>Payment is done via mobile money/cash.</p>
+                                      <p>Shipping duration via air(2 weeks) sea(30-45days)</p>
                                     </div>
-                                    <div style="margin-top:60px; font-size:10px; color:#999; text-align:center;">
-                                      Thank you for choosing LegitGrinder. Your elite asset is protected.
-                                    </div>
+                                    <div class="footer">LegitGrinder KE deals in imports</div>
                                   </body>
                                 </html>
                               `);
@@ -865,9 +945,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               printWin.print();
                             }}
                             className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
-                            title="Generate Professional Invoice"
+                            title="Generate Elite Invoice"
                           >
                             <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setPrintingReceiptInvoice(inv)}
+                            className="p-4 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"
+                            title="Print Official Receipt"
+                          >
+                            <FileText className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => {
@@ -921,885 +1008,673 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* LEADS MANAGEMENT TAB (PHASE 4) */}
-        {activeTab === 'leads' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
-            <div className="flex justify-between items-center px-4">
-              <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Sourcing <span className="text-[#3D8593]">Intelligence</span></h2>
-              <button
-                onClick={refreshLeads}
-                disabled={loadingLeads}
-                className="px-6 py-3 bg-[#3D8593] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2"
-              >
-                <RefreshCcw className={`w-3.5 h-3.5 ${loadingLeads ? 'animate-spin' : ''}`} /> Refresh Nodes
-              </button>
-            </div>
+        {
+          activeTab === 'leads' && (
+            <div className="space-y-10 animate-in fade-in duration-700">
+              <div className="flex justify-between items-center px-4">
+                <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Sourcing <span className="text-[#3D8593]">Intelligence</span></h2>
+                <button
+                  onClick={refreshLeads}
+                  disabled={loadingLeads}
+                  className="px-6 py-3 bg-[#3D8593] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2"
+                >
+                  <RefreshCcw className={`w-3.5 h-3.5 ${loadingLeads ? 'animate-spin' : ''}`} /> Refresh Nodes
+                </button>
+              </div>
 
-            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-neutral-50/50 border-b border-neutral-100">
-                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Target Asset</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Protocol</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Nodes & Logistics</th>
-                    <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-50">
-                  {leads.map((lead) => (
-                    <tr key={lead.id} className="hover:bg-neutral-50/50 transition-colors group">
-                      <td className="px-12 py-10">
-                        <div className="flex items-center gap-5">
-                          <div className="w-14 h-14 bg-neutral-100 rounded-[1.2rem] flex items-center justify-center text-neutral-400 group-hover:bg-[#3D8593]/10 group-hover:text-[#3D8593] transition-all">
-                            <Box className="w-6 h-6" />
+              <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-neutral-50/50 border-b border-neutral-100">
+                      <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Target Asset</th>
+                      <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Protocol</th>
+                      <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Nodes & Logistics</th>
+                      <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-50">
+                    {leads.map((lead) => (
+                      <tr key={lead.id} className="hover:bg-neutral-50/50 transition-colors group">
+                        <td className="px-12 py-10">
+                          <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 bg-neutral-100 rounded-[1.2rem] flex items-center justify-center text-neutral-400 group-hover:bg-[#3D8593]/10 group-hover:text-[#3D8593] transition-all">
+                              <Box className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <p className="font-black text-gray-900 text-lg tracking-tight uppercase leading-none">{lead.productName}</p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <span className="text-[10px] font-black text-[#3D8593] tracking-widest uppercase">Budget: KES {lead.targetBudgetKES?.toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-10 py-10">
+                          <p className="font-bold text-sm text-gray-900 flex items-center gap-2"><User className="w-3.5 h-3.5 text-[#3D8593]" /> {lead.clientName}</p>
+                          <p className="text-[10px] font-black text-gray-400 mt-1 uppercase tracking-widest italic">{lead.clientWhatsapp}</p>
+                        </td>
+                        <td className="px-10 py-10">
+                          <div className="flex flex-col gap-2 mb-2">
+                            <div className="flex items-center gap-3">
+                              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.shippingPreference === 'Air' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'}`}>
+                                {lead.shippingPreference} Freight
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.urgency === 'High' ? 'bg-rose-50 text-rose-500' : 'bg-neutral-50 text-gray-400'}`}>
+                                {lead.urgency} Urgency
+                              </span>
+                            </div>
+
+                            {/* Shipping Calculator Data */}
+                            <div className="space-y-1">
+                              {lead.shippingPreference === 'Air' && lead.shippingWeight && (
+                                <p className="text-[10px] font-black text-cyan-700 uppercase tracking-widest">Weight: {lead.shippingWeight} kg</p>
+                              )}
+                              {lead.shippingPreference === 'Sea' && lead.calculatedCBM && (
+                                <div className="space-y-0.5">
+                                  <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Volume: {lead.calculatedCBM.toFixed(4)} CBM</p>
+                                  <p className="text-[9px] font-bold text-gray-400 uppercase italic">Dim: {lead.packageLength || '?'}{'x'}{lead.packageWidth || '?'}{'x'}{lead.packageHeight || '?'} cm</p>
+                                </div>
+                              )}
+                              {lead.estimatedShippingCost && (
+                                <p className="text-[11px] font-black text-[#FF9900] uppercase tracking-widest">Est. Shipping: KES {lead.estimatedShippingCost.toLocaleString()}</p>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-[10px] font-bold text-gray-300 uppercase italic">Type: {lead.itemType}</p>
+                        </td>
+                        <td className="px-12 py-10 text-right">
+                          <select
+                            value={lead.status}
+                            onChange={async (e) => {
+                              const newStatus = e.target.value;
+                              await updateSourcingStatus(lead.id!, newStatus);
+                              refreshLeads();
+                            }}
+                            className={`bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100 transition-all ${lead.status === 'completed' ? 'text-emerald-600 font-black' :
+                              lead.status === 'contacted' ? 'text-amber-600 font-black' :
+                                'text-neutral-400 font-bold'
+                              }`}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="viewed">Viewed</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="completed">Completed</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                    {leads.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-12 py-20 text-center">
+                          <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] italic">No active quest intelligence available.</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        }
+
+        {/* SHOP INVENTORY TAB (STOCK) */}
+        {
+          activeTab === 'products' && (
+            <div className="space-y-10 animate-in fade-in duration-700">
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-xl mb-8">
+                <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2">
+                  <Info className="w-4 h-4" /> Decoupled Stock Manager
+                </p>
+                <p className="text-[9px] font-bold text-amber-600 mt-1">
+                  Phones are managed in the <span className="font-black">SYNC</span> tab. This list is for accessories, special items, and legacy stock cleanup.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                {products.map(p => (
+                  <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">
+                    <div className="aspect-square rounded-[2.5rem] overflow-hidden mb-8 relative border border-neutral-50">
+                      <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                      <div className={`absolute top-6 left-6 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-emerald-500 text-white' : 'bg-[#FF9900] text-white'}`}>
+                        {p.availability}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{p.name}</h4>
+                        <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]">{p.category}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <p className="text-2xl font-black text-[#3D8593] tracking-tighter">KES {p.priceKES.toLocaleString()}</p>
+                        {p.discountPriceKES && (
+                          <p className="text-[10px] text-gray-400 line-through">KES {p.discountPriceKES.toLocaleString()}</p>
+                        )}
+                      </div>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{p.shippingDuration || 'Standard Shipping'}</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setEditingProduct(p)}
+                        className="flex-1 py-5 bg-neutral-900 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all"
+                      >
+                        <Edit3 className="w-4 h-4" /> Edit Specs
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(p.id)}
+                        className="p-5 bg-rose-50 text-rose-500 rounded-[1.8rem] hover:bg-rose-500 hover:text-white transition-all"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setEditingProduct('new')}
+                  className="flex flex-col items-center justify-center border-4 border-dashed border-neutral-100 rounded-[3.5rem] p-12 text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group min-h-[500px]"
+                >
+                  <Plus className="w-16 h-16 mb-6 group-hover:scale-125 transition-transform" />
+                  <span className="font-black uppercase text-[12px] tracking-widest">Stock Global Unit</span>
+                </button>
+              </div>
+            </div>
+          )
+        }
+
+        {/* SYNC TOOLS TAB */}
+        {
+          activeTab === 'pricelist' && (
+            <div className="space-y-12 animate-in fade-in duration-700">
+              <div className="flex flex-col gap-10">
+                <div className="flex justify-center">
+                  <div className="glass p-2 rounded-[3rem] flex shadow-2xl overflow-x-auto no-scrollbar max-w-full">
+                    {(['iphone', 'samsung', 'pixel'] as const).map((brand) => (
+                      <button key={brand} onClick={() => setSyncBrandFilter(brand)} className={`whitespace-nowrap px-10 py-5 rounded-[2.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${syncBrandFilter === brand ? 'bg-[#3D8593] text-white' : 'text-gray-400 hover:text-[#3D8593]'}`}>
+                        {brand}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="relative max-w-2xl mx-auto w-full group">
+                  <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-[#3D8593] transition-colors" />
+                  <input type="text" placeholder="Search Master Pricelist Registry..." className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-black uppercase tracking-widest outline-none focus:ring-8 focus:ring-[#3D8593]/5 transition-all shadow-xl" value={adminSearchTerm} onChange={(e) => setAdminSearchTerm(e.target.value)} />
+                </div>
+                <div className="flex justify-center flex-col items-center gap-4">
+                  <div className="flex gap-4">
+                    <button onClick={runSeed} disabled={seeding} className="px-10 py-5 bg-emerald-600 text-white rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 shadow-2xl hover:bg-emerald-700 transition-all">
+                      {seeding ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                      {seeding ? 'Restoring Global Inventory...' : 'RESTORE PHONE MODELS'}
+                    </button>
+                  </div>
+                  <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Manual Price Management Mode Active</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50">
+                {pricelist.filter(item => item.brand.toLowerCase() === syncBrandFilter.toLowerCase() && item.modelName.toLowerCase().includes(adminSearchTerm.toLowerCase())).map(item => (
+                  <div key={item.id} className="p-12 hover:bg-neutral-50/50 transition-all">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
+                      <div>
+                        <h4 className="text-3xl font-black text-gray-900 tracking-tight">{item.modelName}</h4>
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.4em] mt-2">{item.series}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                      {item.capacities.map((cap, idx) => (
+                        <div key={idx} className={`p-8 rounded-[3rem] border transition-all relative ${cap.isManualOverride ? 'bg-orange-50 border-orange-100' : 'bg-white border-neutral-100 hover:border-teal-100 shadow-sm'}`}>
+                          <div className="flex justify-between items-center mb-8">
+                            <span className="px-4 py-2 bg-neutral-900 text-white text-[9px] font-black rounded-xl uppercase tracking-widest">{cap.capacity}</span>
+                            <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">{cap.lastSynced}</span>
                           </div>
                           <div>
-                            <p className="font-black text-gray-900 text-lg tracking-tight uppercase leading-none">{lead.productName}</p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <span className="text-[10px] font-black text-[#3D8593] tracking-widest uppercase">Budget: KES {lead.targetBudgetKES?.toLocaleString()}</span>
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-3">Live KES Strategy Price</label>
+                            <div className="flex justify-between items-end">
+                              <p className="text-3xl font-black text-gray-900 tracking-tighter">KES {cap.currentPriceKES.toLocaleString()}</p>
+                              <button onClick={() => handleOpenPriceEdit(item.id, idx)} className="p-4 bg-neutral-50 rounded-2xl text-gray-300 hover:text-[#3D8593] shadow-inner">
+                                <Edit3 className="w-5 h-5" />
+                              </button>
                             </div>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-10 py-10">
-                        <p className="font-bold text-sm text-gray-900 flex items-center gap-2"><User className="w-3.5 h-3.5 text-[#3D8593]" /> {lead.clientName}</p>
-                        <p className="text-[10px] font-black text-gray-400 mt-1 uppercase tracking-widest italic">{lead.clientWhatsapp}</p>
-                      </td>
-                      <td className="px-10 py-10">
-                        <div className="flex flex-col gap-2 mb-2">
-                          <div className="flex items-center gap-3">
-                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.shippingPreference === 'Air' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'}`}>
-                              {lead.shippingPreference} Freight
-                            </span>
-                            <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.urgency === 'High' ? 'bg-rose-50 text-rose-500' : 'bg-neutral-50 text-gray-400'}`}>
-                              {lead.urgency} Urgency
-                            </span>
-                          </div>
-
-                          {/* Shipping Calculator Data */}
-                          <div className="space-y-1">
-                            {lead.shippingPreference === 'Air' && lead.shippingWeight && (
-                              <p className="text-[10px] font-black text-cyan-700 uppercase tracking-widest">Weight: {lead.shippingWeight} kg</p>
-                            )}
-                            {lead.shippingPreference === 'Sea' && lead.calculatedCBM && (
-                              <div className="space-y-0.5">
-                                <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest">Volume: {lead.calculatedCBM.toFixed(4)} CBM</p>
-                                <p className="text-[9px] font-bold text-gray-400 uppercase italic">Dim: {lead.packageLength || '?'}{'x'}{lead.packageWidth || '?'}{'x'}{lead.packageHeight || '?'} cm</p>
-                              </div>
-                            )}
-                            {lead.estimatedShippingCost && (
-                              <p className="text-[11px] font-black text-[#FF9900] uppercase tracking-widest">Est. Shipping: KES {lead.estimatedShippingCost.toLocaleString()}</p>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-[10px] font-bold text-gray-300 uppercase italic">Type: {lead.itemType}</p>
-                      </td>
-                      <td className="px-12 py-10 text-right">
-                        <select
-                          value={lead.status}
-                          onChange={async (e) => {
-                            const newStatus = e.target.value;
-                            await updateSourcingStatus(lead.id!, newStatus);
-                            refreshLeads();
-                          }}
-                          className={`bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100 transition-all ${lead.status === 'completed' ? 'text-emerald-600 font-black' :
-                            lead.status === 'contacted' ? 'text-amber-600 font-black' :
-                              'text-neutral-400 font-bold'
-                            }`}
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="viewed">Viewed</option>
-                          <option value="contacted">Contacted</option>
-                          <option value="completed">Completed</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                  {leads.length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-12 py-20 text-center">
-                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-[0.3em] italic">No active quest intelligence available.</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* SHOP INVENTORY TAB (STOCK) */}
-        {activeTab === 'products' && (
-          <div className="space-y-10 animate-in fade-in duration-700">
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-xl mb-8">
-              <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2">
-                <Info className="w-4 h-4" /> Decoupled Stock Manager
-              </p>
-              <p className="text-[9px] font-bold text-amber-600 mt-1">
-                Phones are managed in the <span className="font-black">SYNC</span> tab. This list is for accessories, special items, and legacy stock cleanup.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-              {products.map(p => (
-                <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">
-                  <div className="aspect-square rounded-[2.5rem] overflow-hidden mb-8 relative border border-neutral-50">
-                    <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                    <div className={`absolute top-6 left-6 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-emerald-500 text-white' : 'bg-[#FF9900] text-white'}`}>
-                      {p.availability}
+                      ))}
                     </div>
                   </div>
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="flex-1 min-w-0 pr-4">
-                      <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{p.name}</h4>
-                      <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]">{p.category}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mb-8">
-                    <div>
-                      <p className="text-2xl font-black text-[#3D8593] tracking-tighter">KES {p.priceKES.toLocaleString()}</p>
-                      {p.discountPriceKES && (
-                        <p className="text-[10px] text-gray-400 line-through">KES {p.discountPriceKES.toLocaleString()}</p>
-                      )}
-                    </div>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{p.shippingDuration || 'Standard Shipping'}</span>
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setEditingProduct(p)}
-                      className="flex-1 py-5 bg-neutral-900 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all"
-                    >
-                      <Edit3 className="w-4 h-4" /> Edit Specs
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduct(p.id)}
-                      className="p-5 bg-rose-50 text-rose-500 rounded-[1.8rem] hover:bg-rose-500 hover:text-white transition-all"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() => setEditingProduct('new')}
-                className="flex flex-col items-center justify-center border-4 border-dashed border-neutral-100 rounded-[3.5rem] p-12 text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group min-h-[500px]"
-              >
-                <Plus className="w-16 h-16 mb-6 group-hover:scale-125 transition-transform" />
-                <span className="font-black uppercase text-[12px] tracking-widest">Stock Global Unit</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* SYNC TOOLS TAB */}
-        {activeTab === 'pricelist' && (
-          <div className="space-y-12 animate-in fade-in duration-700">
-            <div className="flex flex-col gap-10">
-              <div className="flex justify-center">
-                <div className="glass p-2 rounded-[3rem] flex shadow-2xl overflow-x-auto no-scrollbar max-w-full">
-                  {(['iphone', 'samsung', 'pixel'] as const).map((brand) => (
-                    <button key={brand} onClick={() => setSyncBrandFilter(brand)} className={`whitespace-nowrap px-10 py-5 rounded-[2.5rem] text-[10px] font-black uppercase tracking-widest transition-all ${syncBrandFilter === brand ? 'bg-[#3D8593] text-white' : 'text-gray-400 hover:text-[#3D8593]'}`}>
-                      {brand}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="relative max-w-2xl mx-auto w-full group">
-                <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300 group-focus-within:text-[#3D8593] transition-colors" />
-                <input type="text" placeholder="Search Master Pricelist Registry..." className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-black uppercase tracking-widest outline-none focus:ring-8 focus:ring-[#3D8593]/5 transition-all shadow-xl" value={adminSearchTerm} onChange={(e) => setAdminSearchTerm(e.target.value)} />
-              </div>
-              <div className="flex justify-center flex-col items-center gap-4">
-                <div className="flex gap-4">
-                  <button onClick={runSeed} disabled={seeding} className="px-10 py-5 bg-emerald-600 text-white rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 shadow-2xl hover:bg-emerald-700 transition-all">
-                    {seeding ? <RefreshCcw className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                    {seeding ? 'Restoring Global Inventory...' : 'RESTORE PHONE MODELS'}
-                  </button>
-                </div>
-                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Manual Price Management Mode Active</p>
+                ))}
               </div>
             </div>
-
-            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50">
-              {pricelist.filter(item => item.brand.toLowerCase() === syncBrandFilter.toLowerCase() && item.modelName.toLowerCase().includes(adminSearchTerm.toLowerCase())).map(item => (
-                <div key={item.id} className="p-12 hover:bg-neutral-50/50 transition-all">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
-                    <div>
-                      <h4 className="text-3xl font-black text-gray-900 tracking-tight">{item.modelName}</h4>
-                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-[0.4em] mt-2">{item.series}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {item.capacities.map((cap, idx) => (
-                      <div key={idx} className={`p-8 rounded-[3rem] border transition-all relative ${cap.isManualOverride ? 'bg-orange-50 border-orange-100' : 'bg-white border-neutral-100 hover:border-teal-100 shadow-sm'}`}>
-                        <div className="flex justify-between items-center mb-8">
-                          <span className="px-4 py-2 bg-neutral-900 text-white text-[9px] font-black rounded-xl uppercase tracking-widest">{cap.capacity}</span>
-                          <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">{cap.lastSynced}</span>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-3">Live KES Strategy Price</label>
-                          <div className="flex justify-between items-end">
-                            <p className="text-3xl font-black text-gray-900 tracking-tighter">KES {cap.currentPriceKES.toLocaleString()}</p>
-                            <button onClick={() => handleOpenPriceEdit(item.id, idx)} className="p-4 bg-neutral-50 rounded-2xl text-gray-300 hover:text-[#3D8593] shadow-inner">
-                              <Edit3 className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          )
+        }
 
         {/* CONSULTATIONS REGISTRY */}
-        {activeTab === 'consultations' && (
-          <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50 animate-in fade-in duration-700">
-            <div className="p-12 bg-neutral-50/30 flex justify-between items-center">
-              <h3 className="text-2xl font-black tracking-tight text-gray-900">Expert Booking Pipeline</h3>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-4 py-1.5 rounded-full">{consultations.length} Active Requests</span>
-            </div>
-            {consultations.map(c => (
-              <div key={c.id} className="p-12 flex flex-col xl:flex-row gap-12 hover:bg-neutral-50/20 transition-all border-b border-neutral-50 last:border-none">
-                <div className="flex-1">
-                  <div className="flex items-center gap-6 mb-8">
-                    <div className={`w-20 h-20 rounded-[2.5rem] flex items-center justify-center shadow-sm border border-white transition-all ${c.status === ConsultationStatus.PAID ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                      {c.status === ConsultationStatus.PAID ? <ShieldCheck className="w-10 h-10" /> : <User className="w-10 h-10" />}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h4 className="text-3xl font-black text-gray-900 tracking-tight leading-none">{c.name}</h4>
-                        {c.status === ConsultationStatus.PAID && (
-                          <span className="bg-emerald-500 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center gap-1">
-                            <Check className="w-3 h-3" /> Locked
-                          </span>
-                        )}
+        {
+          activeTab === 'consultations' && (
+            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden divide-y divide-neutral-50 animate-in fade-in duration-700">
+              <div className="p-12 bg-neutral-50/30 flex justify-between items-center">
+                <h3 className="text-2xl font-black tracking-tight text-gray-900">Expert Booking Pipeline</h3>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-4 py-1.5 rounded-full">{consultations.length} Active Requests</span>
+              </div>
+              {consultations.map(c => (
+                <div key={c.id} className="p-12 flex flex-col xl:flex-row gap-12 hover:bg-neutral-50/20 transition-all border-b border-neutral-50 last:border-none">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-6 mb-8">
+                      <div className={`w-20 h-20 rounded-[2.5rem] flex items-center justify-center shadow-sm border border-white transition-all ${c.status === ConsultationStatus.PAID ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                        {c.status === ConsultationStatus.PAID ? <ShieldCheck className="w-10 h-10" /> : <User className="w-10 h-10" />}
                       </div>
-                      <p className="text-[11px] text-gray-400 font-bold mt-4 uppercase tracking-[0.2em]">{c.whatsapp} • {c.email}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6 mb-8">
-                    <div className="bg-white/80 p-8 rounded-[2rem] border border-neutral-100 shadow-sm">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] mb-3 flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5" /> Booked Timeline
-                      </p>
-                      <div className="flex items-end gap-3">
-                        <p className="text-xl font-black text-gray-900 leading-none">{c.date}</p>
-                        <span className="text-sm font-bold text-gray-300">at</span>
-                        <p className="text-xl font-black text-gray-900 leading-none">{c.time}</p>
-                      </div>
-                    </div>
-                    <div className="bg-white/80 p-8 rounded-[2rem] border border-neutral-100 shadow-sm">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-3">Strategic Objective</p>
-                      <p className="text-sm font-bold text-gray-600 leading-relaxed italic truncate">"{c.topic}"</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-4">
-                    <button
-                      onClick={() => {
-                        const message = encodeURIComponent(
-                          `Hi ${c.name}, your expert logistics consultation for "${c.topic}" is suggested for ${c.date} at ${c.time}.\n\n` +
-                          `Please confirm if this works for you and complete the $15 (approx. KES 2,025) commitment fee to lock your slot.\n\n` +
-                          `Once confirmed, the date will be locked in our master calendar.`
-                        );
-                        window.open(`https://wa.me/${c.whatsapp.replace(/\+/g, '')}?text=${message}`, '_blank');
-                      }}
-                      className="px-6 py-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center gap-2 border border-emerald-100"
-                    >
-                      <MessageCircle className="w-4 h-4" /> Confirm & Request $15
-                    </button>
-                    {c.status === ConsultationStatus.PAID && (
-                      <button className="px-6 py-4 bg-indigo-50 text-indigo-600 rounded-2xl text-[9px] font-black uppercase tracking-widest opacity-50 cursor-not-allowed flex items-center gap-2 border border-indigo-100">
-                        <Calendar className="w-4 h-4" /> Locked on Calendar
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="w-full xl:w-80 flex flex-col justify-center gap-6">
-                  <div className="grid grid-cols-2 gap-3">
-                    {[ConsultationStatus.PENDING, ConsultationStatus.DOABLE, ConsultationStatus.PAID, ConsultationStatus.CANCELLED].map(s => (
-                      <button key={s} onClick={() => handleUpdateConsultationStatus(c.id, s)} className={`px-4 py-4 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all ${c.status === s ? 'bg-[#3D8593] text-white shadow-xl' : 'bg-white border border-neutral-100 text-gray-400'}`}>
-                        {s.split(' ')[0]}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 p-6 rounded-2xl">
-                    <span>Phase: {c.status}</span>
-                    <span className="text-[#3D8593]">Fee: ${c.feeUSD}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* CONTENT MANAGER */}
-        {activeTab === 'content' && (
-          <div className="grid md:grid-cols-2 gap-12 animate-in fade-in duration-700">
-            {blogs.map(b => (
-              <div key={b.id} className="bg-white rounded-[4rem] p-10 border border-neutral-100 shadow-2xl group relative overflow-hidden">
-                <div className="aspect-video rounded-[2.5rem] overflow-hidden mb-8 relative">
-                  <SafeImage src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                  <div className="absolute top-6 right-6 flex gap-3">
-                    <button onClick={() => setEditingBlog(b)} className="p-4 bg-white/90 backdrop-blur rounded-2xl shadow-xl hover:bg-white hover:scale-110 transition-all"><Edit3 className="w-5 h-5" /></button>
-                    <button onClick={() => handleDeleteBlog(b.id)} className="p-4 bg-rose-500 text-white rounded-2xl shadow-xl hover:bg-rose-600 hover:scale-110 transition-all"><Trash2 className="w-5 h-5" /></button>
-                  </div>
-                </div>
-                <span className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest bg-teal-50 px-4 py-2 rounded-full">{b.category}</span>
-                <h3 className="text-3xl font-black text-gray-900 mt-6 mb-4 leading-tight">{b.title}</h3>
-                <p className="text-gray-400 text-sm font-medium leading-relaxed line-clamp-3 mb-8">{b.excerpt}</p>
-              </div>
-            ))}
-            <button onClick={() => setEditingBlog('new')} className="aspect-video border-4 border-dashed border-neutral-100 rounded-[4rem] flex flex-col items-center justify-center text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group">
-              <Plus className="w-16 h-16 mb-4 group-hover:rotate-90 transition-transform duration-500" />
-              <span className="font-black uppercase text-[12px] tracking-widest">New Intelligence Piece</span>
-            </button>
-          </div>
-        )}
-
-        {/* EBOOK MANAGEMENT */}
-        {activeTab === 'books' && (
-          <div className="space-y-12 animate-in fade-in duration-700">
-            <div className="flex justify-between items-end">
-              <div>
-                <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-4">Digital Assets</h2>
-                <h3 className="text-4xl font-bold text-gray-900 tracking-tighter">eBook <span className="text-[#3D8593]">Library</span></h3>
-              </div>
-              <button
-                onClick={() => setEditingBook('new')}
-                className="px-8 h-16 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-3 shadow-2xl"
-              >
-                <Plus className="w-4 h-4" /> Add New eBook
-              </button>
-            </div>
-
-            {editingBook && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
-                <div className="absolute inset-0 bg-white/80 backdrop-blur-2xl" onClick={() => setEditingBook(null)} />
-                <div className="relative w-full max-w-4xl bg-white rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] border border-neutral-100 overflow-hidden animate-in zoom-in-95 duration-500">
-                  <div className="h-2 bg-gradient-to-r from-[#3D8593] to-teal-200" />
-                  <form onSubmit={handleSaveBook} className="p-12 md:p-20 overflow-y-auto max-h-[85vh] no-scrollbar">
-                    <div className="flex justify-between items-start mb-16">
                       <div>
-                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#3D8593] mb-4">Book Configuration</h4>
-                        <h5 className="text-4xl font-bold text-gray-900 tracking-tighter">
-                          {editingBook === 'new' ? 'Publish New Title' : 'Edit Book Metadata'}
-                        </h5>
+                        <div className="flex items-center gap-3">
+                          <h4 className="text-3xl font-black text-gray-900 tracking-tight leading-none">{c.name}</h4>
+                          {c.status === ConsultationStatus.PAID && (
+                            <span className="bg-emerald-500 text-white text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Locked
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-400 font-bold mt-4 uppercase tracking-[0.2em]">{c.whatsapp} • {c.email}</p>
                       </div>
-                      <button type="button" onClick={() => setEditingBook(null)} className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center hover:bg-rose-50 hover:text-rose-500 transition-all">
-                        <X className="w-6 h-6" />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6 mb-8">
+                      <div className="bg-white/80 p-8 rounded-[2rem] border border-neutral-100 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] mb-3 flex items-center gap-2">
+                          <Calendar className="w-3.5 h-3.5" /> Booked Timeline
+                        </p>
+                        <div className="flex items-end gap-3">
+                          <p className="text-xl font-black text-gray-900 leading-none">{c.date}</p>
+                          <span className="text-sm font-bold text-gray-300">at</span>
+                          <p className="text-xl font-black text-gray-900 leading-none">{c.time}</p>
+                        </div>
+                      </div>
+                      <div className="bg-white/80 p-8 rounded-[2rem] border border-neutral-100 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-300 mb-3">Strategic Objective</p>
+                        <p className="text-sm font-bold text-gray-600 leading-relaxed italic truncate">"{c.topic}"</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-4">
+                      <button
+                        onClick={() => {
+                          const message = encodeURIComponent(
+                            `Hi ${c.name}, your expert logistics consultation for "${c.topic}" is suggested for ${c.date} at ${c.time}.\n\n` +
+                            `Please confirm if this works for you and complete the $15 (approx. KES 2,025) commitment fee to lock your slot.\n\n` +
+                            `Once confirmed, the date will be locked in our master calendar.`
+                          );
+                          window.open(`https://wa.me/${c.whatsapp.replace(/\+/g, '')}?text=${message}`, '_blank');
+                        }}
+                        className="px-6 py-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center gap-2 border border-emerald-100"
+                      >
+                        <MessageCircle className="w-4 h-4" /> Confirm & Request $15
                       </button>
+                      {c.status === ConsultationStatus.PAID && (
+                        <button className="px-6 py-4 bg-indigo-50 text-indigo-600 rounded-2xl text-[9px] font-black uppercase tracking-widest opacity-50 cursor-not-allowed flex items-center gap-2 border border-indigo-100">
+                          <Calendar className="w-4 h-4" /> Locked on Calendar
+                        </button>
+                      )}
                     </div>
-
-                    <div className="grid md:grid-cols-2 gap-10">
-                      <div className="space-y-8">
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Book Title</label>
-                          <input name="title" defaultValue={editingBook !== 'new' ? editingBook.title : ''} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Author / Knowledge Expert</label>
-                          <input name="author" defaultValue={editingBook !== 'new' ? editingBook.author : ''} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-6">
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Base Price (KES)</label>
-                            <input name="priceKES" type="number" defaultValue={editingBook !== 'new' ? editingBook.priceKES : 0} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Sale Price (Optional)</label>
-                            <input name="discountPriceKES" type="number" defaultValue={editingBook !== 'new' ? editingBook.discountPriceKES : ''} className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-8">
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Cover Image URL</label>
-                          <input name="coverImage" defaultValue={editingBook !== 'new' ? editingBook.coverImage : ''} required placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">PDF Download URL (Optional)</label>
-                          <input name="pdfUrl" defaultValue={editingBook !== 'new' ? editingBook.pdfUrl : ''} placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Short Description</label>
-                          <textarea name="description" defaultValue={editingBook !== 'new' ? editingBook.description : ''} rows={3} className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold resize-none" />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-12">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Digital Content (HTML Recommended)</label>
-                      <textarea name="content" defaultValue={editingBook !== 'new' ? editingBook.content : ''} rows={10} required className="w-full bg-neutral-50 border-none rounded-[2.5rem] px-8 py-6 font-medium leading-relaxed" placeholder="<h1>Chapter 1</h1><p>Welcome to the masterclass...</p>" />
-                    </div>
-
-                    <div className="mt-16 flex justify-end gap-6">
-                      <button type="button" onClick={() => setEditingBook(null)} className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black">Cancel</button>
-                      <button type="submit" className="px-12 py-6 bg-[#3D8593] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all shadow-xl shadow-teal-100">
-                        Deploy Changes
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {ebooks.map(book => (
-                <div key={book.id} className="bg-white rounded-[3rem] p-8 border border-neutral-100 shadow-sm hover:shadow-xl transition-all group">
-                  <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden mb-6 shadow-lg">
-                    <SafeImage src={book.coverImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                   </div>
-                  <h4 className="text-xl font-bold text-gray-900 mb-1">{book.title}</h4>
-                  <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest mb-6">by {book.author}</p>
-                  <div className="flex items-center justify-between pt-6 border-t border-neutral-50">
-                    <div>
-                      <p className="text-lg font-black text-gray-900">KES {(book.discountPriceKES || book.priceKES).toLocaleString()}</p>
+
+                  <div className="w-full xl:w-80 flex flex-col justify-center gap-6">
+                    <div className="grid grid-cols-2 gap-3">
+                      {[ConsultationStatus.PENDING, ConsultationStatus.DOABLE, ConsultationStatus.PAID, ConsultationStatus.CANCELLED].map(s => (
+                        <button key={s} onClick={() => handleUpdateConsultationStatus(c.id, s)} className={`px-4 py-4 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all ${c.status === s ? 'bg-[#3D8593] text-white shadow-xl' : 'bg-white border border-neutral-100 text-gray-400'}`}>
+                          {s.split(' ')[0]}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setEditingBook(book)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-[#3D8593] hover:text-white transition-all">
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteBook(book.id)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 p-6 rounded-2xl">
+                      <span>Phase: {c.status}</span>
+                      <span className="text-[#3D8593]">Fee: ${c.feeUSD}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
-      </main>
+          )
+        }
 
-      {/* Product Edit/Add Modal */}
-      {editingProduct && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-[#0f1a1c]/60 backdrop-blur-sm" onClick={() => setEditingProduct(null)}></div>
-          <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-500">
-            <header className="px-10 py-8 bg-neutral-50 border-b border-neutral-100 flex justify-between items-center shrink-0">
-              <div>
-                <h3 className="text-3xl font-black tracking-tight text-gray-900">
-                  {editingProduct === 'new' ? 'New Global Stock Unit' : 'Refine Stock Specifications'}
-                </h3>
-                <p className="text-[10px] font-black uppercase text-[#3D8593] tracking-[0.3em] mt-1">Inventory Management Suite</p>
-              </div>
-              <button onClick={() => setEditingProduct(null)} className="p-3 hover:bg-white rounded-2xl transition-all">
-                <X className="w-6 h-6 text-gray-400" />
+        {/* CONTENT MANAGER */}
+        {
+          activeTab === 'content' && (
+            <div className="grid md:grid-cols-2 gap-12 animate-in fade-in duration-700">
+              {blogs.map(b => (
+                <div key={b.id} className="bg-white rounded-[4rem] p-10 border border-neutral-100 shadow-2xl group relative overflow-hidden">
+                  <div className="aspect-video rounded-[2.5rem] overflow-hidden mb-8 relative">
+                    <SafeImage src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                    <div className="absolute top-6 right-6 flex gap-3">
+                      <button onClick={() => setEditingBlog(b)} className="p-4 bg-white/90 backdrop-blur rounded-2xl shadow-xl hover:bg-white hover:scale-110 transition-all"><Edit3 className="w-5 h-5" /></button>
+                      <button onClick={() => handleDeleteBlog(b.id)} className="p-4 bg-rose-500 text-white rounded-2xl shadow-xl hover:bg-rose-600 hover:scale-110 transition-all"><Trash2 className="w-5 h-5" /></button>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest bg-teal-50 px-4 py-2 rounded-full">{b.category}</span>
+                  <h3 className="text-3xl font-black text-gray-900 mt-6 mb-4 leading-tight">{b.title}</h3>
+                  <p className="text-gray-400 text-sm font-medium leading-relaxed line-clamp-3 mb-8">{b.excerpt}</p>
+                </div>
+              ))}
+              <button onClick={() => setEditingBlog('new')} className="aspect-video border-4 border-dashed border-neutral-100 rounded-[4rem] flex flex-col items-center justify-center text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group">
+                <Plus className="w-16 h-16 mb-4 group-hover:rotate-90 transition-transform duration-500" />
+                <span className="font-black uppercase text-[12px] tracking-widest">New Intelligence Piece</span>
               </button>
-            </header>
+            </div>
+          )
+        }
 
-            <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-10 space-y-10">
-              <div className="grid md:grid-cols-2 gap-10">
-                <div className="space-y-6">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Smartphone className="w-3.5 h-3.5" /> Product Name</label>
-                    <input
-                      required
-                      name="name"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.name : ''}
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
-                      placeholder="e.g. iPhone 15 Pro Max"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><DollarSign className="w-3.5 h-3.5" /> Price (KES)</label>
-                      <input
-                        required
-                        type="number"
-                        name="priceKES"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.priceKES : ''}
-                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
-                        placeholder="120000"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><TrendingUp className="w-3.5 h-3.5" /> Old Price (Optional)</label>
-                      <input
-                        type="number"
-                        name="discountPriceKES"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.discountPriceKES : ''}
-                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
-                        placeholder="135000"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><ImageIcon className="w-3.5 h-3.5" /> Image URLs (Comma separated)</label>
-                    <input
-                      name="imageUrls"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.imageUrls.join(', ') : ''}
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
-                      placeholder="https://image1.com, https://image2.com"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Youtube className="w-3.5 h-3.5" /> Product Video URL (Optional)</label>
-                    <input
-                      name="videoUrl"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.videoUrl : ''}
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
-                      placeholder="https://youtube.com/watch?v=..."
-                    />
-                  </div>
+        {/* EBOOK MANAGEMENT */}
+        {
+          activeTab === 'books' && (
+            <div className="space-y-12 animate-in fade-in duration-700">
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-4">Digital Assets</h2>
+                  <h3 className="text-4xl font-bold text-gray-900 tracking-tighter">eBook <span className="text-[#3D8593]">Library</span></h3>
                 </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Tag className="w-3.5 h-3.5" /> Global Category</label>
-                    <input
-                      required
-                      name="category"
-                      defaultValue={typeof editingProduct === 'object' ? editingProduct.category : 'Electronics'}
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><RefreshCcw className="w-3.5 h-3.5" /> Availability</label>
-                      <select
-                        name="availability"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.availability : Availability.IMPORT}
-                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
-                      >
-                        <option value={Availability.LOCAL}>Local Stock</option>
-                        <option value={Availability.IMPORT}>On Import</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Truck className="w-3.5 h-3.5" /> Shipping ETA</label>
-                      <input
-                        name="shippingDuration"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.shippingDuration : '2-3 Weeks Air'}
-                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><List className="w-3.5 h-3.5" /> Stock Count & Meta</label>
-                    <div className="flex gap-2">
-                      <input
-                        name="stockCount"
-                        type="number"
-                        placeholder="Quantity"
-                        defaultValue={typeof editingProduct === 'object' ? editingProduct.stockCount : 0}
-                        className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold"
-                      />
-                      <div className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-gray-400 flex items-center">
-                        {typeof editingProduct === 'object' ? editingProduct.variations.length : 0} Variants
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <button
+                  onClick={() => setEditingBook('new')}
+                  className="px-8 h-16 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-3 shadow-2xl"
+                >
+                  <Plus className="w-4 h-4" /> Add New eBook
+                </button>
               </div>
 
-              {/* ADVANCED VARIATION MANAGER */}
-              <div className="bg-neutral-50 rounded-[2.5rem] p-8 space-y-6">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] flex items-center gap-2">
-                    <Box className="w-3.5 h-3.5" /> High-Ticket Variations
-                  </label>
-                  <button
-                    type="button"
-                    onClick={addVariation}
-                    className="px-4 py-2 bg-[#3D8593] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-neutral-900 transition-all flex items-center gap-2"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Option
-                  </button>
-                </div>
-
-                {localVariations.length === 0 ? (
-                  <p className="text-[10px] text-gray-400 font-bold italic py-4 text-center">No variations defined for this asset.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {localVariations.map((v, idx) => (
-                      <div key={idx} className="flex gap-3 animate-in slide-in-from-right-2 duration-300">
-                        <select
-                          value={v.type}
-                          onChange={(e) => updateVariation(idx, { type: e.target.value as any })}
-                          className="w-32 bg-white border border-neutral-100 rounded-xl px-3 py-3 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-teal-100"
-                        >
-                          <option value="Color">Color</option>
-                          <option value="Capacity">Capacity</option>
-                          <option value="Size">Size</option>
-                          <option value="Design">Design</option>
-                          <option value="Bundle">Bundle</option>
-                        </select>
-                        <input
-                          type="text"
-                          placeholder="Name (e.g. Titanium Blue)"
-                          value={v.name}
-                          onChange={(e) => updateVariation(idx, { name: e.target.value })}
-                          className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Variation Image URL"
-                          value={v.imageUrl || ''}
-                          onChange={(e) => updateVariation(idx, { imageUrl: e.target.value })}
-                          className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                        />
-                        <div className="relative w-32">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">KES</span>
-                          <input
-                            type="number"
-                            placeholder="Price"
-                            value={v.priceKES || ''}
-                            onChange={(e) => updateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
-                            className="w-full bg-white border border-neutral-100 rounded-xl pl-10 pr-3 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
-                          />
+              {editingBook && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-2xl" onClick={() => setEditingBook(null)} />
+                  <div className="relative w-full max-w-4xl bg-white rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] border border-neutral-100 overflow-hidden animate-in zoom-in-95 duration-500">
+                    <div className="h-2 bg-gradient-to-r from-[#3D8593] to-teal-200" />
+                    <form onSubmit={handleSaveBook} className="p-12 md:p-20 overflow-y-auto max-h-[85vh] no-scrollbar">
+                      <div className="flex justify-between items-start mb-16">
+                        <div>
+                          <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#3D8593] mb-4">Book Configuration</h4>
+                          <h5 className="text-4xl font-bold text-gray-900 tracking-tighter">
+                            {editingBook === 'new' ? 'Publish New Title' : 'Edit Book Metadata'}
+                          </h5>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeVariation(idx)}
-                          className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
+                        <button type="button" onClick={() => setEditingBook(null)} className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center hover:bg-rose-50 hover:text-rose-500 transition-all">
+                          <X className="w-6 h-6" />
                         </button>
                       </div>
-                    ))}
+
+                      <div className="grid md:grid-cols-2 gap-10">
+                        <div className="space-y-8">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Book Title</label>
+                            <input name="title" defaultValue={editingBook !== 'new' ? editingBook.title : ''} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Author / Knowledge Expert</label>
+                            <input name="author" defaultValue={editingBook !== 'new' ? editingBook.author : ''} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-6">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Base Price (KES)</label>
+                              <input name="priceKES" type="number" defaultValue={editingBook !== 'new' ? editingBook.priceKES : 0} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Sale Price (Optional)</label>
+                              <input name="discountPriceKES" type="number" defaultValue={editingBook !== 'new' ? editingBook.discountPriceKES : ''} className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-8">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Cover Image URL</label>
+                            <input name="coverImage" defaultValue={editingBook !== 'new' ? editingBook.coverImage : ''} required placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">PDF Download URL (Optional)</label>
+                            <input name="pdfUrl" defaultValue={editingBook !== 'new' ? editingBook.pdfUrl : ''} placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Short Description</label>
+                            <textarea name="description" defaultValue={editingBook !== 'new' ? editingBook.description : ''} rows={3} className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold resize-none" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-12">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Digital Content (HTML Recommended)</label>
+                        <textarea name="content" defaultValue={editingBook !== 'new' ? editingBook.content : ''} rows={10} required className="w-full bg-neutral-50 border-none rounded-[2.5rem] px-8 py-6 font-medium leading-relaxed" placeholder="<h1>Chapter 1</h1><p>Welcome to the masterclass...</p>" />
+                      </div>
+
+                      <div className="mt-16 flex justify-end gap-6">
+                        <button type="button" onClick={() => setEditingBook(null)} className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black">Cancel</button>
+                        <button type="submit" className="px-12 py-6 bg-[#3D8593] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all shadow-xl shadow-teal-100">
+                          Deploy Changes
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                )}
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {ebooks.map(book => (
+                  <div key={book.id} className="bg-white rounded-[3rem] p-8 border border-neutral-100 shadow-sm hover:shadow-xl transition-all group">
+                    <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden mb-6 shadow-lg">
+                      <SafeImage src={book.coverImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                    </div>
+                    <h4 className="text-xl font-bold text-gray-900 mb-1">{book.title}</h4>
+                    <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest mb-6">by {book.author}</p>
+                    <div className="flex items-center justify-between pt-6 border-t border-neutral-50">
+                      <div>
+                        <p className="text-lg font-black text-gray-900">KES {(book.discountPriceKES || book.priceKES).toLocaleString()}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditingBook(book)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-[#3D8593] hover:text-white transition-all">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteBook(book.id)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><AlignLeft className="w-3.5 h-3.5" /> Detailed Strategic Description</label>
-                <textarea
-                  required
-                  name="description"
-                  defaultValue={typeof editingProduct === 'object' ? editingProduct.description : ''}
-                  rows={4}
-                  className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none"
-                  placeholder="The most premium device featuring AI capabilities and titanium structure..."
-                />
-              </div>
-
-              <div className="flex gap-4 pt-4 shrink-0">
-                <button
-                  type="submit"
-                  className="flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-black transition-all"
-                >
-                  Confirm Stock Update
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="px-10 py-6 bg-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[11px] tracking-widest hover:bg-neutral-200 transition-all"
-                >
-                  Discard
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* PRICE EDIT MODAL */}
-      {editingPrice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[3rem] p-8 md:p-12 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 to-[#3D8593]" />
-
-            <div className="mb-8">
-              <h3 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Adjust Strategy</h3>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                Live Currency Sync & Margin Calc
-              </p>
             </div>
+          )
+        }
+      </main >
 
-            <div className="space-y-8">
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-3">
-                  <DollarSign className="w-3.5 h-3.5" /> Source Base Price (USD)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                  <input
-                    type="number"
-                    autoFocus
-                    value={priceEditUSD}
-                    onChange={(e) => handlePriceUSDChange(e.target.value)}
-                    className="w-full bg-neutral-50 border-none rounded-[2rem] pl-10 pr-6 py-5 text-xl font-black focus:ring-4 focus:ring-teal-100 transition-all outline-none"
-                    placeholder="0.00"
-                  />
+      {/* Product Edit/Add Modal */}
+      {
+        editingProduct && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
+            <div className="absolute inset-0 bg-[#0f1a1c]/60 backdrop-blur-sm" onClick={() => setEditingProduct(null)}></div>
+            <div className="relative bg-white w-full max-w-4xl max-h-[90vh] rounded-[3.5rem] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 duration-500">
+              <header className="px-10 py-8 bg-neutral-50 border-b border-neutral-100 flex justify-between items-center shrink-0">
+                <div>
+                  <h3 className="text-3xl font-black tracking-tight text-gray-900">
+                    {editingProduct === 'new' ? 'New Global Stock Unit' : 'Refine Stock Specifications'}
+                  </h3>
+                  <p className="text-[10px] font-black uppercase text-[#3D8593] tracking-[0.3em] mt-1">Inventory Management Suite</p>
                 </div>
-              </div>
+                <button onClick={() => setEditingProduct(null)} className="p-3 hover:bg-white rounded-2xl transition-all">
+                  <X className="w-6 h-6 text-gray-400" />
+                </button>
+              </header>
 
-              <div className={`p-8 rounded-[2.5rem] transition-all bg-neutral-50 border border-neutral-100`}>
-                <div className="flex justify-between items-start mb-4">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
-                    <RefreshCcw className="w-3.5 h-3.5" /> Calculated Output
-                  </label>
-                  <button
-                    onClick={() => setPriceManualOverride(!priceManualOverride)}
-                    className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest transition-all border ${priceManualOverride ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-white text-gray-400 border-neutral-200 hover:border-gray-300'}`}
-                  >
-                    {priceManualOverride ? 'Manual Mode Active' : 'Auto-Sync Mode'}
-                  </button>
-                </div>
-
-                {priceCalculating ? (
-                  <div className="flex items-center gap-2 text-teal-600 font-medium py-2">
-                    <RefreshCcw className="w-4 h-4 animate-spin" />
-                    <span className="text-xs uppercase tracking-widest">Calculating...</span>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    {priceManualOverride ? (
-                      <div className="relative">
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-900 font-black text-sm">KES</span>
+              <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-10 space-y-10">
+                <div className="grid md:grid-cols-2 gap-10">
+                  <div className="space-y-6">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Smartphone className="w-3.5 h-3.5" /> Product Name</label>
+                      <input
+                        required
+                        name="name"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.name : ''}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                        placeholder="e.g. iPhone 15 Pro Max"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><DollarSign className="w-3.5 h-3.5" /> Price (KES)</label>
                         <input
+                          required
                           type="number"
-                          value={priceEditKES || ''}
-                          onChange={(e) => setPriceEditKES(parseFloat(e.target.value))}
-                          className="w-full bg-white border-2 border-orange-100 rounded-2xl pl-12 pr-4 py-3 font-black text-2xl text-gray-900 focus:outline-none focus:border-orange-300"
+                          name="priceKES"
+                          defaultValue={typeof editingProduct === 'object' ? editingProduct.priceKES : ''}
+                          className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                          placeholder="120000"
                         />
                       </div>
-                    ) : (
-                      <p className="text-4xl font-black text-gray-900 tracking-tighter">
-                        KES {(priceEditKES || 0).toLocaleString()}
-                      </p>
-                    )}
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><TrendingUp className="w-3.5 h-3.5" /> Old Price (Optional)</label>
+                        <input
+                          type="number"
+                          name="discountPriceKES"
+                          defaultValue={typeof editingProduct === 'object' ? editingProduct.discountPriceKES : ''}
+                          className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                          placeholder="135000"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><ImageIcon className="w-3.5 h-3.5" /> Image URLs (Comma separated)</label>
+                      <input
+                        name="imageUrls"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.imageUrls.join(', ') : ''}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
+                        placeholder="https://image1.com, https://image2.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Youtube className="w-3.5 h-3.5" /> Product Video URL (Optional)</label>
+                      <input
+                        name="videoUrl"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.videoUrl : ''}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium focus:ring-4 focus:ring-teal-100 transition-all text-xs"
+                        placeholder="https://youtube.com/watch?v=..."
+                      />
+                    </div>
                   </div>
-                )}
 
-                {!priceManualOverride && (
-                  <p className="text-[9px] font-bold text-gray-400 mt-4 leading-relaxed">
-                    Includes flat logistics fee ($20 + 3.5%) + service fee. Strategy auto-rounds up.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-4 pt-2">
-                <button
-                  onClick={handleSavePriceEdit}
-                  disabled={priceSaving || priceCalculating}
-                  className="flex-1 py-5 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-black hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {priceSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {priceSaving ? 'Syncing...' : 'Save Strategy'}
-                </button>
-                <button
-                  onClick={() => setEditingPrice(null)}
-                  disabled={priceSaving}
-                  className="px-8 py-5 bg-white border border-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:bg-neutral-50 transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* BLOG EDIT MODAL */}
-      {editingBlog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-[3rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden h-[90vh]">
-            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 to-[#3D8593]" />
-            <div className="absolute top-0 right-0 p-8 z-10">
-              <button
-                onClick={() => setEditingBlog(null)}
-                className="p-2 bg-white rounded-full hover:bg-neutral-50 transition-colors shadow-sm"
-              >
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-
-            <div className="h-full flex flex-col">
-              <div className="mb-6 shrink-0">
-                <h3 className="text-3xl font-black text-gray-900 tracking-tight mb-2">
-                  {editingBlog === 'new' ? 'New Intelligence Piece' : 'Edit Intelligence'}
-                </h3>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                  Content Management System
-                </p>
-              </div>
-
-              <form onSubmit={handleSaveBlog} className="flex-1 overflow-y-auto pr-2 space-y-6 no-scrollbar pb-6">
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
-                    <FileText className="w-3.5 h-3.5" /> Headline / Title
-                  </label>
-                  <input
-                    required
-                    name="title"
-                    defaultValue={editingBlog !== 'new' ? editingBlog.title : ''}
-                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all"
-                    placeholder="Enter article title..."
-                  />
+                  <div className="space-y-6">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Tag className="w-3.5 h-3.5" /> Global Category</label>
+                      <input
+                        required
+                        name="category"
+                        defaultValue={typeof editingProduct === 'object' ? editingProduct.category : 'Electronics'}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><RefreshCcw className="w-3.5 h-3.5" /> Availability</label>
+                        <select
+                          name="availability"
+                          defaultValue={typeof editingProduct === 'object' ? editingProduct.availability : Availability.IMPORT}
+                          className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                        >
+                          <option value={Availability.LOCAL}>Local Stock</option>
+                          <option value={Availability.IMPORT}>On Import</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><Truck className="w-3.5 h-3.5" /> Shipping ETA</label>
+                        <input
+                          name="shippingDuration"
+                          defaultValue={typeof editingProduct === 'object' ? editingProduct.shippingDuration : '2-3 Weeks Air'}
+                          className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><List className="w-3.5 h-3.5" /> Stock Count & Meta</label>
+                      <div className="flex gap-2">
+                        <input
+                          name="stockCount"
+                          type="number"
+                          placeholder="Quantity"
+                          defaultValue={typeof editingProduct === 'object' ? editingProduct.stockCount : 0}
+                          className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold"
+                        />
+                        <div className="flex-1 bg-neutral-50 border-none rounded-2xl px-4 py-3 text-xs font-bold text-gray-400 flex items-center">
+                          {typeof editingProduct === 'object' ? editingProduct.variations.length : 0} Variants
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
-                      <Tag className="w-3.5 h-3.5" /> Category
+                {/* ADVANCED VARIATION MANAGER */}
+                <div className="bg-neutral-50 rounded-[2.5rem] p-8 space-y-6">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] flex items-center gap-2">
+                      <Box className="w-3.5 h-3.5" /> High-Ticket Variations
                     </label>
-                    <select
-                      name="category"
-                      defaultValue={editingBlog !== 'new' ? editingBlog.category : 'Tech Insights'}
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all"
+                    <button
+                      type="button"
+                      onClick={addVariation}
+                      className="px-4 py-2 bg-[#3D8593] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-neutral-900 transition-all flex items-center gap-2"
                     >
-                      <option value="Tech Insights">Tech Insights</option>
-                      <option value="Market Analysis">Market Analysis</option>
-                      <option value="Product Reviews">Product Reviews</option>
-                      <option value="Company News">Company News</option>
-                    </select>
+                      <Plus className="w-3.5 h-3.5" /> Add Option
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
-                      <User className="w-3.5 h-3.5" /> Author
-                    </label>
-                    <input
-                      name="author"
-                      defaultValue={editingBlog !== 'new' ? editingBlog.author : 'Admin'}
-                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all"
-                    />
-                  </div>
+
+                  {localVariations.length === 0 ? (
+                    <p className="text-[10px] text-gray-400 font-bold italic py-4 text-center">No variations defined for this asset.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {localVariations.map((v, idx) => (
+                        <div key={idx} className="flex gap-3 animate-in slide-in-from-right-2 duration-300">
+                          <select
+                            value={v.type}
+                            onChange={(e) => updateVariation(idx, { type: e.target.value as any })}
+                            className="w-32 bg-white border border-neutral-100 rounded-xl px-3 py-3 text-[10px] font-black uppercase outline-none focus:ring-2 focus:ring-teal-100"
+                          >
+                            <option value="Color">Color</option>
+                            <option value="Capacity">Capacity</option>
+                            <option value="Size">Size</option>
+                            <option value="Design">Design</option>
+                            <option value="Bundle">Bundle</option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Name (e.g. Titanium Blue)"
+                            value={v.name}
+                            onChange={(e) => updateVariation(idx, { name: e.target.value })}
+                            className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Variation Image URL"
+                            value={v.imageUrl || ''}
+                            onChange={(e) => updateVariation(idx, { imageUrl: e.target.value })}
+                            className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                          />
+                          <div className="relative w-32">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">KES</span>
+                            <input
+                              type="number"
+                              placeholder="Price"
+                              value={v.priceKES || ''}
+                              onChange={(e) => updateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-white border border-neutral-100 rounded-xl pl-10 pr-3 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeVariation(idx)}
+                            className="p-3 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
-                    <ImageIcon className="w-3.5 h-3.5" /> Cover Image URL
-                  </label>
-                  <input
-                    required
-                    name="imageUrl"
-                    defaultValue={editingBlog !== 'new' ? editingBlog.imageUrl : ''}
-                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all"
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
-                    <AlignLeft className="w-3.5 h-3.5" /> Short Excerpt
-                  </label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2"><AlignLeft className="w-3.5 h-3.5" /> Detailed Strategic Description</label>
                   <textarea
                     required
-                    name="excerpt"
-                    defaultValue={editingBlog !== 'new' ? editingBlog.excerpt : ''}
-                    rows={2}
-                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none"
-                    placeholder="Brief summary for the card view..."
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
-                    <FileText className="w-3.5 h-3.5" /> Full Article Content
-                  </label>
-                  <textarea
-                    required
-                    name="content"
-                    defaultValue={editingBlog !== 'new' ? editingBlog.content : ''}
-                    rows={12}
-                    className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-base focus:ring-4 focus:ring-teal-100 transition-all resize-none leading-relaxed"
-                    placeholder="Write your article content here..."
+                    name="description"
+                    defaultValue={typeof editingProduct === 'object' ? editingProduct.description : ''}
+                    rows={4}
+                    className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none"
+                    placeholder="The most premium device featuring AI capabilities and titanium structure..."
                   />
                 </div>
 
@@ -1808,11 +1683,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     type="submit"
                     className="flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-black transition-all"
                   >
-                    {editingBlog === 'new' ? 'Publish Piece' : 'Save Changes'}
+                    Confirm Stock Update
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditingBlog(null)}
+                    onClick={() => setEditingProduct(null)}
                     className="px-10 py-6 bg-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[11px] tracking-widest hover:bg-neutral-200 transition-all"
                   >
                     Discard
@@ -1821,77 +1696,309 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </form>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* PRICE EDIT MODAL */}
+      {
+        editingPrice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-[3rem] p-8 md:p-12 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 to-[#3D8593]" />
+
+              <div className="mb-8">
+                <h3 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Adjust Strategy</h3>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  Live Currency Sync & Margin Calc
+                </p>
+              </div>
+
+              <div className="space-y-8">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-3">
+                    <DollarSign className="w-3.5 h-3.5" /> Source Base Price (USD)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                    <input
+                      type="number"
+                      autoFocus
+                      value={priceEditUSD}
+                      onChange={(e) => handlePriceUSDChange(e.target.value)}
+                      className="w-full bg-neutral-50 border-none rounded-[2rem] pl-10 pr-6 py-5 text-xl font-black focus:ring-4 focus:ring-teal-100 transition-all outline-none"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div className={`p-8 rounded-[2.5rem] transition-all bg-neutral-50 border border-neutral-100`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                      <RefreshCcw className="w-3.5 h-3.5" /> Calculated Output
+                    </label>
+                    <button
+                      onClick={() => setPriceManualOverride(!priceManualOverride)}
+                      className={`px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest transition-all border ${priceManualOverride ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-white text-gray-400 border-neutral-200 hover:border-gray-300'}`}
+                    >
+                      {priceManualOverride ? 'Manual Mode Active' : 'Auto-Sync Mode'}
+                    </button>
+                  </div>
+
+                  {priceCalculating ? (
+                    <div className="flex items-center gap-2 text-teal-600 font-medium py-2">
+                      <RefreshCcw className="w-4 h-4 animate-spin" />
+                      <span className="text-xs uppercase tracking-widest">Calculating...</span>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {priceManualOverride ? (
+                        <div className="relative">
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-900 font-black text-sm">KES</span>
+                          <input
+                            type="number"
+                            value={priceEditKES || ''}
+                            onChange={(e) => setPriceEditKES(parseFloat(e.target.value))}
+                            className="w-full bg-white border-2 border-orange-100 rounded-2xl pl-12 pr-4 py-3 font-black text-2xl text-gray-900 focus:outline-none focus:border-orange-300"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-4xl font-black text-gray-900 tracking-tighter">
+                          KES {(priceEditKES || 0).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {!priceManualOverride && (
+                    <p className="text-[9px] font-bold text-gray-400 mt-4 leading-relaxed">
+                      Includes flat logistics fee ($20 + 3.5%) + service fee. Strategy auto-rounds up.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-4 pt-2">
+                  <button
+                    onClick={handleSavePriceEdit}
+                    disabled={priceSaving || priceCalculating}
+                    className="flex-1 py-5 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-xl hover:bg-black hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {priceSaving ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {priceSaving ? 'Syncing...' : 'Save Strategy'}
+                  </button>
+                  <button
+                    onClick={() => setEditingPrice(null)}
+                    disabled={priceSaving}
+                    className="px-8 py-5 bg-white border border-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:bg-neutral-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* BLOG EDIT MODAL */}
+      {
+        editingBlog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-[3rem] p-8 md:p-12 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden h-[90vh]">
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-teal-400 to-[#3D8593]" />
+              <div className="absolute top-0 right-0 p-8 z-10">
+                <button
+                  onClick={() => setEditingBlog(null)}
+                  className="p-2 bg-white rounded-full hover:bg-neutral-50 transition-colors shadow-sm"
+                >
+                  <X className="w-6 h-6 text-gray-400" />
+                </button>
+              </div>
+
+              <div className="h-full flex flex-col">
+                <div className="mb-6 shrink-0">
+                  <h3 className="text-3xl font-black text-gray-900 tracking-tight mb-2">
+                    {editingBlog === 'new' ? 'New Intelligence Piece' : 'Edit Intelligence'}
+                  </h3>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    Content Management System
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveBlog} className="flex-1 overflow-y-auto pr-2 space-y-6 no-scrollbar pb-6">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                      <FileText className="w-3.5 h-3.5" /> Headline / Title
+                    </label>
+                    <input
+                      required
+                      name="title"
+                      defaultValue={editingBlog !== 'new' ? editingBlog.title : ''}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all"
+                      placeholder="Enter article title..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                        <Tag className="w-3.5 h-3.5" /> Category
+                      </label>
+                      <select
+                        name="category"
+                        defaultValue={editingBlog !== 'new' ? editingBlog.category : 'Tech Insights'}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all"
+                      >
+                        <option value="Tech Insights">Tech Insights</option>
+                        <option value="Market Analysis">Market Analysis</option>
+                        <option value="Product Reviews">Product Reviews</option>
+                        <option value="Company News">Company News</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                        <User className="w-3.5 h-3.5" /> Author
+                      </label>
+                      <input
+                        name="author"
+                        defaultValue={editingBlog !== 'new' ? editingBlog.author : 'Admin'}
+                        className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                      <ImageIcon className="w-3.5 h-3.5" /> Cover Image URL
+                    </label>
+                    <input
+                      required
+                      name="imageUrl"
+                      defaultValue={editingBlog !== 'new' ? editingBlog.imageUrl : ''}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all"
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                      <AlignLeft className="w-3.5 h-3.5" /> Short Excerpt
+                    </label>
+                    <textarea
+                      required
+                      name="excerpt"
+                      defaultValue={editingBlog !== 'new' ? editingBlog.excerpt : ''}
+                      rows={2}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-medium text-sm focus:ring-4 focus:ring-teal-100 transition-all resize-none"
+                      placeholder="Brief summary for the card view..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-2">
+                      <FileText className="w-3.5 h-3.5" /> Full Article Content
+                    </label>
+                    <textarea
+                      required
+                      name="content"
+                      defaultValue={editingBlog !== 'new' ? editingBlog.content : ''}
+                      rows={12}
+                      className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-medium text-base focus:ring-4 focus:ring-teal-100 transition-all resize-none leading-relaxed"
+                      placeholder="Write your article content here..."
+                    />
+                  </div>
+
+                  <div className="flex gap-4 pt-4 shrink-0">
+                    <button
+                      type="submit"
+                      className="flex-1 py-6 bg-neutral-900 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest shadow-2xl hover:bg-black transition-all"
+                    >
+                      {editingBlog === 'new' ? 'Publish Piece' : 'Save Changes'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingBlog(null)}
+                      className="px-10 py-6 bg-neutral-100 text-gray-400 rounded-[2rem] font-black uppercase text-[11px] tracking-widest hover:bg-neutral-200 transition-all"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       {/* HIDDEN PRINT TEMPLATE */}
-      {printingInvoice && (
-        <div id="printable-invoice" className="hidden print:block fixed inset-0 z-[-1] bg-white p-12 text-black">
-          <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
-            <div>
-              <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">LEGIT GRINDER</h1>
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">Official Sales Invoice / Ship Label</p>
+      {
+        printingInvoice && (
+          <div id="printable-invoice" className="hidden print:block fixed inset-0 z-[-1] bg-white p-12 text-black">
+            <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
+              <div>
+                <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">LEGIT GRINDER</h1>
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">Official Sales Invoice / Ship Label</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xl font-black">#{printingInvoice.invoiceNumber}</p>
+                <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">{new Date().toLocaleDateString()}</p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xl font-black">#{printingInvoice.invoiceNumber}</p>
-              <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">{new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-12 mb-12">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Consignee Details</p>
-              <p className="text-2xl font-black mb-2">{printingInvoice.clientName}</p>
-              <p className="text-sm font-bold text-gray-600 mb-1">{printingInvoice.email}</p>
-              <p className="text-sm font-bold text-gray-600">{printingInvoice.phone}</p>
+            <div className="grid grid-cols-2 gap-12 mb-12">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Consignee Details</p>
+                <p className="text-2xl font-black mb-2">{printingInvoice.clientName}</p>
+                <p className="text-sm font-bold text-gray-600 mb-1">{printingInvoice.email}</p>
+                <p className="text-sm font-bold text-gray-600">{printingInvoice.phone}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Shipping Destination</p>
+                <p className="text-lg font-bold mb-2">{printingInvoice.location}</p>
+                <p className="text-[10px] font-black uppercase py-2 px-4 bg-black text-white rounded inline-block">
+                  Priority Fulfillment
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4">Shipping Destination</p>
-              <p className="text-lg font-bold mb-2">{printingInvoice.location}</p>
-              <p className="text-[10px] font-black uppercase py-2 px-4 bg-black text-white rounded inline-block">
-                Priority Fulfillment
-              </p>
-            </div>
-          </div>
 
-          <div className="border-t-2 border-neutral-100 pt-8">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b-2 border-black">
-                  <th className="py-4 text-[10px] font-black uppercase tracking-widest">Article Description</th>
-                  <th className="py-4 text-right text-[10px] font-black uppercase tracking-widest">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-neutral-100">
-                  <td className="py-6">
-                    <p className="text-lg font-black uppercase">{printingInvoice.productName}</p>
-                    <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Standard Legit Assurance Warranty Included</p>
-                  </td>
-                  <td className="py-6 text-right">
-                    <p className="text-xl font-black">KES {printingInvoice.totalKES?.toLocaleString()}</p>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-12 flex justify-between items-end border-t-2 border-black pt-8">
-            <div>
-              <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">Authenticator Signature</p>
-              <div className="w-48 h-12 border-b-2 border-neutral-200"></div>
+            <div className="border-t-2 border-neutral-100 pt-8">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b-2 border-black">
+                    <th className="py-4 text-[10px] font-black uppercase tracking-widest">Article Description</th>
+                    <th className="py-4 text-right text-[10px] font-black uppercase tracking-widest">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-neutral-100">
+                    <td className="py-6">
+                      <p className="text-lg font-black uppercase">{printingInvoice.productName}</p>
+                      <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Standard Legit Assurance Warranty Included</p>
+                    </td>
+                    <td className="py-6 text-right">
+                      <p className="text-xl font-black">KES {printingInvoice.totalKES?.toLocaleString()}</p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Status</p>
-              <p className="text-xl font-black uppercase tracking-widest">{printingInvoice.status}</p>
+
+            <div className="mt-12 flex justify-between items-end border-t-2 border-black pt-8">
+              <div>
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2">Authenticator Signature</p>
+                <div className="w-48 h-12 border-b-2 border-neutral-200"></div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-black uppercase text-gray-400 mb-1">Status</p>
+                <p className="text-xl font-black uppercase tracking-widest">{printingInvoice.status}</p>
+              </div>
+            </div>
+
+            <div className="mt-20 pt-8 border-t border-dashed border-gray-200 text-center">
+              <p className="text-[9px] font-black uppercase tracking-[0.5em] text-gray-300 italic">Authenticity Guaranteed by LEGIT GRINDER • Logistics Dept</p>
             </div>
           </div>
-
-          <div className="mt-20 pt-8 border-t border-dashed border-gray-200 text-center">
-            <p className="text-[9px] font-black uppercase tracking-[0.5em] text-gray-300 italic">Authenticity Guaranteed by LEGIT GRINDER • Logistics Dept</p>
-          </div>
-        </div>
-      )}
+        )
+      }
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -1910,6 +2017,192 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
         }
       `}</style>
+      {/* MANUAL INVOICE CREATION MODAL */}
+      {isCreatingManualInvoice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[4rem] p-12 w-full max-w-xl shadow-[0_0_100px_rgba(0,0,0,0.4)] animate-in zoom-in-95 duration-300 relative border border-white/20">
+            <button
+              onClick={() => setIsCreatingManualInvoice(false)}
+              className="absolute top-10 right-10 p-4 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
+            >
+              <X className="w-6 h-6 text-gray-400" />
+            </button>
+
+            <div className="mb-12">
+              <h3 className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-4 uppercase">Direct <span className="text-[#3D8593]">Protocol</span></h3>
+              <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-[0.3em]">Manual Entry & Logistics Initialization</p>
+            </div>
+
+            <form onSubmit={handleCreateManualOrder} className="space-y-8">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client Full Name</label>
+                  <input required name="clientName" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Dennis Munga" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Product Specification</label>
+                  <input required name="productName" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. M3 Pro MacBook Pro 14" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Quantity</label>
+                  <input required type="number" name="quantity" defaultValue="1" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES)</label>
+                  <input required type="number" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 bg-teal-50/50 p-6 rounded-3xl border border-teal-100/50">
+                <input type="checkbox" name="isPaid" id="isPaid" className="w-6 h-6 rounded-lg border-teal-200 text-[#3D8593] focus:ring-[#3D8593]" />
+                <label htmlFor="isPaid" className="font-bold text-sm text-gray-600">Mark as Paid Immediately</label>
+              </div>
+
+              <div className="flex gap-4 pt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingManualInvoice(false)}
+                  className="flex-1 py-6 bg-neutral-100 text-gray-400 rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[2] py-6 bg-[#3D8593] text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-[0_20px_40px_rgba(61,133,147,0.3)] shadow-teal-100"
+                >
+                  Initialize Logistics
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* RECEIPT DATA CAPTURE MODAL */}
+      {printingReceiptInvoice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[4rem] p-10 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 relative border border-white/20">
+            <button
+              onClick={() => setPrintingReceiptInvoice(null)}
+              className="absolute top-8 right-8 p-3 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+
+            <div className="mb-8">
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Elite <span className="text-rose-500">Receipting</span></h3>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: LG-{printingReceiptInvoice.invoiceNumber}</p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const sumInWords = formData.get('sumInWords') as string;
+              const amountReceived = formData.get('amountReceived') as string;
+              const balance = formData.get('balance') as string;
+
+              const inv = printingReceiptInvoice;
+              const printWin = window.open('', '', 'width=900,height=800');
+              if (!printWin) return;
+              const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
+
+              printWin.document.write(`
+                <html>
+                  <head>
+                    <title>Receipt LG-${inv.invoiceNumber}</title>
+                    <style>
+                      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+                      body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1a1a; }
+                      .container { border: 1px solid #ccc; padding: 40px; position: relative; }
+                      .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.05; width: 60%; z-index: -1; }
+                      .header-logo { text-align: center; margin-bottom: 20px; }
+                      .header-logo img { width: 100px; }
+                      .contact-bar { display: flex; justify-content: space-between; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; font-size: 11px; margin-bottom: 30px; font-weight: 600; }
+                      .receipt-label { background: black; color: white; display: inline-block; padding: 5px 20px; font-size: 14px; font-weight: 900; margin-bottom: 40px; letter-spacing: 2px; text-transform: uppercase; }
+                      .top-meta { display: flex; justify-content: space-between; margin-bottom: 40px; }
+                      .field { margin-bottom: 25px; display: flex; align-items: flex-end; font-size: 15px; }
+                      .field label { font-weight: 500; min-width: 140px; }
+                      .field div { border-bottom: 1px solid #999; flex: 1; margin-left: 10px; padding: 3px 10px; font-weight: 700; font-style: italic; }
+                      .financial-summary { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; }
+                      .summary-table { border-collapse: collapse; width: 250px; }
+                      .summary-table td { border: 1px solid #ccc; padding: 10px; font-size: 13px; font-weight: 500; }
+                      .summary-table .val { text-align: right; font-weight: 900; }
+                      .signature { border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 10px; font-size: 12px; font-weight: 700; }
+                      .invoice-ref { text-align: right; font-size: 13px; font-weight: 700; }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="container">
+                      <img src="${logoUrl}" class="watermark" />
+                      <div class="header-logo">
+                        <img src="${logoUrl}" />
+                      </div>
+                      <div class="contact-bar">
+                        <div>Email: Mungaimports@gmail.com</div>
+                        <div>Socials: LegitGrinder Ke</div>
+                        <div>Phone: +254 791873538</div>
+                      </div>
+                      <center><div class="receipt-label">RECEIPT</div></center>
+                      
+                      <div class="top-meta">
+                        <div class="field" style="width: 45%"><label>Date:</label> <div>${new Date().toLocaleDateString('en-GB')}</div></div>
+                        <div class="field" style="width: 45%"><label>Receipt No:</label> <div>LG-${inv.invoiceNumber}</div></div>
+                      </div>
+
+                      <div class="field"><label>Received From:</label> <div>${inv.clientName}</div></div>
+                      <div class="field"><label>The sum of money:</label> <div>${sumInWords}</div></div>
+                      <div class="field"><label>REF:</label> <div>${inv.paystackReference || 'MANUAL-ENTRY'}</div></div>
+                      <div class="field"><label>Being Payment of:</label> <div>${inv.productName}</div></div>
+
+                      <div class="financial-summary">
+                        <table class="summary-table">
+                          <tr><td>Amount received:</td> <td class="val" style="color: #3d8593;">KES ${parseFloat(amountReceived).toLocaleString()}</td></tr>
+                          <tr><td>Balance:</td> <td class="val" style="color: #ef4444;">KES ${parseFloat(balance).toLocaleString()}</td></tr>
+                          <tr><td style="background: #f9f9f9;">Total:</td> <td class="val" style="background: #f9f9f9; color: #3d8593;">KES ${inv.totalKES.toLocaleString()}</td></tr>
+                        </table>
+                        
+                        <div>
+                          <div class="invoice-ref">Invoice No: IG-${inv.invoiceNumber}</div>
+                          <div style="margin-top: 40px;" class="signature">
+                            Dennis Munga<br/>
+                            Recieved/Approved By:
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </body>
+                </html>
+              `);
+              printWin.document.close();
+              setTimeout(() => {
+                printWin.print();
+                setPrintingReceiptInvoice(null);
+              }, 500);
+            }} className="space-y-6">
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Sum in Words</label>
+                <input required name="sumInWords" placeholder="e.g. Fifty thousand three hundred only" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Amount Received</label>
+                  <input required name="amountReceived" type="number" defaultValue={printingReceiptInvoice.totalKES} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Balance Due</label>
+                  <input required name="balance" type="number" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-5 bg-rose-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl shadow-rose-100"
+              >
+                Generate Print Preview
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

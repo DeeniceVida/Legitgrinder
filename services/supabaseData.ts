@@ -331,6 +331,36 @@ export const updateInvoiceStatus = async (id: string, status: OrderStatus, progr
         return { success: false, error };
     }
 };
+
+export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string }> => {
+    try {
+        // Generate a simple numeric invoice number if not provided
+        const invoiceNumber = invoiceData.invoiceNumber || Math.floor(1000 + Math.random() * 9000).toString();
+
+        const { data, error } = await supabase
+            .from('invoices')
+            .insert({
+                invoice_number: invoiceNumber,
+                client_name: invoiceData.clientName,
+                product_name: invoiceData.productName,
+                quantity: invoiceData.quantity || 1,
+                total_kes: invoiceData.totalKES,
+                status: OrderStatus.RECEIVED_BY_AGENT,
+                is_paid: invoiceData.isPaid || false,
+                progress: 10,
+                last_update: new Date().toISOString(),
+                user_id: invoiceData.userId // Optional link to user account
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return { success: true, id: data.id };
+    } catch (error) {
+        console.error('Error creating manual invoice:', error);
+        return { success: false, error };
+    }
+};
 // ========================================
 
 // Price Calculator with Full Fee Structure

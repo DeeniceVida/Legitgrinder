@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, MapPin, Clock, CheckCircle2, Package, Truck, Boxes, Lock, ArrowRight } from 'lucide-react';
 import { STATUS_SEQUENCE } from '../constants';
 import { OrderStatus, Invoice, getOrderProgress } from '../types';
@@ -14,10 +14,20 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, onNavigate, invoices })
   const [invoiceInput, setInvoiceInput] = useState('');
   const [searchedInvoice, setSearchedInvoice] = useState<Invoice | null>(null);
 
-  const handleSearch = () => {
-    const found = invoices.find(inv => inv.invoiceNumber === invoiceInput);
+  const handleSearch = (id?: string) => {
+    const searchId = id || invoiceInput;
+    const found = invoices.find(inv => inv.invoiceNumber === searchId);
     setSearchedInvoice(found || null);
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) {
+      setInvoiceInput(id);
+      handleSearch(id);
+    }
+  }, [invoices]);
 
   return (
     <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
