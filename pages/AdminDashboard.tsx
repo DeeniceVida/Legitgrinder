@@ -810,7 +810,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="px-10 py-10">
                         <select
                           value={inv.status}
-                          onChange={(e) => updateInvoiceStatus(inv.id, e.target.value as OrderStatus)}
+                          onChange={(e) => updateInvoiceStatusInDB(inv.id, e.target.value as OrderStatus, getOrderProgress(e.target.value as OrderStatus))}
                           className="bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100"
                         >
                           {Object.values(OrderStatus).map(s => <option key={s} value={s}>{s}</option>)}
