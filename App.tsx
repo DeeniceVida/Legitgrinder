@@ -12,6 +12,7 @@ import Collaboration from './pages/Collaboration';
 import ConsultationPage from './pages/Consultation';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
+import Books from './pages/Books';
 import OrderHistory from './pages/OrderHistory';
 import AIAssistant from './components/AIAssistant';
 import SafeImage from './components/SafeImage';
@@ -25,7 +26,8 @@ import {
   fetchConsultations,
   fetchBlogsData,
   fetchInvoicesData,
-  logVisit
+  logVisit,
+  fetchEBooks
 } from './services/supabaseData';
 import {
   Instagram, Youtube, Globe
@@ -33,7 +35,7 @@ import {
 import { PHONE_MODELS_SCHEMA } from './constants';
 import {
   OrderStatus, Availability, Product, BlogPost, FAQItem,
-  Client, Invoice, PricelistItem, Consultation, ConsultationStatus
+  Client, Invoice, PricelistItem, Consultation, ConsultationStatus, EBook
 } from './types';
 
 const App: React.FC = () => {
@@ -62,6 +64,9 @@ const App: React.FC = () => {
 
   // Consultations
   const [consultations, setConsultations] = useState<Consultation[]>([]);
+
+  // eBooks
+  const [ebooks, setEbooks] = useState<EBook[]>([]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -140,6 +145,9 @@ const App: React.FC = () => {
         setConsultations(cons || []);
         setBlogs(blogsData || []);
         setInvoices(invs || []);
+
+        const ebooksData = await fetchEBooks();
+        setEbooks(ebooksData || []);
       } catch (error) {
         console.error('Error loading data from Supabase:', error);
       }
@@ -171,6 +179,7 @@ const App: React.FC = () => {
       case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
       case 'calculators': return <Calculators />;
       case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
+      case 'books': return <Books />;
       case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
       case 'history': return <OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} onNavigate={setCurrentPage} />;
       case 'admin': return (
@@ -227,6 +236,7 @@ const App: React.FC = () => {
               <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-10">Solutions</h4>
               <ul className="space-y-4 text-gray-400 text-lg font-light">
                 <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('shop')}>Shop</li>
+                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('books')}>eBooks</li>
                 <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('blogs')}>Blogs & FAQ</li>
                 <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('pricelist')}>Market Prices</li>
               </ul>

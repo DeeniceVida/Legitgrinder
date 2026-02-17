@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus, BlogPost, FAQItem, Invoice, OrderStatus, SourcingRequest } from '../types';
+import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus, BlogPost, FAQItem, Invoice, OrderStatus, SourcingRequest, EBook } from '../types';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
     try {
@@ -821,5 +821,123 @@ export const fetchVisitCount = async (): Promise<number> => {
     } catch (error) {
         console.error('Error fetching visit count:', error);
         return 0;
+    }
+};
+
+// eBooks & Digital Assets
+export const fetchEBooks = async (): Promise<EBook[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('ebooks')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(b => ({
+            id: b.id,
+            title: b.title,
+            author: b.author,
+            description: b.description,
+            priceKES: b.price_kes,
+            discountPriceKES: b.discount_price_kes,
+            coverImage: b.cover_image,
+            content: b.content,
+            pdfUrl: b.pdf_url,
+            createdAt: b.created_at
+        }));
+    } catch (error) {
+        console.error('Error fetching ebooks:', error);
+        return [];
+    }
+};
+
+export const fetchUserPurchasedBooks = async (userId: string): Promise<string[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('ebook_purchases')
+            .select('book_id')
+            .eq('user_id', userId);
+
+        if (error) throw error;
+        return (data || []).map(p => p.book_id);
+    } catch (error) {
+        console.error('Error fetching user purchases:', error);
+        return [];
+    }
+};
+
+export const recordBookPurchase = async (userId: string, bookId: string): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('ebook_purchases')
+            .insert({ user_id: userId, book_id: bookId });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error recording book purchase:', error);
+        return { success: false, error };
+    }
+};
+
+export const createEBook = async (book: Partial<EBook>): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('ebooks')
+            .insert({
+                title: book.title,
+                author: book.author,
+                description: book.description,
+                price_kes: book.priceKES,
+                discount_price_kes: book.discountPriceKES,
+                cover_image: book.coverImage,
+                content: book.content,
+                pdf_url: book.pdfUrl
+            });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error creating ebook:', error);
+        return { success: false, error };
+    }
+};
+
+export const updateEBook = async (id: string, updates: Partial<EBook>): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('ebooks')
+            .update({
+                title: updates.title,
+                author: updates.author,
+                description: updates.description,
+                price_kes: updates.priceKES,
+                discount_price_kes: updates.discountPriceKES,
+                cover_image: updates.coverImage,
+                content: updates.content,
+                pdf_url: updates.pdfUrl
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating ebook:', error);
+        return { success: false, error };
+    }
+};
+
+export const deleteEBook = async (id: string): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('ebooks')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting ebook:', error);
+        return { success: false, error };
     }
 };

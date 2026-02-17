@@ -199,3 +199,23 @@ export const getOrderProgress = (status: OrderStatus): number => {
   }
 };
 
+
+export interface EBook {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  priceKES: number;
+  discountPriceKES?: number;
+  coverImage: string;
+  content: string;
+  pdfUrl?: string;
+  createdAt?: string;
+}
+
+export interface EBookPurchase {
+  id: string;
+  userId: string;
+  bookId: string;
+  purchasedAt: string;
+}

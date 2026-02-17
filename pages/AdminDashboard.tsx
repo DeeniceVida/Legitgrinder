@@ -6,7 +6,7 @@ import {
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
-  ShieldCheck, MessageCircle, Youtube
+  ShieldCheck, MessageCircle, Youtube, Book
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -16,11 +16,11 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, fetchVisitCount } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice,
-  BlogPost, FAQItem, Client, ProductVariation, SourcingRequest
+  BlogPost, FAQItem, Client, ProductVariation, SourcingRequest, EBook
 } from '../types';
 import SafeImage from '../components/SafeImage';
 
@@ -89,7 +89,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -139,7 +139,55 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'content', name: 'Content', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Sync', icon: <RefreshCcw className="w-4 h-4" /> },
     { id: 'leads', name: 'Leads', icon: <Activity className="w-4 h-4" /> },
+    { id: 'books', name: 'Books', icon: <Book className="w-4 h-4" /> },
   ] as const;
+
+  const [ebooks, setEbooks] = useState<EBook[]>([]);
+  const [editingBook, setEditingBook] = useState<EBook | 'new' | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'books') {
+      fetchEBooks().then(setEbooks);
+    }
+  }, [activeTab]);
+
+  const handleSaveBook = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const bookData: Partial<EBook> = {
+      title: formData.get('title') as string,
+      author: formData.get('author') as string,
+      description: formData.get('description') as string,
+      priceKES: parseInt(formData.get('priceKES') as string),
+      discountPriceKES: parseInt(formData.get('discountPriceKES') as string) || undefined,
+      coverImage: formData.get('coverImage') as string,
+      content: formData.get('content') as string,
+      pdfUrl: formData.get('pdfUrl') as string || undefined,
+    };
+
+    let result;
+    if (editingBook === 'new') {
+      result = await createEBook(bookData);
+    } else if (editingBook) {
+      result = await updateEBook(editingBook.id, bookData);
+    }
+
+    if (result?.success) {
+      setEditingBook(null);
+      const updated = await fetchEBooks();
+      setEbooks(updated);
+    } else {
+      alert('Error saving book: ' + JSON.stringify(result?.error));
+    }
+  };
+
+  const handleDeleteBook = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this book?')) return;
+    const result = await deleteEBook(id);
+    if (result.success) {
+      setEbooks(ebooks.filter(b => b.id !== id));
+    }
+  };
 
   const filteredClients = useMemo(() => {
     return clients.filter(c =>
@@ -1747,7 +1795,122 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
         }
       `}</style>
-    </div>
+      {activeTab === 'books' && (
+        <div className="space-y-12 animate-in fade-in duration-700">
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-4">Digital Assets</h2>
+              <h3 className="text-4xl font-bold text-gray-900 tracking-tighter">eBook <span className="text-[#3D8593]">Library</span></h3>
+            </div>
+            <button
+              onClick={() => setEditingBook('new')}
+              className="px-8 h-16 bg-black text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-3 shadow-2xl"
+            >
+              <Plus className="w-4 h-4" /> Add New eBook
+            </button>
+          </div>
+
+          {editingBook && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 md:p-12">
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-2xl" onClick={() => setEditingBook(null)} />
+              <div className="relative w-full max-w-4xl bg-white rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] border border-neutral-100 overflow-hidden animate-in zoom-in-95 duration-500">
+                <div className="h-2 bg-gradient-to-r from-[#3D8593] to-teal-200" />
+                <form onSubmit={handleSaveBook} className="p-12 md:p-20 overflow-y-auto max-h-[85vh] no-scrollbar">
+                  <div className="flex justify-between items-start mb-16">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#3D8593] mb-4">Book Configuration</h4>
+                      <h5 className="text-4xl font-bold text-gray-900 tracking-tighter">
+                        {editingBook === 'new' ? 'Publish New Title' : 'Edit Book Metadata'}
+                      </h5>
+                    </div>
+                    <button type="button" onClick={() => setEditingBook(null)} className="w-16 h-16 bg-neutral-50 rounded-full flex items-center justify-center hover:bg-rose-50 hover:text-rose-500 transition-all">
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-10">
+                    <div className="space-y-8">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Book Title</label>
+                        <input name="title" defaultValue={editingBook !== 'new' ? editingBook.title : ''} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Author / Knowledge Expert</label>
+                        <input name="author" defaultValue={editingBook !== 'new' ? editingBook.author : ''} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Base Price (KES)</label>
+                          <input name="priceKES" type="number" defaultValue={editingBook !== 'new' ? editingBook.priceKES : 0} required className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Sale Price (Optional)</label>
+                          <input name="discountPriceKES" type="number" defaultValue={editingBook !== 'new' ? editingBook.discountPriceKES : ''} className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-8">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Cover Image URL</label>
+                        <input name="coverImage" defaultValue={editingBook !== 'new' ? editingBook.coverImage : ''} required placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">PDF Download URL (Optional)</label>
+                        <input name="pdfUrl" defaultValue={editingBook !== 'new' ? editingBook.pdfUrl : ''} placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Short Description</label>
+                        <textarea name="description" defaultValue={editingBook !== 'new' ? editingBook.description : ''} rows={3} className="w-full bg-neutral-50 border-none rounded-3xl px-8 py-6 font-bold resize-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-12">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-4 block">Digital Content (HTML Recommended)</label>
+                    <textarea name="content" defaultValue={editingBook !== 'new' ? editingBook.content : ''} rows={10} required className="w-full bg-neutral-50 border-none rounded-[2.5rem] px-8 py-6 font-medium leading-relaxed" placeholder="<h1>Chapter 1</h1><p>Welcome to the masterclass...</p>" />
+                  </div>
+
+                  <div className="mt-16 flex justify-end gap-6">
+                    <button type="button" onClick={() => setEditingBook(null)} className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black">Cancel</button>
+                    <button type="submit" className="px-12 py-6 bg-[#3D8593] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all shadow-xl shadow-teal-100">
+                      Deploy Changes
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {ebooks.map(book => (
+              <div key={book.id} className="bg-white rounded-[3rem] p-8 border border-neutral-100 shadow-sm hover:shadow-xl transition-all group">
+                <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden mb-6 shadow-lg">
+                  <SafeImage src={book.coverImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+                </div>
+                <h4 className="text-xl font-bold text-gray-900 mb-1">{book.title}</h4>
+                <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest mb-6">by {book.author}</p>
+                <div className="flex items-center justify-between pt-6 border-t border-neutral-50">
+                  <div>
+                    <p className="text-lg font-black text-gray-900">KES {(book.discountPriceKES || book.priceKES).toLocaleString()}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingBook(book)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-[#3D8593] hover:text-white transition-all">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDeleteBook(book.id)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </main>
+      </div >
+    </div >
   );
 };
 

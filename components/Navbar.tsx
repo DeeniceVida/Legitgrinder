@@ -17,6 +17,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage, isAdmin, isLog
 
   const navLinks = [
     { name: 'Shop', id: 'shop' },
+    { name: 'eBooks', id: 'books' },
     { name: 'Pricelist', id: 'pricelist' },
     { name: 'Calculators', id: 'calculators' },
     { name: 'Blogs', id: 'blogs' },
