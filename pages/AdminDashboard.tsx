@@ -2100,6 +2100,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const sumInWords = formData.get('sumInWords') as string;
               const amountReceived = formData.get('amountReceived') as string;
               const balance = formData.get('balance') as string;
+              const transactionRef = formData.get('transactionRef') as string;
 
               const inv = printingReceiptInvoice;
               const printWin = window.open('', '', 'width=900,height=800');
@@ -2151,7 +2152,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                       <div class="field"><label>Received From:</label> <div>${inv.clientName}</div></div>
                       <div class="field"><label>The sum of money:</label> <div>${sumInWords}</div></div>
-                      <div class="field"><label>REF:</label> <div>${inv.paystackReference || 'MANUAL-ENTRY'}</div></div>
+                      <div class="field"><label>REF:</label> <div>${transactionRef || inv.paystackReference || 'MANUAL-ENTRY'}</div></div>
                       <div class="field"><label>Being Payment of:</label> <div>${inv.productName}</div></div>
 
                       <div class="financial-summary">
@@ -2182,6 +2183,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Sum in Words</label>
                 <input required name="sumInWords" placeholder="e.g. Fifty thousand three hundred only" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Transaction Reference (e.g. M-Pesa Code)</label>
+                <input name="transactionRef" defaultValue={printingReceiptInvoice.paystackReference || ''} placeholder="Paste transaction code here..." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
