@@ -105,78 +105,78 @@ const Books: React.FC = () => {
     return (
         <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32">
             <div className="max-w-7xl mx-auto px-6">
-                <header className="mb-20">
-                    <h1 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-4">The Knowledge Hub</h1>
-                    <h2 className="text-5xl md:text-7xl font-bold text-gray-900 tracking-tighter leading-tight mb-8">Importation <span className="text-[#3D8593]">Masterclass</span>.</h2>
+                <header className="mb-12 md:mb-20">
+                    <h1 className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-2 md:mb-4 text-center md:text-left">The Knowledge Hub</h1>
+                    <h2 className="text-3xl md:text-7xl font-bold text-gray-900 tracking-tighter leading-tight mb-6 md:mb-8 text-center md:text-left">Importation <span className="text-[#3D8593]">Masterclass</span>.</h2>
 
-                    <div className="relative max-w-2xl group">
+                    <div className="relative max-w-2xl group mx-auto md:mx-0">
                         <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
                             <Search className="w-5 h-5 text-gray-400" />
                         </div>
                         <input
                             type="text"
-                            placeholder="Search by title or author..."
+                            placeholder="Search ebooks..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-16 bg-white border border-neutral-100 rounded-2xl pl-16 pr-6 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[#3D8593]/5 transition-all shadow-sm"
+                            className="w-full h-14 md:h-16 bg-white border border-neutral-100 rounded-2xl pl-16 pr-6 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[#3D8593]/5 transition-all shadow-sm"
                         />
                     </div>
                 </header>
 
                 {loading ? (
-                    <div className="grid md:grid-cols-3 gap-10">
-                        {[1, 2, 3].map(i => <div key={i} className="aspect-[3/4] bg-neutral-100 animate-pulse rounded-[2.5rem]" />)}
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-10">
+                        {[1, 2, 3, 4].map(i => <div key={i} className="aspect-[3/4] bg-neutral-100 animate-pulse rounded-[1.5rem] md:rounded-[2.5rem]" />)}
                     </div>
                 ) : (
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-10">
                         {filteredBooks.map((book) => {
                             const isPurchased = purchasedBookIds.includes(book.id);
                             return (
-                                <div key={book.id} className="bg-white rounded-[3rem] p-8 border border-neutral-100 shadow-sm hover:shadow-2xl transition-all group flex flex-col h-full">
-                                    <div className="relative aspect-[3/4] rounded-[2rem] overflow-hidden mb-8 shadow-xl">
+                                <div key={book.id} className="bg-white rounded-[1.5rem] md:rounded-[3.5rem] p-4 md:p-8 border border-neutral-100 shadow-sm hover:shadow-2xl transition-all group flex flex-col h-full">
+                                    <div className="relative aspect-[3/4.5] md:aspect-[3/4] rounded-[1rem] md:rounded-[2.5rem] overflow-hidden mb-4 md:mb-8 shadow-md md:shadow-xl">
                                         <SafeImage src={book.coverImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                                        <div className="absolute top-6 right-6">
+                                        <div className="absolute top-3 right-3 md:top-6 md:right-6">
                                             {isPurchased ? (
-                                                <div className="w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg"><Unlock className="w-4 h-4" /></div>
+                                                <div className="w-8 h-8 md:w-10 md:h-10 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg"><Unlock className="w-3 h-3 md:w-4 md:h-4" /></div>
                                             ) : (
-                                                <div className="w-10 h-10 bg-black/50 backdrop-blur-md text-white rounded-full flex items-center justify-center shadow-lg"><Lock className="w-4 h-4" /></div>
+                                                <div className="w-8 h-8 md:w-10 md:h-10 bg-black/50 backdrop-blur-md text-white rounded-full flex items-center justify-center shadow-lg"><Lock className="w-3 h-3 md:w-4 md:h-4" /></div>
                                             )}
                                         </div>
                                     </div>
 
-                                    <h3 className="text-2xl font-bold text-gray-900 tracking-tight mb-2 truncate">{book.title}</h3>
-                                    <p className="text-[10px] font-black uppercase text-[#3D8593] tracking-widest mb-4">by {book.author}</p>
-                                    <p className="text-sm text-gray-500 font-medium leading-relaxed mb-8 line-clamp-3">{book.description}</p>
+                                    <h3 className="text-base md:text-2xl font-black text-gray-900 tracking-tight mb-1 md:mb-2 line-clamp-2 md:truncate">{book.title}</h3>
+                                    <p className="text-[8px] md:text-[10px] font-black uppercase text-[#3D8593] tracking-widest mb-3 md:mb-4">by {book.author}</p>
+                                    <p className="hidden md:block text-sm text-gray-500 font-medium leading-relaxed mb-8 line-clamp-3">{book.description}</p>
 
-                                    <div className="mt-auto pt-8 border-t border-neutral-50 flex items-center justify-between">
+                                    <div className="mt-auto pt-4 md:pt-8 border-t border-neutral-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         {!isPurchased ? (
                                             <>
-                                                <div>
-                                                    <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">One-time Access</p>
-                                                    <p className="text-xl font-black text-gray-900">KES {(book.discountPriceKES || book.priceKES).toLocaleString()}</p>
+                                                <div className="flex flex-col">
+                                                    <p className="text-[7px] md:text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 md:mb-1">Access</p>
+                                                    <p className="text-sm md:text-xl font-black text-gray-900">KES {(book.discountPriceKES || book.priceKES).toLocaleString()}</p>
                                                 </div>
                                                 {user ? (
                                                     <PaystackButton
-                                                        className="px-6 h-12 bg-black text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-[#3D8593] transition-all"
+                                                        className="w-full md:w-auto px-4 md:px-6 h-10 md:h-12 bg-black text-white rounded-xl font-black uppercase text-[8px] md:text-[10px] tracking-widest hover:bg-[#3D8593] transition-all"
                                                         publicKey={PAYSTACK_PUBLIC_KEY}
                                                         amount={Math.round((book.discountPriceKES || book.priceKES) * 100)}
                                                         currency="KES"
                                                         email={user.email}
-                                                        text="Buy Book"
+                                                        text="Buy Now"
                                                         onSuccess={(ref: any) => handlePaystackSuccess(ref, book)}
                                                     />
                                                 ) : (
-                                                    <button onClick={() => alert('Please login to purchase books.')} className="px-6 h-12 bg-black text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-neutral-800 transition-all flex items-center gap-2">
-                                                        Login to Buy
+                                                    <button onClick={() => alert('Please login to purchase books.')} className="w-full md:w-auto px-4 md:px-6 h-10 md:h-12 bg-black text-white rounded-xl font-black uppercase text-[8px] md:text-[10px] tracking-widest hover:bg-neutral-800 transition-all flex items-center justify-center gap-2">
+                                                        Login
                                                     </button>
                                                 )}
                                             </>
                                         ) : (
                                             <button
                                                 onClick={() => setReadingBook(book)}
-                                                className="w-full h-14 bg-[#3D8593] text-white rounded-2xl font-black uppercase text-[11px] tracking-widest hover:bg-black transition-all flex items-center justify-center gap-3"
+                                                className="w-full h-10 md:h-14 bg-[#3D8593] text-white rounded-xl md:rounded-2xl font-black uppercase text-[9px] md:text-[11px] tracking-widest hover:bg-black transition-all flex items-center justify-center gap-2 md:gap-3"
                                             >
-                                                <BookOpen className="w-4 h-4" /> Read Online Now
+                                                <BookOpen className="w-3 h-3 md:w-4 md:h-4" /> Read
                                             </button>
                                         )}
                                     </div>
