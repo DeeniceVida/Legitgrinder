@@ -1,13 +1,10 @@
-
 import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Smartphone, Truck, Package, Sparkles, Zap, Globe, ShieldCheck, Search, Handshake, Box } from 'lucide-react';
 import SafeImage from '../components/SafeImage';
 
-interface HomeProps {
-  onNavigate: (page: string) => void;
-}
-
-const Home: React.FC<HomeProps> = ({ onNavigate }) => {
+const Home: React.FC = () => {
+  const navigate = useNavigate();
   return (
     <div className="bg-mesh min-h-screen">
       {/* Hero Section */}
@@ -30,18 +27,18 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               I bridge the gap between your vision and global suppliers. From negotiation to doorstep delivery in Kenya, I handle the complexity so you don't have to.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={() => onNavigate('shop')}
+              <Link
+                to="/shop"
                 className="btn-vibrant-orange px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3"
               >
                 View Inventory <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onNavigate('consultation')}
-                className="bg-white border-2 border-teal-50 text-[#3D8593] px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest hover:bg-teal-50 transition-all shadow-sm"
+              </Link>
+              <Link
+                to="/consultation"
+                className="bg-white border-2 border-teal-50 text-[#3D8593] px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest hover:bg-teal-50 transition-all shadow-sm flex items-center justify-center"
               >
                 Book Strategy Session
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -178,18 +175,18 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <h2 className="text-5xl md:text-7xl font-bold mb-10 tracking-tight leading-none">Ready to Source?</h2>
           <p className="text-teal-50 text-xl font-light mb-16 max-w-2xl mx-auto">Skip the middleman and the guesswork. Let's get your products from the global warehouse to your hands.</p>
           <div className="flex flex-col sm:flex-row gap-6 justify-center">
-            <button
-              onClick={() => onNavigate('calculators')}
-              className="bg-white text-[#3D8593] px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-teal-50 transition-all shadow-xl"
+            <Link
+              to="/calculators"
+              className="bg-white text-[#3D8593] px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-teal-50 transition-all shadow-xl flex items-center justify-center"
             >
               Get a Free Quote
-            </button>
-            <button
-              onClick={() => onNavigate('collaboration')}
-              className="border-2 border-white/30 text-white px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-white/10 transition-all"
+            </Link>
+            <Link
+              to="/collaboration"
+              className="border-2 border-white/30 text-white px-16 py-6 rounded-full font-black uppercase text-[12px] tracking-widest hover:bg-white/10 transition-all flex items-center justify-center"
             >
               Collaborate
-            </button>
+            </Link>
           </div>
         </div>
       </section>

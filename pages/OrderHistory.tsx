@@ -1,26 +1,24 @@
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Package, Clock, ChevronRight, ShoppingBag, ArrowLeft, RefreshCcw } from 'lucide-react';
-import { getUserInvoices } from '../services/supabaseData';
 import { Invoice, OrderStatus, getOrderProgress } from '../types';
 
 interface OrderHistoryProps {
     invoices: Invoice[];
-    onNavigate: (page: string) => void;
 }
 
-const OrderHistory: React.FC<OrderHistoryProps> = ({ invoices, onNavigate }) => {
-    // Standardized to use props for real-time sync with AdminDashboard updates
+const OrderHistory: React.FC<OrderHistoryProps> = ({ invoices }) => {
+    const navigate = useNavigate();
 
     return (
         <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
             <div className="max-w-4xl mx-auto">
-                <button
-                    onClick={() => onNavigate('home')}
+                <Link
+                    to="/"
                     className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#3D8593] mb-8 hover:translate-x-[-4px] transition-transform"
                 >
                     <ArrowLeft className="w-4 h-4" /> Back to Intelligence
-                </button>
+                </Link>
 
                 <div className="flex justify-between items-end mb-16">
                     <div>
@@ -46,12 +44,12 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ invoices, onNavigate }) => 
                         <p className="text-gray-500 max-w-sm mx-auto mb-10 font-light leading-relaxed">
                             Your elite portfolio is currently empty. Start exploring our global shop to find your next asset.
                         </p>
-                        <button
-                            onClick={() => onNavigate('shop')}
-                            className="btn-vibrant-teal px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest shadow-2xl transition-all"
+                        <Link
+                            to="/shop"
+                            className="btn-vibrant-teal px-12 py-5 rounded-full font-black uppercase text-[11px] tracking-widest shadow-2xl transition-all inline-block"
                         >
                             Explore Shop
-                        </button>
+                        </Link>
                     </div>
                 ) : (
                     <div className="space-y-6">
@@ -60,9 +58,7 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ invoices, onNavigate }) => 
                                 key={inv.id}
                                 className="bg-white rounded-[3rem] shadow-xl border border-neutral-100 p-8 md:p-10 hover:shadow-2xl transition-all group cursor-pointer overflow-hidden relative"
                                 onClick={() => {
-                                    // If we had a detailed view, we would navigate there
-                                    // For now, maybe navigate to Tracker with this invoice number?
-                                    onNavigate('tracking');
+                                    navigate(`/tracking?id=${inv.invoiceNumber}`);
                                 }}
                             >
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">

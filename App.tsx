@@ -38,8 +38,10 @@ import {
   Client, Invoice, PricelistItem, Consultation, ConsultationStatus, EBook
 } from './types';
 
-const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState('home');
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, Link } from 'react-router-dom';
+
+const AppContent: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -67,10 +69,6 @@ const App: React.FC = () => {
 
   // eBooks
   const [ebooks, setEbooks] = useState<EBook[]>([]);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentPage]);
 
   // Supabase Auth and Data Listener
   useEffect(() => {
@@ -158,7 +156,7 @@ const App: React.FC = () => {
   const handleLoginSuccess = (isAdminLogin: boolean = false, userData?: Partial<Client>) => {
     setIsLoggedIn(true);
     setIsAdmin(isAdminLogin);
-    setCurrentPage('home');
+    navigate('/');
   };
 
   const handleLogout = async () => {
@@ -166,51 +164,59 @@ const App: React.FC = () => {
     setIsLoggedIn(false);
     setIsAdmin(false);
     setUser(null);
-    setCurrentPage('home');
-  };
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'home': return <Home onNavigate={setCurrentPage} />;
-      case 'login': return <Login onLoginSuccess={handleLoginSuccess} />;
-      case 'pricelist': return <Pricelist pricelist={pricelist} />;
-      case 'collaboration': return <Collaboration />;
-      case 'consultation': return <ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />;
-      case 'shop': return <Shop products={products} onUpdateProducts={setProducts} />;
-      case 'calculators': return <Calculators />;
-      case 'blogs': return <Blogs blogs={blogs} faqs={faqs} />;
-      case 'books': return <Books />;
-      case 'tracking': return <Tracking isLoggedIn={isLoggedIn} onNavigate={setCurrentPage} invoices={invoices} />;
-      case 'history': return <OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} onNavigate={setCurrentPage} />;
-      case 'admin': return (
-        <AdminDashboard
-          blogs={blogs}
-          faqs={faqs}
-          onUpdateBlogs={setBlogs}
-          onUpdateFaqs={setFaqs}
-          pricelist={pricelist}
-          onUpdatePricelist={setPricelist}
-          clients={clients}
-          onUpdateClients={setClients}
-          invoices={invoices}
-          onUpdateInvoices={setInvoices}
-          products={products}
-          onUpdateProducts={setProducts}
-          consultations={consultations}
-          onUpdateConsultations={setConsultations}
-        />
-      );
-      default: return <Home onNavigate={setCurrentPage} />;
-    }
+    navigate('/');
   };
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-[#3D8593] selection:text-white">
       <ValentineTheme />
-      <Navbar onNavigate={setCurrentPage} currentPage={currentPage} isAdmin={isAdmin} isLoggedIn={isLoggedIn} onLogout={handleLogout} />
+      <Navbar
+        isAdmin={isAdmin}
+        isLoggedIn={isLoggedIn}
+        onLogout={handleLogout}
+      />
 
       <main className="flex-1 bg-white">
-        {renderPage()}
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/pricelist" element={<Pricelist pricelist={pricelist} />} />
+          <Route path="/collaboration" element={<Collaboration />} />
+          <Route path="/consultation" element={<ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />} />
+          <Route path="/shop" element={<Shop products={products} onUpdateProducts={setProducts} />} />
+          <Route path="/calculators" element={<Calculators />} />
+          <Route path="/blogs" element={<Blogs blogs={blogs} faqs={faqs} />} />
+          <Route path="/books" element={<Books />} />
+          <Route path="/tracking" element={<Tracking isLoggedIn={isLoggedIn} invoices={invoices} />} />
+          <Route path="/history" element={<OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} />} />
+          <Route
+            path="/admin"
+            element={
+              isAdmin ? (
+                <AdminDashboard
+                  blogs={blogs}
+                  faqs={faqs}
+                  onUpdateBlogs={setBlogs}
+                  onUpdateFaqs={setFaqs}
+                  pricelist={pricelist}
+                  onUpdatePricelist={setPricelist}
+                  clients={clients}
+                  onUpdateClients={setClients}
+                  invoices={invoices}
+                  onUpdateInvoices={setInvoices}
+                  products={products}
+                  onUpdateProducts={setProducts}
+                  consultations={consultations}
+                  onUpdateConsultations={setConsultations}
+                />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          {/* Catch-all for 404 - redirect to home */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
       </main>
 
       <footer className="bg-[#0f1a1c] text-white py-24 px-6 overflow-hidden relative">
@@ -235,10 +241,10 @@ const App: React.FC = () => {
             <div>
               <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-10">Solutions</h4>
               <ul className="space-y-4 text-gray-400 text-lg font-light">
-                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('shop')}>Shop</li>
-                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('books')}>eBooks</li>
-                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('blogs')}>Blogs & FAQ</li>
-                <li className="hover:text-[#FF9900] cursor-pointer transition-colors" onClick={() => setCurrentPage('pricelist')}>Market Prices</li>
+                <li><Link to="/shop" className="hover:text-[#FF9900] transition-colors">Shop</Link></li>
+                <li><Link to="/books" className="hover:text-[#FF9900] transition-colors">eBooks</Link></li>
+                <li><Link to="/blogs" className="hover:text-[#FF9900] transition-colors">Blogs & FAQ</Link></li>
+                <li><Link to="/pricelist" className="hover:text-[#FF9900] transition-colors">Market Prices</Link></li>
               </ul>
             </div>
             <div>
@@ -256,6 +262,14 @@ const App: React.FC = () => {
       </footer>
       <AIAssistant />
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 };
 

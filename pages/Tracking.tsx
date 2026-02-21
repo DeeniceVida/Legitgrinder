@@ -1,18 +1,19 @@
-
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, MapPin, Clock, CheckCircle2, Package, Truck, Boxes, Lock, ArrowRight } from 'lucide-react';
 import { STATUS_SEQUENCE } from '../constants';
 import { OrderStatus, Invoice, getOrderProgress } from '../types';
 
 interface TrackingProps {
   isLoggedIn: boolean;
-  onNavigate: (page: string) => void;
   invoices: Invoice[];
 }
 
-const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, onNavigate, invoices }) => {
+const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
   const [invoiceInput, setInvoiceInput] = useState('');
   const [searchedInvoice, setSearchedInvoice] = useState<Invoice | null>(null);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const handleSearch = (id?: string) => {
     const searchId = id || invoiceInput;
@@ -21,13 +22,12 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, onNavigate, invoices })
   };
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
+    const id = searchParams.get('id');
     if (id) {
       setInvoiceInput(id);
       handleSearch(id);
     }
-  }, [invoices]);
+  }, [searchParams, invoices]);
 
   return (
     <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
@@ -110,12 +110,12 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, onNavigate, invoices })
                     <p className="text-gray-500 font-light leading-relaxed mb-8">
                       Guests can only see text status updates. Sign up to unlock the visual progression bar, real-time map tracking, and historical logs.
                     </p>
-                    <button
-                      onClick={() => onNavigate('login')}
+                    <Link
+                      to="/login"
                       className="btn-vibrant-teal px-10 py-4 rounded-full font-bold uppercase text-[10px] tracking-widest flex items-center gap-2"
                     >
                       Create Account <ArrowRight className="w-4 h-4" />
-                    </button>
+                    </Link>
                   </div>
                 </div>
               )}
