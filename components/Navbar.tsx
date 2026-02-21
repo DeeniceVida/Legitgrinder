@@ -134,7 +134,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, isLoggedIn, onLogout }) => {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="absolute top-20 left-0 w-full glass bg-white/95 rounded-[2rem] p-6 lg:hidden animate-in slide-in-from-top-4 shadow-2xl border-teal-100">
+        <div className="absolute top-20 left-0 w-full bg-white rounded-[2rem] p-6 lg:hidden animate-in slide-in-from-top-4 shadow-2xl border-teal-100">
           <div className="flex flex-col space-y-2">
             {navLinks.map((link) => (
               <NavLink
