@@ -342,8 +342,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       stockCount: formData.get('stockCount') ? parseInt(formData.get('stockCount') as string) : 0,
       variations: localVariations,
       videoUrl: formData.get('videoUrl') as string,
-      // @ts-ignore - explicitly including this in productData for service use
-      shippingDuration: formData.get('shippingDuration') as string
     };
 
     console.log('🚀 Initiating Save Protocol:', productData);
