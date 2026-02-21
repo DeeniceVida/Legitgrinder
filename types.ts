@@ -10,7 +10,7 @@ export enum Origin {
 }
 
 export enum OrderStatus {
-  RECEIVED_BY_AGENT = 'Received by Agent',
+  RECEIVED_BY_AGENT = 'Order Placed',
   PREPARING = 'Preparing Order',
   COLLECTED = 'Collected by Agent',
   LEFT_WAREHOUSE = 'Left Warehouse',
