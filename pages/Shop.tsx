@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight, Youtube } from 'lucide-react';
+import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight, Youtube, Share2, Check } from 'lucide-react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment } from '../services/supabaseData';
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../lib/supabase';
 import SafeImage from '../components/SafeImage';
+import { useSearchParams } from 'react-router-dom';
 
 interface ShopProps {
   products: Product[];
@@ -23,6 +24,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [showPaystack, setShowPaystack] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Fetch logged in user for metadata
   useEffect(() => {
@@ -33,6 +36,28 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     getUser();
   }, []);
 
+  // Handle product parameter in URL
+  useEffect(() => {
+    const productId = searchParams.get('product');
+    if (productId && products.length > 0) {
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        setSelectedProduct(product);
+      }
+    }
+  }, [searchParams, products]);
+
+  // Sync selectedProduct with URL
+  useEffect(() => {
+    if (selectedProduct) {
+      setSearchParams({ product: selectedProduct.id }, { replace: true });
+    } else {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('product');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [selectedProduct]);
+
   // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
@@ -41,6 +66,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const varText = selectedVariation ? ` (Selected: ${selectedVariation.type} - ${selectedVariation.name})` : '';
     const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}${varText}.\nQuantity: ${quantity}\nTotal Price: KES ${totalPrice.toLocaleString()}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+  };
+
+  const handleShare = (e: React.MouseEvent, product: Product) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/shop?product=${product.id}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopiedId(product.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
   };
 
   const handlePaystackSuccess = async (response: any, product: Product) => {
@@ -130,15 +164,31 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32 px-6">
         <div className="max-w-7xl mx-auto">
           {/* TOP NAVIGATION / BREADCRUMBS */}
-          <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-12">
+          <nav className="flex items-center justify-between mb-12">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+              <button
+                onClick={() => { setSelectedProduct(null); setSelectedVariation(null); }}
+                className="hover:text-gray-900 transition-colors flex items-center gap-1"
+              >
+                Home
+              </button>
+              <ChevronRight className="w-3 h-3" />
+              <span className="text-gray-900">Products</span>
+            </div>
             <button
-              onClick={() => { setSelectedProduct(null); setSelectedVariation(null); }}
-              className="hover:text-gray-900 transition-colors flex items-center gap-1"
+              onClick={(e) => handleShare(e, p)}
+              className="px-6 py-3 bg-white border border-neutral-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] hover:text-white transition-all shadow-sm flex items-center gap-2"
             >
-              Home
+              {copiedId === p.id ? (
+                <>
+                  <Check className="w-4 h-4" /> Link Copied
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4" /> Share Product
+                </>
+              )}
             </button>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-gray-900">Products</span>
           </nav>
 
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-start">
@@ -488,6 +538,18 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 <div className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/heart">
                   <Heart className={`w-4 h-4 md:w-5 h-5 group-hover/heart:text-white ${(new Date().getMonth() === 1 && new Date().getDate() >= 1 && new Date().getDate() <= 20) ? 'text-red-500 fill-red-500' : 'text-gray-900'}`} />
                 </div>
+
+                {/* SHARE OVERLAY */}
+                <button
+                  onClick={(e) => handleShare(e, p)}
+                  className="absolute top-16 right-4 md:top-20 md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/share"
+                >
+                  {copiedId === p.id ? (
+                    <Check className="w-4 h-4 text-green-500 group-hover/share:text-white" />
+                  ) : (
+                    <Share2 className="w-4 h-4 text-gray-900 group-hover/share:text-white" />
+                  )}
+                </button>
 
                 <div className={`absolute bottom-4 left-4 md:bottom-6 md:left-6 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593] text-white' :
                   p.stockCount === 0 ? 'bg-red-500/90 text-white' :
