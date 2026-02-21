@@ -12,9 +12,9 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
   const [activeBrand, setActiveBrand] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Dynamic Title: If it's after the 20th, show the next month's name
+  // Dynamic Title: Change to current month only 1 day into the new month (e.g., changes on the 2nd)
   const now = new Date();
-  const displayDate = new Date(now.getFullYear(), now.getMonth() + (now.getDate() > 20 ? 1 : 0), 1);
+  const displayDate = new Date(now.getFullYear(), now.getMonth() - (now.getDate() < 2 ? 1 : 0), 1);
   const displayMonth = displayDate.toLocaleString('default', { month: 'long' });
   const displayYear = displayDate.getFullYear();
   const listTitle = `${displayMonth} ${displayYear} Price List`;
