@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, User, ArrowRight } from 'lucide-react';
 import SafeImage from './SafeImage';
@@ -13,6 +13,18 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, isLoggedIn, onLogout }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Prevent background scrolling when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileMenuOpen]);
 
   const navLinks = [
     { name: 'Shop', path: '/shop' },
@@ -122,7 +134,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, isLoggedIn, onLogout }) => {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="absolute top-20 left-0 w-full glass rounded-[2rem] p-6 lg:hidden animate-in slide-in-from-top-4 shadow-2xl border-teal-100">
+        <div className="absolute top-20 left-0 w-full glass bg-white/95 rounded-[2rem] p-6 lg:hidden animate-in slide-in-from-top-4 shadow-2xl border-teal-100">
           <div className="flex flex-col space-y-2">
             {navLinks.map((link) => (
               <NavLink
