@@ -51,12 +51,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   useEffect(() => {
     if (selectedProduct) {
       setSearchParams({ product: selectedProduct.id }, { replace: true });
-    } else {
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('product');
-      setSearchParams(newParams, { replace: true });
+    } else if (products.length > 0) {
+      const currentUrlParam = searchParams.get('product');
+      if (currentUrlParam) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('product');
+        setSearchParams(newParams, { replace: true });
+      }
     }
-  }, [selectedProduct]);
+  }, [selectedProduct, products, searchParams, setSearchParams]);
 
   // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
