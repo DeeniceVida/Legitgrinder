@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, MapPin, Clock, CheckCircle2, Package, Truck, Boxes, Lock, ArrowRight } from 'lucide-react';
+import { Search, MapPin, Clock, CheckCircle2, Package, Truck, Boxes, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { STATUS_SEQUENCE } from '../constants';
 import { OrderStatus, Invoice, getOrderProgress } from '../types';
+import { fetchInvoiceByNumber } from '../services/supabaseData';
 
 interface TrackingProps {
   isLoggedIn: boolean;
@@ -12,13 +13,31 @@ interface TrackingProps {
 const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
   const [invoiceInput, setInvoiceInput] = useState('');
   const [searchedInvoice, setSearchedInvoice] = useState<Invoice | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showNotFound, setShowNotFound] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const handleSearch = (id?: string) => {
+  const handleSearch = async (id?: string) => {
     const searchId = id || invoiceInput;
+    if (!searchId) return;
+
+    setLoading(true);
+    setShowNotFound(false);
+
+    // 1. Try local cache first
     const found = invoices.find(inv => inv.invoiceNumber === searchId);
-    setSearchedInvoice(found || null);
+
+    if (found) {
+      setSearchedInvoice(found);
+      setLoading(false);
+    } else {
+      // 2. Fetch directly from DB (useful for guests or deep links)
+      const fresh = await fetchInvoiceByNumber(searchId);
+      setSearchedInvoice(fresh);
+      if (!fresh) setShowNotFound(true);
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -27,7 +46,7 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
       setInvoiceInput(id);
       handleSearch(id);
     }
-  }, [searchParams, invoices]);
+  }, [searchParams, invoices.length]); // Only re-run if searchParams or invoices list changes
 
   return (
     <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
@@ -47,15 +66,38 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
               onChange={(e) => setInvoiceInput(e.target.value)}
             />
             <button
-              onClick={handleSearch}
-              className="absolute right-3 top-3 bottom-3 bg-[#3D8593] text-white px-8 rounded-2xl hover:bg-[#FF9900] transition-all shadow-lg"
+              onClick={() => handleSearch()}
+              disabled={loading}
+              className="absolute right-3 top-3 bottom-3 bg-[#3D8593] text-white px-8 rounded-2xl hover:bg-[#FF9900] transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:shadow-teal-100"
             >
-              <Search className="w-5 h-5" />
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
-        {searchedInvoice && (
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-teal-50 rounded-full animate-pulse"></div>
+              <Loader2 className="w-10 h-10 text-[#3D8593] animate-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            <p className="mt-8 text-[10px] font-black uppercase tracking-[0.4em] text-[#3D8593] animate-pulse">Fetching Real-time Intelligence...</p>
+          </div>
+        )}
+
+        {showNotFound && !loading && (
+          <div className="text-center py-20 animate-in fade-in slide-in-from-top-4 duration-500 bg-white rounded-[3.5rem] shadow-xl border border-neutral-100 p-12">
+            <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
+              <Package className="w-10 h-10 text-rose-500 opacity-20" />
+            </div>
+            <h3 className="text-3xl font-bold mb-4">Invoice Not Found</h3>
+            <p className="text-gray-500 max-w-sm mx-auto font-light leading-relaxed">
+              We couldn't locate any records for <strong>#{invoiceInput}</strong>. Please verify the number and try again.
+            </p>
+          </div>
+        )}
+
+        {searchedInvoice && !loading && (
           <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="bg-white rounded-[3.5rem] shadow-2xl border border-neutral-100 p-10 md:p-14 mb-10 overflow-hidden relative">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-8">

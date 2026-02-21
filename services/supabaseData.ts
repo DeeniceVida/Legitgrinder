@@ -313,6 +313,38 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
     }
 };
 
+export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoice | null> => {
+    try {
+        const { data, error } = await supabase
+            .from('invoices')
+            .select('*')
+            .eq('invoice_number', invoiceNumber)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) return null;
+
+        return {
+            id: data.id,
+            invoiceNumber: data.invoice_number,
+            clientName: data.client_name,
+            productName: data.product_name,
+            quantity: data.quantity || 1,
+            status: data.status as OrderStatus,
+            progress: data.progress || 0,
+            lastUpdate: data.last_update ? new Date(data.last_update).toLocaleString() : 'Never',
+            isPaid: data.is_paid,
+            totalKES: parseFloat(data.total_kes || 0),
+            paystackReference: data.paystack_reference,
+            date: data.created_at,
+            createdAt: data.created_at
+        };
+    } catch (error) {
+        console.error('Error fetching invoice by number:', error);
+        return null;
+    }
+};
+
 export const updateInvoiceStatus = async (id: string, status: OrderStatus, progress: number): Promise<{ success: boolean; error?: any }> => {
     try {
         const { error } = await supabase
