@@ -109,6 +109,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Advanced Variation State
   const [localVariations, setLocalVariations] = useState<ProductVariation[]>([]);
+  const [bulkVariationInput, setBulkVariationInput] = useState('');
 
   // Blog Management State
   const [editingBlog, setEditingBlog] = useState<BlogPost | 'new' | null>(null);
@@ -297,6 +298,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else {
       setLocalVariations([]);
     }
+    setBulkVariationInput('');
   }, [editingProduct]);
 
   const addVariation = () => {
@@ -309,6 +311,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const updateVariation = (index: number, updates: Partial<ProductVariation>) => {
     setLocalVariations(localVariations.map((v, i) => i === index ? { ...v, ...updates } : v));
+  };
+
+  const addBulkSizes = () => {
+    if (!bulkVariationInput.trim()) return;
+    const sizes = bulkVariationInput.split(',').map(s => s.trim()).filter(s => s);
+    const newVars: ProductVariation[] = sizes.map(s => ({
+      type: 'Size',
+      name: s,
+      priceKES: 0
+    }));
+    setLocalVariations([...localVariations, ...newVars]);
+    setBulkVariationInput('');
   };
 
   const updateInvoiceStatus = async (id: string, newStatus: OrderStatus) => {
@@ -1601,13 +1615,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <label className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] flex items-center gap-2">
                       <Box className="w-3.5 h-3.5" /> High-Ticket Variations
                     </label>
-                    <button
-                      type="button"
-                      onClick={addVariation}
-                      className="px-4 py-2 bg-[#3D8593] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-neutral-900 transition-all flex items-center gap-2"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Add Option
-                    </button>
+                    <div className="flex gap-2">
+                      <div className="flex bg-white rounded-xl border border-neutral-100 overflow-hidden shadow-sm">
+                        <input
+                          type="text"
+                          placeholder="Bulk sizes (S, M, L...)"
+                          value={bulkVariationInput}
+                          onChange={(e) => setBulkVariationInput(e.target.value)}
+                          className="px-4 py-2 text-[9px] font-bold outline-none w-40"
+                        />
+                        <button
+                          type="button"
+                          onClick={addBulkSizes}
+                          className="px-3 py-2 bg-teal-50 text-[#3D8593] hover:bg-teal-100 transition-all font-black"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addVariation}
+                        className="px-4 py-2 bg-[#3D8593] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-neutral-900 transition-all flex items-center gap-2"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Option
+                      </button>
+                    </div>
                   </div>
 
                   {localVariations.length === 0 ? (

@@ -19,7 +19,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
+  const [selectedVariations, setSelectedVariations] = useState<Record<string, ProductVariation>>({});
   const [activeAccordion, setActiveAccordion] = useState<string | null>('description');
   const [showPaystack, setShowPaystack] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -65,8 +65,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
   const handleWhatsAppInquiry = (p: Product) => {
-    const totalPrice = (p.discountPriceKES || p.priceKES) + (selectedVariation?.priceKES || 0);
-    const varText = selectedVariation ? ` (Selected: ${selectedVariation.type} - ${selectedVariation.name})` : '';
+    const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
+    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
+    const totalPrice = (p.discountPriceKES || p.priceKES) + variationPrice;
+
+    const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
+    const varText = varTextStrings.length > 0 ? ` (Selected: ${varTextStrings.join(', ')})` : '';
+
     const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}${varText}.\nQuantity: ${quantity}\nTotal Price: KES ${totalPrice.toLocaleString()}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
@@ -83,7 +88,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const handlePaystackSuccess = async (response: any, product: Product) => {
     setPaymentLoading(true);
     const trackingCode = response.reference;
-    const totalPrice = (product.discountPriceKES || product.priceKES) + (selectedVariation?.priceKES || 0);
+    const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
+    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
+    const totalPrice = (product.discountPriceKES || product.priceKES) + variationPrice;
+
+    const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
+    const fullProductName = product.name + (varTextStrings.length > 0 ? ` (${varTextStrings.join(', ')})` : '');
 
     const performSync = async () => {
       try {
@@ -102,7 +112,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         const invoiceResult = await createInvoice({
           userId: authUser?.id,
           clientName: authUser?.user_metadata?.full_name || 'Guest Elite',
-          productName: product.name,
+          productName: fullProductName,
           quantity: quantity,
           totalKES: totalPrice * quantity,
           isPaid: true,
@@ -157,11 +167,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const p = selectedProduct;
     const isLocal = p.availability === Availability.LOCAL;
     const basePrice = p.discountPriceKES || p.priceKES;
-    const currentPrice = basePrice + (selectedVariation?.priceKES || 0);
+    const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
+    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
+    const currentPrice = basePrice + variationPrice;
 
-    const displayImage = (selectedVariation && selectedVariation.imageUrl)
-      ? selectedVariation.imageUrl
-      : p.imageUrls[selectedImageIdx];
+    // Use image from the last selected variation that has an image
+    const variationWithImage = [...selectedVarsList].reverse().find((v: ProductVariation) => v.imageUrl);
+    const displayImage = variationWithImage ? variationWithImage.imageUrl : p.imageUrls[selectedImageIdx];
 
     return (
       <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32 px-6">
@@ -170,7 +182,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           <nav className="flex items-center justify-between mb-12">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
               <button
-                onClick={() => { setSelectedProduct(null); setSelectedVariation(null); }}
+                onClick={() => { setSelectedProduct(null); setSelectedVariations({}); }}
                 className="hover:text-gray-900 transition-colors flex items-center gap-1"
               >
                 Home
@@ -232,12 +244,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tighter leading-[1.1]">{p.name}</h1>
                 <div className="flex items-center gap-4">
                   <span className="text-4xl font-black text-[#3D8593]">KES {currentPrice.toLocaleString()}</span>
-                  {selectedVariation && selectedVariation.priceKES > 0 && (
+                  {variationPrice > 0 && (
                     <div className="h-6 w-[1px] bg-neutral-200"></div>
                   )}
-                  {selectedVariation && selectedVariation.priceKES > 0 && (
+                  {variationPrice > 0 && (
                     <span className="text-xs font-black text-[#FF9900] uppercase tracking-widest">
-                      +{selectedVariation.name} Selection
+                      + Added Selection Cost
                     </span>
                   )}
                 </div>
@@ -274,26 +286,45 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
               {/* VARIATIONS / CONFIGURATIONS */}
               {Array.isArray(p.variations) && p.variations.length > 0 && (
-                <div className="mb-10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-6">Select Configuration</p>
-                  <div className="flex flex-wrap gap-3">
-                    {p.variations.map((v, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedVariation(selectedVariation === v ? null : v)}
-                        className={`group relative px-6 py-5 rounded-[1.5rem] transition-all duration-300 border-2 ${selectedVariation === v
-                          ? 'border-[#3D8593] bg-[#3D8593]/5'
-                          : 'border-white bg-white shadow-sm hover:shadow-md'
-                          }`}
-                      >
-                        <span className="block text-[8px] font-black text-gray-400 uppercase tracking-tighter mb-1 opacity-50">{v.type}</span>
-                        <span className={`text-xs font-bold ${selectedVariation === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
-                        {v.priceKES > 0 && (
-                          <span className="block text-[8px] font-black text-[#FF9900] mt-1">+ KES {v.priceKES.toLocaleString()}</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                <div className="mb-10 space-y-8">
+                  {/* Group variations by type */}
+                  {Object.entries(
+                    (p.variations || []).reduce((groups: Record<string, ProductVariation[]>, v: ProductVariation) => {
+                      const type = v.type || 'Other';
+                      if (!groups[type]) groups[type] = [];
+                      groups[type].push(v);
+                      return groups;
+                    }, {} as Record<string, ProductVariation[]>)
+                  ).map(([type, variations]: [string, ProductVariation[]]) => (
+                    <div key={type}>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-4">Select {type}</p>
+                      <div className="flex flex-wrap gap-3">
+                        {variations.map((v: ProductVariation, idx: number) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              const newSelections = { ...selectedVariations };
+                              if (newSelections[type] === v) {
+                                delete newSelections[type];
+                              } else {
+                                newSelections[type] = v;
+                              }
+                              setSelectedVariations(newSelections);
+                            }}
+                            className={`group relative px-6 py-5 rounded-[1.5rem] transition-all duration-300 border-2 ${selectedVariations[type] === v
+                              ? 'border-[#3D8593] bg-[#3D8593]/5'
+                              : 'border-white bg-white shadow-sm hover:shadow-md'
+                              }`}
+                          >
+                            <span className={`text-xs font-bold ${selectedVariations[type] === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
+                            {v.priceKES > 0 && (
+                              <span className="block text-[8px] font-black text-[#FF9900] mt-1">+ KES {v.priceKES.toLocaleString()}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
