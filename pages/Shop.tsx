@@ -264,7 +264,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-900">Description</span>
                   {activeAccordion === 'description' ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                 </button>
-                <div className={`overflow-hidden transition-all duration-500 ${activeAccordion === 'description' ? 'max-h-96' : 'max-h-0'}`}>
+                <div className={`overflow-hidden transition-all duration-500 ${activeAccordion === 'description' ? 'max-h-[2000px]' : 'max-h-0'}`}>
                   <div className="px-8 pb-8 text-sm text-gray-500 font-medium leading-relaxed">
                     <p>{p.description}</p>
 
