@@ -89,7 +89,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -141,6 +141,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'pricelist', name: 'Sync', icon: <RefreshCcw className="w-4 h-4" /> },
     { id: 'leads', name: 'Leads', icon: <Activity className="w-4 h-4" /> },
     { id: 'books', name: 'Books', icon: <Book className="w-4 h-4" /> },
+    { id: 'security', name: 'Security', icon: <Lock className="w-4 h-4" /> },
   ] as const;
 
   const [ebooks, setEbooks] = useState<EBook[]>([]);
@@ -148,6 +149,77 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
+
+  // Security & MFA State
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const [mfaEnrollData, setMfaEnrollData] = useState<{ id: string; qr_code: string; uri: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaError, setMfaError] = useState<string | null>(null);
+
+  const handleUpdateAdminCredentials = async () => {
+    if (!confirm('Are you sure you want to update your admin credentials? You will be logged out.')) return;
+    setSecurityLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        email: 'mungaimports@gmail.com',
+        password: 'Muneneowns_LG_imports01'
+      });
+      if (error) throw error;
+      alert('Credentials updated successfully. Logging out...');
+      await supabase.auth.signOut();
+      window.location.reload();
+    } catch (err: any) {
+      alert('Update failed: ' + err.message);
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const startMFAEnrollment = async () => {
+    setSecurityLoading(true);
+    setMfaError(null);
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp'
+      });
+      if (error) throw error;
+      setMfaEnrollData({
+        id: data.id,
+        qr_code: data.totp.qr_code,
+        uri: data.totp.uri
+      });
+    } catch (err: any) {
+      setMfaError(err.message);
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+
+  const verifyMFAEnrollment = async () => {
+    if (!mfaEnrollData) return;
+    setSecurityLoading(true);
+    setMfaError(null);
+    try {
+      const { id } = mfaEnrollData;
+      const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: id });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: id,
+        challengeId: challengeData.id,
+        code: mfaCode
+      });
+      if (verifyError) throw verifyError;
+
+      alert('MFA enrolled successfully!');
+      setMfaEnrollData(null);
+      setMfaCode('');
+    } catch (err: any) {
+      setMfaError(err.message);
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
 
   const copyTrackingLink = (invoiceNumber: string) => {
     const link = `${window.location.origin}/tracking?id=${invoiceNumber}`;
@@ -160,6 +232,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const formData = new FormData(e.currentTarget);
     const invoiceData: Partial<Invoice> = {
       clientName: formData.get('clientName') as string,
+      clientWhatsapp: formData.get('clientWhatsapp') as string,
       productName: formData.get('productName') as string,
       quantity: parseInt(formData.get('quantity') as string) || 1,
       totalKES: parseFloat(formData.get('totalKES') as string),
@@ -1001,8 +1074,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </button>
                           <button
                             onClick={() => {
+                              const whatsappNumber = inv.clientWhatsapp ? inv.clientWhatsapp.replace(/\+/g, '').replace(/\s/g, '') : WHATSAPP_NUMBER;
                               const msg = encodeURIComponent(`Hi ${inv.clientName}, I've received your payment (Ref: ${inv.paystackReference}). Your order for ${inv.productName} is now: ${inv.status}.`);
-                              window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
+                              window.open(`https://wa.me/${whatsappNumber}?text=${msg}`, '_blank');
                             }}
                             className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all"
                             title="Quick Response (WhatsApp)"
@@ -1484,6 +1558,114 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           )
         }
+        {activeTab === 'security' && (
+          <div className="max-w-4xl mx-auto space-y-12 animate-in fade-in duration-700">
+            <div className="bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
+              <div className="flex items-center gap-6 mb-10">
+                <div className="p-5 bg-rose-50 rounded-3xl text-rose-500">
+                  <ShieldCheck className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black text-gray-900 tracking-tight">Admin Access Control</h3>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Personnel & Authentication Matrix</p>
+                </div>
+              </div>
+
+              <div className="space-y-10">
+                <div className="p-10 bg-neutral-50 rounded-[3rem] border border-neutral-100">
+                  <div className="flex justify-between items-start mb-8">
+                    <div>
+                      <h4 className="text-xl font-black text-gray-900">Credential Refresh</h4>
+                      <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Update Primary Access Keys</p>
+                    </div>
+                    <button
+                      onClick={handleUpdateAdminCredentials}
+                      disabled={securityLoading}
+                      className="px-8 py-4 bg-black text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-2 shadow-xl"
+                    >
+                      {securityLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Sync New Credentials
+                    </button>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-2xl border border-neutral-100">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">New Identity (Email)</p>
+                      <p className="font-bold text-gray-900">mungaimports@gmail.com</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-neutral-100">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Security Key (Password)</p>
+                      <p className="font-bold text-gray-900">Muneneowns_LG_imports01</p>
+                    </div>
+                  </div>
+                  <p className="mt-6 text-[10px] font-bold text-rose-500 flex items-center gap-2">
+                    <Info className="w-3.5 h-3.5" /> Warning: This action will expire your current session.
+                  </p>
+                </div>
+
+                <div className="p-10 bg-[#0f1a1c] text-white rounded-[3rem] border border-white/5 relative overflow-hidden">
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-8">
+                      <div>
+                        <h4 className="text-xl font-black">Two-Step Verification</h4>
+                        <p className="text-xs font-bold text-gray-500 mt-1 uppercase tracking-widest">Multi-Factor Authentication (MFA)</p>
+                      </div>
+                      <button
+                        onClick={startMFAEnrollment}
+                        disabled={securityLoading || !!mfaEnrollData}
+                        className="px-8 py-4 bg-[#3D8593] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-white hover:text-[#0f1a1c] transition-all flex items-center gap-2 shadow-xl shadow-teal-900/40"
+                      >
+                        <ShieldCheck className="w-4 h-4" /> Initialize Enrollment
+                      </button>
+                    </div>
+
+                    {mfaEnrollData ? (
+                      <div className="mt-8 animate-in slide-in-from-top-4 duration-500 bg-white/5 p-8 rounded-[2.5rem] border border-white/10">
+                        <div className="flex flex-col md:flex-row gap-10 items-center">
+                          <div className="bg-white p-4 rounded-3xl">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mfaEnrollData.uri)}`}
+                              alt="MFA QR Code"
+                              className="w-40 h-40"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-6">
+                            <div>
+                              <h5 className="font-black text-lg mb-2">Link Authenticator</h5>
+                              <p className="text-sm text-gray-400 font-medium">Scan the QR code with Google Authenticator or Microsoft Authenticator, then enter the 6-digit verification code below.</p>
+                            </div>
+                            <div className="flex gap-4">
+                              <input
+                                type="text"
+                                maxLength={6}
+                                value={mfaCode}
+                                onChange={(e) => setMfaCode(e.target.value)}
+                                className="flex-1 bg-white/10 border border-white/20 rounded-2xl px-6 py-4 font-black text-2xl tracking-[0.5em] text-center focus:outline-none focus:ring-4 focus:ring-[#3D8593]"
+                                placeholder="000000"
+                              />
+                              <button
+                                onClick={verifyMFAEnrollment}
+                                disabled={securityLoading || mfaCode.length !== 6}
+                                className="px-10 py-4 bg-white text-black rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-[#3D8593] hover:text-white transition-all shadow-xl disabled:opacity-50"
+                              >
+                                {securityLoading ? <RefreshCcw className="w-4 h-4 animate-spin" /> : 'Finalize'}
+                              </button>
+                            </div>
+                            {mfaError && <p className="text-sm font-bold text-rose-400">{mfaError}</p>}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 text-sm font-medium leading-relaxed max-w-lg">
+                        Layered security prevents unauthorized access even if credentials are compromised. We use TOTP protocol compatible with most authentication apps.
+                      </p>
+                    )}
+                  </div>
+                  <Lock className="absolute -bottom-10 -right-10 w-64 h-64 text-white/5 -rotate-12" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main >
 
       {/* Product Edit/Add Modal */}
@@ -2070,6 +2252,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <input required name="clientName" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Dennis Munga" />
                 </div>
                 <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client WhatsApp Number</label>
+                  <input name="clientWhatsapp" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. 254791873538" />
+                </div>
+                <div className="col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Product Specification</label>
                   <input required name="productName" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. M3 Pro MacBook Pro 14" />
                 </div>
@@ -2170,7 +2356,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                       <div class="contact-bar">
                         <div>Email: Mungaimports@gmail.com</div>
-                        <div>Socials: LegitGrinder Ke</div>
+                        <div>Socials: Legitgrinderimports</div>
                         <div>Phone: +254 791873538</div>
                       </div>
                       <center><div class="receipt-label">RECEIPT</div></center>

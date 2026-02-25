@@ -75,6 +75,7 @@ export interface Invoice {
   invoiceNumber: string;
   userId?: string;
   clientName: string;
+  clientWhatsapp?: string;
   productName: string;
   quantity?: number;
   status: OrderStatus;
