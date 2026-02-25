@@ -6,7 +6,7 @@ import {
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
-  ShieldCheck, MessageCircle, Youtube, Book
+  ShieldCheck, MessageCircle, Youtube, Book, Lock
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
