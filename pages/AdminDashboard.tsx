@@ -1621,7 +1621,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {mfaEnrollData ? (
                       <div className="mt-8 animate-in slide-in-from-top-4 duration-500 bg-white/5 p-8 rounded-[2.5rem] border border-white/10">
                         <div className="flex flex-col md:flex-row gap-10 items-center">
-                          <div className="bg-white p-4 rounded-3xl">
+                          <div className="bg-white p-4 rounded-3xl shrink-0">
                             <img
                               src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mfaEnrollData.uri)}`}
                               alt="MFA QR Code"
