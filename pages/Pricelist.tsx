@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { ShoppingCart, ShieldCheck, Zap, Package, Truck, Clock, CheckCircle2, Search, X } from 'lucide-react';
+import { ShoppingCart, ShieldCheck, Zap, Package, Truck, Clock, CheckCircle2, Search, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { WHATSAPP_NUMBER } from '../constants';
 import { PricelistItem } from '../types';
 
@@ -87,20 +87,34 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist }) => {
                 </div>
 
                 <div className="space-y-4">
-                  {item.capacities.map((cap, cIdx) => (
-                    <div key={cIdx} className="p-4 md:p-6 bg-white/60 rounded-[1.8rem] border border-white/60">
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{cap.capacity}</span>
-                        <span className="text-lg md:text-xl font-bold text-gray-900">KES {cap.currentPriceKES.toLocaleString()}</span>
+                  {item.capacities.map((cap, cIdx) => {
+                    const isPriceDrop = cap.previousPriceKES > 0 && cap.currentPriceKES < cap.previousPriceKES;
+                    const isPriceIncrease = cap.previousPriceKES > 0 && cap.currentPriceKES > cap.previousPriceKES;
+
+                    return (
+                      <div key={cIdx} className="p-4 md:p-6 bg-white/60 rounded-[1.8rem] border border-white/60">
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{cap.capacity}</span>
+                          <div className="flex items-center gap-1.5">
+                            {isPriceDrop && <ArrowDown className="w-3.5 h-3.5 text-emerald-500" />}
+                            {isPriceIncrease && <ArrowUp className="w-3.5 h-3.5 text-rose-500" />}
+                            <span className={`text-lg md:text-xl font-bold transition-colors ${isPriceDrop ? 'text-emerald-500' :
+                                isPriceIncrease ? 'text-rose-500' :
+                                  'text-gray-900'
+                              }`}>
+                              KES {cap.currentPriceKES.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleBuy(item.modelName, cap.capacity, cap.currentPriceKES)}
+                          className="w-full py-4 bg-indigo-600 text-white rounded-2xl flex items-center justify-center gap-3 text-[9px] font-bold uppercase tracking-widest"
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" /> Order Item
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleBuy(item.modelName, cap.capacity, cap.currentPriceKES)}
-                        className="w-full py-4 bg-indigo-600 text-white rounded-2xl flex items-center justify-center gap-3 text-[9px] font-bold uppercase tracking-widest"
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" /> Order Item
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

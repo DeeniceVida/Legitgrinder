@@ -45,7 +45,7 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
                     id: v.id,
                     capacity: v.capacity,
                     currentPriceKES: v.price_kes || 0,
-                    previousPriceKES: 0,
+                    previousPriceKES: v.previous_price_kes || 0,
                     lastSynced: v.last_updated ? new Date(v.last_updated).toLocaleString() : 'Never',
                     sourcePriceUSD: v.price_usd || 0,
                     isManualOverride: v.is_manual_override || false
@@ -606,6 +606,13 @@ export const updatePricelistItem = async (
     manualKES?: number
 ): Promise<{ success: boolean; calculatedKES?: number; error?: any }> => {
     try {
+        // 1. Get current price to archive it as previous_price_kes
+        const { data: currentVariant } = await supabase
+            .from('pricelist_variants')
+            .select('price_kes')
+            .eq('id', variantId)
+            .single();
+
         let priceKES = manualKES;
 
         if (!manualOverride) {
@@ -617,7 +624,8 @@ export const updatePricelistItem = async (
         const updateData: any = {
             price_usd: priceUSD,
             last_updated: new Date().toISOString(),
-            is_manual_override: manualOverride
+            is_manual_override: manualOverride,
+            previous_price_kes: currentVariant?.price_kes || 0
         };
 
         if (priceKES) {
