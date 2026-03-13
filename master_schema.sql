@@ -248,6 +248,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   progress INTEGER DEFAULT 0,
   last_update TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   is_paid BOOLEAN DEFAULT false,
+  payment_status TEXT DEFAULT 'Unpaid',
   total_kes NUMERIC DEFAULT 0,
   paystack_reference TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

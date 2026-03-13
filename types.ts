@@ -70,6 +70,12 @@ export interface Product {
   videoUrl?: string;
 }
 
+export enum PaymentStatus {
+  UNPAID = 'Unpaid',
+  PARTIALLY_PAID = 'Partially Paid',
+  PAID = 'Paid'
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -82,11 +88,13 @@ export interface Invoice {
   progress: number;
   lastUpdate: string;
   isPaid: boolean;
+  paymentStatus: PaymentStatus;
   totalKES?: number;
   date?: string;
   createdAt?: string;
   paystackReference?: string;
 }
+
 
 export interface Client {
   id: string;

@@ -16,10 +16,10 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
-  Consultation, ConsultationStatus, Availability, Invoice,
+  Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
   BlogPost, FAQItem, Client, ProductVariation, SourcingRequest, EBook
 } from '../types';
 import SafeImage from '../components/SafeImage';
@@ -230,13 +230,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleCreateManualOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const paymentStatus = formData.get('paymentStatus') as PaymentStatus;
+    const isPaid = paymentStatus === PaymentStatus.PAID;
+
     const invoiceData: Partial<Invoice> = {
       clientName: formData.get('clientName') as string,
       clientWhatsapp: formData.get('clientWhatsapp') as string,
       productName: formData.get('productName') as string,
       quantity: parseInt(formData.get('quantity') as string) || 1,
       totalKES: parseFloat(formData.get('totalKES') as string),
-      isPaid: formData.get('isPaid') === 'on'
+      isPaid: isPaid,
+      paymentStatus: paymentStatus
     };
 
     const result = await createManualInvoice(invoiceData);
@@ -925,10 +929,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
                             <p className="text-[9px] text-gray-400 font-medium mt-1">Ref: {inv.paystackReference || 'Manual Sync'}</p>
                           </div>
-                          <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 ${inv.isPaid ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-rose-50 text-rose-600 border border-rose-100'}`}>
-                            {inv.isPaid ? <ShieldCheck className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                            <span className="text-[9px] font-black uppercase tracking-widest">{inv.isPaid ? 'Paid' : 'Unpaid'}</span>
-                          </div>
+                          <select
+                            value={inv.paymentStatus}
+                            onChange={async (e) => {
+                              const newStatus = e.target.value as PaymentStatus;
+                              onUpdateInvoices(invoices.map(i => i.id === inv.id ? { ...i, paymentStatus: newStatus, isPaid: newStatus === PaymentStatus.PAID } : i));
+                              const result = await updateInvoicePaymentStatus(inv.id, newStatus);
+                              if (!result.success) alert("Failed to update payment status in database");
+                            }}
+                            className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest outline-none border transition-all ${inv.paymentStatus === PaymentStatus.PAID ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                              inv.paymentStatus === PaymentStatus.PARTIALLY_PAID ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                'bg-rose-50 text-rose-600 border-rose-100'
+                              }`}
+                          >
+                            {Object.values(PaymentStatus).map(s => (
+                              <option key={s} value={s} className="bg-white text-gray-900">{s}</option>
+                            ))}
+                          </select>
                         </div>
                       </td>
                       <td className="px-10 py-10">
@@ -2269,9 +2286,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 bg-teal-50/50 p-6 rounded-3xl border border-teal-100/50">
-                <input type="checkbox" name="isPaid" id="isPaid" className="w-6 h-6 rounded-lg border-teal-200 text-[#3D8593] focus:ring-[#3D8593]" />
-                <label htmlFor="isPaid" className="font-bold text-sm text-gray-600">Mark as Paid Immediately</label>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Initial Payment Status</label>
+                <div className="flex gap-4">
+                  {Object.values(PaymentStatus).map(status => (
+                    <label key={status} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-3xl border-2 cursor-pointer transition-all ${formData.get('paymentStatus') === status || (status === PaymentStatus.UNPAID && !formData.get('paymentStatus'))
+                        ? 'bg-teal-50 border-[#3D8593] text-[#3D8593]'
+                        : 'bg-neutral-50 border-transparent text-gray-400'
+                      }`}>
+                      <input
+                        type="radio"
+                        name="paymentStatus"
+                        value={status}
+                        className="hidden"
+                        defaultChecked={status === PaymentStatus.UNPAID}
+                      />
+                      <span className="text-[9px] font-black uppercase tracking-tighter">{status}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="flex gap-4 pt-6">

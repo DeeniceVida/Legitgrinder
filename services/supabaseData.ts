@@ -1,6 +1,6 @@
 
 import { supabase } from '../lib/supabase';
-import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus, BlogPost, FAQItem, Invoice, OrderStatus, SourcingRequest, EBook } from '../types';
+import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus, BlogPost, FAQItem, Invoice, OrderStatus, SourcingRequest, EBook, PaymentStatus } from '../types';
 
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
     try {
@@ -272,6 +272,7 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             progress: inv.progress || 0,
             lastUpdate: inv.last_update ? new Date(inv.last_update).toLocaleString() : 'Never',
             isPaid: inv.is_paid,
+            paymentStatus: (inv.payment_status || (inv.is_paid ? PaymentStatus.PAID : PaymentStatus.UNPAID)) as PaymentStatus,
             totalKES: parseFloat(inv.total_kes || 0),
             paystackReference: inv.paystack_reference,
             date: inv.created_at,
@@ -304,6 +305,7 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
             progress: inv.progress || 0,
             lastUpdate: inv.last_update ? new Date(inv.last_update).toLocaleString() : 'Never',
             isPaid: inv.is_paid,
+            paymentStatus: (inv.payment_status || (inv.is_paid ? PaymentStatus.PAID : PaymentStatus.UNPAID)) as PaymentStatus,
             totalKES: parseFloat(inv.total_kes || 0),
             paystackReference: inv.paystack_reference,
             date: inv.created_at,
@@ -337,6 +339,7 @@ export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoi
             progress: data.progress || 0,
             lastUpdate: data.last_update ? new Date(data.last_update).toLocaleString() : 'Never',
             isPaid: data.is_paid,
+            paymentStatus: (data.payment_status || (data.is_paid ? PaymentStatus.PAID : PaymentStatus.UNPAID)) as PaymentStatus,
             totalKES: parseFloat(data.total_kes || 0),
             paystackReference: data.paystack_reference,
             date: data.created_at,
@@ -367,6 +370,25 @@ export const updateInvoiceStatus = async (id: string, status: OrderStatus, progr
     }
 };
 
+export const updateInvoicePaymentStatus = async (id: string, paymentStatus: PaymentStatus): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('invoices')
+            .update({
+                payment_status: paymentStatus,
+                is_paid: paymentStatus === PaymentStatus.PAID,
+                last_update: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating invoice payment status:', error);
+        return { success: false, error };
+    }
+};
+
 export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string }> => {
     try {
         // Generate a simple numeric invoice number if not provided
@@ -383,6 +405,7 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 total_kes: invoiceData.totalKES,
                 status: OrderStatus.RECEIVED_BY_AGENT,
                 is_paid: invoiceData.isPaid || false,
+                payment_status: invoiceData.paymentStatus || (invoiceData.isPaid ? PaymentStatus.PAID : PaymentStatus.UNPAID),
                 progress: 10,
                 last_update: new Date().toISOString(),
                 user_id: invoiceData.userId // Optional link to user account
@@ -827,6 +850,7 @@ export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ succes
                 quantity: invoice.quantity || 1,
                 total_kes: invoice.totalKES,
                 is_paid: invoice.isPaid || false,
+                payment_status: invoice.paymentStatus || (invoice.isPaid ? PaymentStatus.PAID : PaymentStatus.UNPAID),
                 status: invoice.status || OrderStatus.RECEIVED_BY_AGENT,
                 invoice_number: invoice.invoiceNumber || `INV-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
                 paystack_reference: invoice.paystackReference,
