@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Smartphone, Truck, Package, Sparkles, Zap, Globe, ShieldCheck, Search, Handshake, Box } from 'lucide-react';
 import SafeImage from '../components/SafeImage';
+import AdBanner from '../components/AdBanner';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -53,8 +54,24 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* Hero Ad Banner */}
+      <section className="px-6 pb-24 relative z-10 w-full animate-in fade-in zoom-in-95 duration-1000 delay-500">
+        <div className="max-w-7xl mx-auto">
+          <AdBanner
+            title1="Your kid will drop it."
+            title2="Pay less."
+            subtitle="The iPhone 15, refurbished, for up to 70% less than new."
+            buttonText="Save now"
+            buttonLink="/shop"
+            imageSrc="https://freepngimg.com/download/apple/58687-apple-iphone-smartphone-x-hq-image-free.png"
+            backgroundColor="#e2f07d"
+            textColor="#0f172a"
+          />
+        </div>
+      </section>
+
       {/* Sourcing Process Section */}
-      <section className="py-32 px-6 bg-white">
+      <section className="py-32 px-6 bg-white xl:rounded-[4rem] xl:mx-6">
         <div className="max-w-7xl mx-auto text-center mb-24">
           <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">How I Work <span className="text-[#3D8593] italic heading-accent font-light">For You</span></h2>
           <p className="text-gray-500 text-lg font-light max-w-2xl mx-auto">A high-touch sourcing model designed for transparency and reliability.</p>
