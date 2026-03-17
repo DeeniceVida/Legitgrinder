@@ -27,35 +27,37 @@ const AdBanner: React.FC<AdBannerProps> = ({
 }) => {
     return (
         <div
-            className={`w-full relative overflow-hidden rounded-[2rem] flex flex-col md:flex-row items-center justify-between shadow-sm border border-black/5 ${className}`}
+            className={`w-full relative overflow-hidden rounded-[2rem] flex flex-col md:flex-row shadow-sm border border-black/5 ${className}`}
             style={{ backgroundColor, color: textColor }}
         >
-            <div className="p-8 md:p-14 lg:p-20 z-10 md:w-[60%] flex flex-col items-start justify-center h-full">
-                <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tight mb-1 leading-[1.05] heading-accent">
+            {/* Text Content Area */}
+            <div className="p-8 md:p-14 lg:p-20 z-20 flex-1 flex flex-col items-start justify-center h-full relative">
+                <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold tracking-tight mb-2 leading-[1.1] heading-accent z-10 w-full break-words">
                     {title1}
                 </h2>
-                <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold italic tracking-tight mb-8 leading-[1.05] heading-accent">
+                <h2 className="text-4xl md:text-5xl lg:text-7xl font-bold italic tracking-tight mb-6 leading-[1.1] heading-accent z-10 w-full break-words">
                     {title2}
                 </h2>
-                <p className="text-lg md:text-xl font-light mb-10 max-w-md opacity-90 leading-relaxed font-sans">
+                <p className="text-lg md:text-xl font-light mb-8 max-w-lg opacity-90 leading-relaxed font-sans z-10">
                     {subtitle}
                 </p>
-                <Link
-                    to={buttonLink}
-                    className="bg-[#0f172a] text-white px-10 py-4 rounded-xl font-bold hover:bg-black hover:scale-105 transition-all shadow-xl hover:shadow-2xl"
-                >
-                    {buttonText}
-                </Link>
+                <div className="z-10 mt-auto md:mt-4">
+                    <Link
+                        to={buttonLink}
+                        className="bg-[#0f172a] text-white px-8 py-4 rounded-xl font-bold hover:bg-black hover:scale-105 transition-all shadow-xl hover:shadow-2xl inline-block"
+                        style={{ color: '#ffffff' }} // Force white text on the dark button regardless of textColor prop
+                    >
+                        {buttonText}
+                    </Link>
+                </div>
             </div>
 
-            <div className="relative md:absolute md:right-0 md:bottom-0 md:h-full md:w-[50%] w-full h-[320px] mt-2 md:mt-0 flex justify-end md:justify-center items-end">
-                {/* Subtle shadow overlay for mobile devices to ground the image */}
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/5 to-transparent md:hidden mix-blend-multiply"></div>
-
+            {/* Image Area */}
+            <div className="w-full md:w-[45%] lg:w-[50%] h-[300px] md:h-auto min-h-[300px] md:min-h-[450px] relative z-10 flex items-end justify-center md:justify-end mt-4 md:mt-0">
                 <SafeImage
                     src={imageSrc}
-                    alt="Ad product"
-                    className="h-[95%] md:h-[110%] w-[120%] lg:w-[110%] max-w-none md:max-w-[none] object-contain object-right-bottom mix-blend-multiply origin-bottom md:translate-y-[2%] translate-x-[10%] md:translate-x-0"
+                    alt="Ad Campaign Image"
+                    className="w-[90%] md:w-full h-[90%] md:h-[110%] object-contain object-bottom md:object-right-bottom mix-blend-multiply md:translate-y-4"
                 />
             </div>
         </div>
