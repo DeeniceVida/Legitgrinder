@@ -2,29 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Smartphone, Truck, Package, Sparkles, Zap, Globe, ShieldCheck, Search, Handshake, Box, ChevronLeft, ChevronRight } from 'lucide-react';
 import SafeImage from '../components/SafeImage';
-import AdBanner from '../components/AdBanner';
-import { AdBanner as AdBannerType } from '../types';
-import { fetchBanners } from '../services/adBanners';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
-  const [banners, setBanners] = useState<AdBannerType[]>([]);
-  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
-
-  useEffect(() => {
-    fetchBanners().then((data) => {
-      // Only keep active banners
-      setBanners(data.filter(b => b.isActive));
-    });
-  }, []);
-
-  useEffect(() => {
-    if (banners.length <= 1) return;
-    const interval = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
-    }, 7000); // 7 seconds slide
-    return () => clearInterval(interval);
-  }, [banners.length]);
 
   return (
     <div className="bg-mesh min-h-screen">
@@ -74,61 +54,7 @@ const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Hero Ad Banner Slider */}
-      {banners.length > 0 && (
-        <section className="px-6 pb-24 relative z-10 w-full animate-in fade-in zoom-in-95 duration-1000 delay-500">
-          <div className="max-w-7xl mx-auto relative group">
-            <div className="overflow-hidden rounded-[2rem]">
-              <div
-                className="flex transition-transform duration-700 ease-in-out"
-                style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
-              >
-                {banners.map((banner) => (
-                  <div key={banner.id} className="w-full shrink-0">
-                    <AdBanner
-                      title1={banner.title1}
-                      title2={banner.title2}
-                      subtitle={banner.subtitle}
-                      buttonText={banner.buttonText}
-                      buttonLink={banner.buttonLink}
-                      imageSrc={banner.imageSrc}
-                      backgroundColor={banner.backgroundColor}
-                      textColor={banner.textColor}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Slider Controls */}
-            {banners.length > 1 && (
-              <>
-                <button
-                  onClick={() => setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length)}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/80 backdrop-blur-sm shadow-xl rounded-full flex justify-center items-center text-gray-800 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:scale-110"
-                >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={() => setCurrentBannerIndex((prev) => (prev + 1) % banners.length)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/80 backdrop-blur-sm shadow-xl rounded-full flex justify-center items-center text-gray-800 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white hover:scale-110"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3">
-                  {banners.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setCurrentBannerIndex(idx)}
-                      className={`w-3 h-3 rounded-full transition-all border-2 ${idx === currentBannerIndex ? 'bg-black border-black scale-125' : 'bg-transparent border-gray-400 opacity-50 hover:opacity-100'}`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* Sourcing Process Section */}
       <section className="py-32 px-6 bg-white xl:rounded-[4rem] xl:mx-6">
