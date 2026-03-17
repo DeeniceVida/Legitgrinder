@@ -228,3 +228,17 @@ export interface EBookPurchase {
   bookId: string;
   purchasedAt: string;
 }
+
+export interface AdBanner {
+  id: string;
+  title1: string;
+  title2: string;
+  subtitle: string;
+  buttonText: string;
+  buttonLink: string;
+  imageSrc: string;
+  backgroundColor: string;
+  textColor: string;
+  isActive: boolean;
+  sortOrder: number;
+}
