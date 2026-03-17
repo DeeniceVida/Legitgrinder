@@ -20,8 +20,9 @@ import { calculateFinalPrice, updatePricelistItem, updateConsultation, createPro
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
-  BlogPost, FAQItem, Client, ProductVariation, SourcingRequest, EBook
+  BlogPost, FAQItem, Client, ProductVariation, SourcingRequest, EBook, AdBanner
 } from '../types';
+import { fetchBanners, addBanner, updateBanner, deleteBanner } from '../services/adBanners';
 import SafeImage from '../components/SafeImage';
 
 
@@ -89,7 +90,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -141,11 +142,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'pricelist', name: 'Sync', icon: <RefreshCcw className="w-4 h-4" /> },
     { id: 'leads', name: 'Leads', icon: <Activity className="w-4 h-4" /> },
     { id: 'books', name: 'Books', icon: <Book className="w-4 h-4" /> },
+    { id: 'adbanners', name: 'Ad Banners', icon: <ImageIcon className="w-4 h-4" /> },
     { id: 'security', name: 'Security', icon: <Lock className="w-4 h-4" /> },
   ] as const;
 
   const [ebooks, setEbooks] = useState<EBook[]>([]);
   const [editingBook, setEditingBook] = useState<EBook | 'new' | null>(null);
+
+  // Ad Banners State
+  const [adBanners, setAdBanners] = useState<AdBanner[]>([]);
+  const [editingAdBanner, setEditingAdBanner] = useState<AdBanner | 'new' | null>(null);
+
   const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
@@ -255,6 +262,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     if (activeTab === 'books') {
       fetchEBooks().then(setEbooks);
+    } else if (activeTab === 'adbanners') {
+      fetchBanners().then(setAdBanners);
     }
   }, [activeTab]);
 
@@ -285,6 +294,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setEbooks(updated);
     } else {
       alert('Error saving book: ' + JSON.stringify(result?.error));
+    }
+  };
+
+  const handleSaveAdBanner = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const bannerData: Partial<Omit<AdBanner, 'id'>> = {
+      title1: formData.get('title1') as string,
+      title2: formData.get('title2') as string,
+      subtitle: formData.get('subtitle') as string,
+      buttonText: formData.get('buttonText') as string,
+      buttonLink: formData.get('buttonLink') as string,
+      imageSrc: formData.get('imageSrc') as string,
+      backgroundColor: formData.get('backgroundColor') as string,
+      textColor: formData.get('textColor') as string,
+      isActive: formData.get('isActive') === 'true',
+      sortOrder: parseInt(formData.get('sortOrder') as string) || 0,
+    };
+
+    try {
+      if (editingAdBanner === 'new') {
+        const newBanner = await addBanner(bannerData as Omit<AdBanner, 'id'>);
+        setAdBanners([...adBanners, newBanner]);
+      } else if (editingAdBanner && typeof editingAdBanner !== 'string') {
+        await updateBanner(editingAdBanner.id, bannerData);
+        setAdBanners(adBanners.map(b => b.id === editingAdBanner.id ? { ...b, ...bannerData } as AdBanner : b));
+      }
+      setEditingAdBanner(null);
+    } catch (err: any) {
+      alert('Error saving Ad Banner: ' + err.message);
+    }
+  };
+
+  const handleDeleteAdBanner = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this Ad Banner?')) return;
+    try {
+      await deleteBanner(id);
+      setAdBanners(adBanners.filter(b => b.id !== id));
+    } catch (err: any) {
+      alert('Error deleting Ad Banner: ' + err.message);
     }
   };
 
@@ -708,6 +757,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Plus className="w-4 h-4" /> New Shop Asset
                 </button>
               </div>
+            )}
+            {activeTab === 'adbanners' && (
+              <button
+                onClick={() => setEditingAdBanner('new')}
+                className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" /> New Ad Banner
+              </button>
             )}
           </div>
         </header>
@@ -1683,6 +1740,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
         )}
+
+        {/* AD BANNERS MANAGEMENT */}
+        {activeTab === 'adbanners' && (
+          <div className="space-y-12 animate-in fade-in duration-700">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {adBanners.length === 0 ? (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center text-gray-400 bg-white rounded-[3rem] border border-neutral-100 border-dashed">
+                  <ImageIcon className="w-16 h-16 mb-4 opacity-20" />
+                  <p className="font-bold text-lg">No Ad Banners Found</p>
+                  <p className="text-sm mt-2">Create your first ad banner using the 'New Ad Banner' button above.</p>
+                </div>
+              ) : (
+                adBanners.sort((a, b) => a.sortOrder - b.sortOrder).map((banner) => (
+                  <div key={banner.id} className="bg-white rounded-[3rem] p-8 border border-neutral-100 shadow-sm hover:shadow-xl transition-all flex flex-col group relative">
+                    <div 
+                      className="relative aspect-video rounded-[2rem] overflow-hidden mb-6 flex items-center justify-center p-6 border border-neutral-100 shadow-inner" 
+                      style={{ backgroundColor: banner.backgroundColor }}
+                    >
+                      <SafeImage src={banner.imageSrc} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 drop-shadow-2xl" />
+                      {!banner.isActive && (
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+                          <span className="bg-rose-500 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">Inactive</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-xl font-black text-gray-900 leading-tight line-clamp-2 mb-1">{banner.title1}</h4>
+                      <h5 className="text-md font-bold italic text-[#3D8593] mb-3">{banner.title2}</h5>
+                      <p className="text-sm font-medium leading-relaxed line-clamp-3 text-gray-400">{banner.subtitle}</p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-6 mt-6 border-t border-neutral-50">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-3 py-1.5 rounded-full">Sort: {banner.sortOrder}</span>
+                      </div>
+                      <div className="flex gap-2 relative z-10">
+                        <button onClick={() => setEditingAdBanner(banner)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-[#3D8593] hover:text-white transition-all shadow-sm">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteAdBanner(banner.id)} className="p-3 bg-neutral-50 text-gray-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </main >
 
       {/* Product Edit/Add Modal */}
@@ -2290,9 +2397,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Initial Payment Status</label>
                 <div className="flex gap-4">
                   {Object.values(PaymentStatus).map(status => (
-                    <label key={status} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-3xl border-2 cursor-pointer transition-all ${formData.get('paymentStatus') === status || (status === PaymentStatus.UNPAID && !formData.get('paymentStatus'))
-                        ? 'bg-teal-50 border-[#3D8593] text-[#3D8593]'
-                        : 'bg-neutral-50 border-transparent text-gray-400'
+                    <label key={status} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-3xl border-2 cursor-pointer transition-all ${status === PaymentStatus.UNPAID
+                      ? 'bg-teal-50 border-[#3D8593] text-[#3D8593]'
+                      : 'bg-neutral-50 border-transparent text-gray-400'
                       }`}>
                       <input
                         type="radio"
@@ -2452,6 +2559,86 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full py-5 bg-rose-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl shadow-rose-100"
               >
                 Generate Print Preview
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Ad Banner Editor Modal */}
+      {editingAdBanner && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-[3rem] w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 md:p-12 shadow-2xl relative">
+            <button
+              onClick={() => setEditingAdBanner(null)}
+              className="absolute top-8 right-8 p-3 bg-neutral-100 rounded-full hover:bg-neutral-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="text-3xl font-black mb-8 tracking-tighter">
+              {editingAdBanner === 'new' ? 'Create Ad Banner' : 'Edit Ad Banner'}
+            </h2>
+
+            <form onSubmit={handleSaveAdBanner} className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Title 1</label>
+                  <input required name="title1" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.title1 : ''} placeholder="e.g. Your kid will drop it." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Title 2 (Italic)</label>
+                  <input required name="title2" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.title2 : ''} placeholder="e.g. Pay less." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Subtitle</label>
+                <textarea required name="subtitle" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.subtitle : ''} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold min-h-[100px] resize-none focus:ring-4 focus:ring-teal-100 transition-all"></textarea>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Image URL (Transparent PNG ideal)</label>
+                  <input required name="imageSrc" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.imageSrc : ''} placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Bg Color</label>
+                    <input type="color" name="backgroundColor" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.backgroundColor : '#e2f07d'} className="w-full h-[56px] bg-neutral-50 border-none rounded-2xl px-2 py-2 cursor-pointer focus:ring-4 focus:ring-teal-100 transition-all" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Text Color</label>
+                    <input type="color" name="textColor" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.textColor : '#0f172a'} className="w-full h-[56px] bg-neutral-50 border-none rounded-2xl px-2 py-2 cursor-pointer focus:ring-4 focus:ring-teal-100 transition-all" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Button Text</label>
+                  <input required name="buttonText" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.buttonText : 'Save now'} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Button Link Path</label>
+                  <input required name="buttonLink" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.buttonLink : '/shop'} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Sort Order</label>
+                  <input required type="number" name="sortOrder" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.sortOrder : 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                </div>
+                <div className="flex items-center h-full pt-6">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input type="checkbox" name="isActive" value="true" defaultChecked={editingAdBanner !== 'new' ? editingAdBanner.isActive : true} className="w-6 h-6 rounded text-[#3D8593] focus:ring-[#3D8593]" />
+                    <span className="font-bold">Active (Show on Home)</span>
+                  </label>
+                </div>
+              </div>
+
+              <button type="submit" className="w-full py-5 bg-black text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all flex items-center justify-center gap-3">
+                <Save className="w-5 h-5" /> {editingAdBanner === 'new' ? 'Create Banner' : 'Save Changes'}
               </button>
             </form>
           </div>
