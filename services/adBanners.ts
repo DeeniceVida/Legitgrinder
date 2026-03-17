@@ -1,4 +1,4 @@
-import { supabase } from '../supabase/client';
+import { supabase } from '../lib/supabase';
 import { AdBanner } from '../types';
 
 export const fetchBanners = async (): Promise<AdBanner[]> => {
