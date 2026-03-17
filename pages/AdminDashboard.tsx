@@ -2567,79 +2567,112 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Ad Banner Editor Modal */}
       {editingAdBanner && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-[3rem] w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 md:p-12 shadow-2xl relative">
-            <button
-              onClick={() => setEditingAdBanner(null)}
-              className="absolute top-8 right-8 p-3 bg-neutral-100 rounded-full hover:bg-neutral-200 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h2 className="text-3xl font-black mb-8 tracking-tighter">
-              {editingAdBanner === 'new' ? 'Create Ad Banner' : 'Edit Ad Banner'}
-            </h2>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-[#0f1a1c]/60 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_50px_100px_-20px_rgba(0,0,0,0.2)] relative overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
+            <div className="h-2 bg-gradient-to-r from-[#3D8593] to-teal-200 shrink-0" />
+            
+            <header className="px-6 md:px-10 py-8 bg-neutral-50/50 border-b border-neutral-100 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900">
+                  {editingAdBanner === 'new' ? 'New Campaign Asset' : 'Refine Campaign Asset'}
+                </h3>
+                <p className="text-[9px] md:text-[10px] font-black uppercase text-[#3D8593] tracking-[0.3em] mt-1">Growth & Marketing Suite</p>
+              </div>
+              <button onClick={() => setEditingAdBanner(null)} className="p-3 bg-white hover:bg-rose-50 hover:text-rose-500 rounded-2xl shadow-sm transition-all">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </header>
 
-            <form onSubmit={handleSaveAdBanner} className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
+            <form onSubmit={handleSaveAdBanner} className="p-6 md:p-10 overflow-y-auto flex-1 space-y-8 no-scrollbar">
+              <div className="grid md:grid-cols-2 gap-6 md:gap-8">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Title 1</label>
-                  <input required name="title1" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.title1 : ''} placeholder="e.g. Your kid will drop it." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2 flex items-center gap-2">
+                    <AlignLeft className="w-3.5 h-3.5" /> Primary Headline
+                  </label>
+                  <input required name="title1" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.title1 : ''} placeholder="e.g. Your kid will drop it." className="w-full bg-neutral-50 border-none rounded-2xl md:rounded-3xl px-6 py-4 md:py-5 font-bold focus:ring-4 focus:ring-teal-100 transition-all text-sm md:text-base placeholder:text-neutral-300" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Title 2 (Italic)</label>
-                  <input required name="title2" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.title2 : ''} placeholder="e.g. Pay less." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2 flex items-center gap-2">
+                    <AlignLeft className="w-3.5 h-3.5" /> Secondary Headline <span className="text-teal-400">(Italic)</span>
+                  </label>
+                  <input required name="title2" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.title2 : ''} placeholder="e.g. Pay less." className="w-full bg-neutral-50 border-none rounded-2xl md:rounded-3xl px-6 py-4 md:py-5 font-bold focus:ring-4 focus:ring-teal-100 transition-all text-sm md:text-base placeholder:text-neutral-300 italic" />
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Subtitle</label>
-                <textarea required name="subtitle" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.subtitle : ''} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold min-h-[100px] resize-none focus:ring-4 focus:ring-teal-100 transition-all"></textarea>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2 flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5" /> Supporting Copy
+                </label>
+                <textarea required name="subtitle" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.subtitle : ''} placeholder="Add context and details..." className="w-full bg-neutral-50 border-none rounded-2xl md:rounded-3xl px-6 py-5 font-bold min-h-[120px] resize-none focus:ring-4 focus:ring-teal-100 transition-all text-sm md:text-base placeholder:text-neutral-300 leading-relaxed"></textarea>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-neutral-50 p-6 md:p-8 rounded-[2.5rem] space-y-6 md:space-y-8">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Image URL (Transparent PNG ideal)</label>
-                  <input required name="imageSrc" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.imageSrc : ''} placeholder="https://..." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] block mb-3 ml-2 flex items-center gap-2">
+                    <ImageIcon className="w-3.5 h-3.5" /> Transparent Asset URL (PNG Recommended)
+                  </label>
+                  <input required name="imageSrc" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.imageSrc : ''} placeholder="https://res.cloudinary.com/..." className="w-full bg-white border-none rounded-2xl px-6 py-4 md:py-5 font-bold focus:ring-4 focus:ring-teal-100 transition-all text-sm placeholder:text-neutral-200 shadow-sm" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Bg Color</label>
-                    <input type="color" name="backgroundColor" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.backgroundColor : '#e2f07d'} className="w-full h-[56px] bg-neutral-50 border-none rounded-2xl px-2 py-2 cursor-pointer focus:ring-4 focus:ring-teal-100 transition-all" />
+                
+                <div className="grid grid-cols-2 gap-4 md:gap-8">
+                  <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 text-center">Backdrop Color</label>
+                    <div className="relative overflow-hidden rounded-xl h-12 w-full">
+                      <input type="color" name="backgroundColor" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.backgroundColor : '#e2f07d'} className="absolute -top-4 -left-4 w-32 h-32 cursor-pointer" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Text Color</label>
-                    <input type="color" name="textColor" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.textColor : '#0f172a'} className="w-full h-[56px] bg-neutral-50 border-none rounded-2xl px-2 py-2 cursor-pointer focus:ring-4 focus:ring-teal-100 transition-all" />
+                  <div className="bg-white p-4 md:p-5 rounded-2xl shadow-sm">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 text-center">Typography Color</label>
+                    <div className="relative overflow-hidden rounded-xl h-12 w-full">
+                      <input type="color" name="textColor" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.textColor : '#0f172a'} className="absolute -top-4 -left-4 w-32 h-32 cursor-pointer" />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-6 md:gap-8">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Button Text</label>
-                  <input required name="buttonText" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.buttonText : 'Save now'} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2 flex items-center gap-2">
+                    <ChevronRight className="w-3.5 h-3.5" /> Call to Action Text
+                  </label>
+                  <input required name="buttonText" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.buttonText : 'Save now'} className="w-full bg-neutral-50 border-none rounded-2xl md:rounded-3xl px-6 py-4 md:py-5 font-bold focus:ring-4 focus:ring-teal-100 transition-all text-sm md:text-base" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Button Link Path</label>
-                  <input required name="buttonLink" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.buttonLink : '/shop'} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2 flex items-center gap-2">
+                    <ChevronRight className="w-3.5 h-3.5" /> Target Destination Path
+                  </label>
+                  <input required name="buttonLink" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.buttonLink : '/shop'} className="w-full bg-neutral-50 border-none rounded-2xl md:rounded-3xl px-6 py-4 md:py-5 font-bold focus:ring-4 focus:ring-teal-100 transition-all text-sm md:text-base" />
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-6 md:gap-8 bg-neutral-50 p-6 rounded-[2rem] items-center">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Sort Order</label>
-                  <input required type="number" name="sortOrder" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.sortOrder : 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all" />
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2 flex items-center gap-2">
+                    <List className="w-3.5 h-3.5" /> Display Priority (0 is first)
+                  </label>
+                  <input required type="number" name="sortOrder" defaultValue={editingAdBanner !== 'new' ? editingAdBanner.sortOrder : 0} className="w-full bg-white border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-teal-100 transition-all shadow-sm" />
                 </div>
-                <div className="flex items-center h-full pt-6">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input type="checkbox" name="isActive" value="true" defaultChecked={editingAdBanner !== 'new' ? editingAdBanner.isActive : true} className="w-6 h-6 rounded text-[#3D8593] focus:ring-[#3D8593]" />
-                    <span className="font-bold">Active (Show on Home)</span>
+                <div className="flex justify-center md:justify-end md:pt-6">
+                  <label className="flex items-center gap-4 cursor-pointer bg-white px-6 py-4 rounded-2xl shadow-sm w-full md:w-auto">
+                    <div className="relative flex items-center">
+                      <input type="checkbox" name="isActive" value="true" defaultChecked={editingAdBanner !== 'new' ? editingAdBanner.isActive : true} className="w-6 h-6 rounded border-2 border-neutral-200 text-[#3D8593] focus:ring-[#3D8593] focus:ring-offset-2 transition-all" />
+                    </div>
+                    <div>
+                      <span className="font-black text-sm text-gray-900 block">Campaign Active</span>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Visible on storefront</span>
+                    </div>
                   </label>
                 </div>
               </div>
 
-              <button type="submit" className="w-full py-5 bg-black text-white rounded-2xl font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all flex items-center justify-center gap-3">
-                <Save className="w-5 h-5" /> {editingAdBanner === 'new' ? 'Create Banner' : 'Save Changes'}
-              </button>
+              <div className="flex gap-4 pt-4 shrink-0 mt-8 mb-4">
+                <button type="button" onClick={() => setEditingAdBanner(null)} className="hidden md:block px-10 py-5 bg-neutral-100 text-gray-400 rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-200 transition-all">
+                  Discard
+                </button>
+                <button type="submit" className="flex-1 py-5 md:py-6 bg-[#3D8593] text-white rounded-[2rem] font-black uppercase tracking-widest text-[11px] hover:bg-black transition-all shadow-xl shadow-teal-100 hover:shadow-2xl hover:-translate-y-1 transform flex items-center justify-center gap-3">
+                  <Save className="w-4 h-4 md:w-5 md:h-5" /> {editingAdBanner === 'new' ? 'Deploy Campaign' : 'Sync Changes'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -2649,3 +2682,4 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 };
 
 export default AdminDashboard;
+
