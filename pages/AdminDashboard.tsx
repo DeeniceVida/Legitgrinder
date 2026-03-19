@@ -154,6 +154,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingAdBanner, setEditingAdBanner] = useState<AdBanner | 'new' | null>(null);
 
   const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
+  const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
 
@@ -2397,7 +2398,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Initial Payment Status</label>
                 <div className="flex gap-4">
                   {Object.values(PaymentStatus).map(status => (
-                    <label key={status} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-3xl border-2 cursor-pointer transition-all ${status === PaymentStatus.UNPAID
+                    <label key={status} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-3xl border-2 cursor-pointer transition-all ${status === manualOrderPaymentStatus
                       ? 'bg-teal-50 border-[#3D8593] text-[#3D8593]'
                       : 'bg-neutral-50 border-transparent text-gray-400'
                       }`}>
@@ -2406,7 +2407,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         name="paymentStatus"
                         value={status}
                         className="hidden"
-                        defaultChecked={status === PaymentStatus.UNPAID}
+                        checked={status === manualOrderPaymentStatus}
+                        onChange={() => setManualOrderPaymentStatus(status)}
                       />
                       <span className="text-[9px] font-black uppercase tracking-tighter">{status}</span>
                     </label>
@@ -2515,7 +2517,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <table class="summary-table">
                           <tr><td>Amount received:</td> <td class="val" style="color: #3d8593;">KES ${parseFloat(amountReceived).toLocaleString()}</td></tr>
                           <tr><td>Balance:</td> <td class="val" style="color: #ef4444;">KES ${parseFloat(balance).toLocaleString()}</td></tr>
-                          <tr><td style="background: #f9f9f9;">Total:</td> <td class="val" style="background: #f9f9f9; color: #3d8593;">KES ${inv.totalKES.toLocaleString()}</td></tr>
+                          <tr><td style="background: #f9f9f9;">Total:</td> <td class="val" style="background: #f9f9f9; color: #3d8593;">KES ${(parseFloat(amountReceived || '0') + parseFloat(balance || '0')).toLocaleString()}</td></tr>
                         </table>
                         
                         <div>
