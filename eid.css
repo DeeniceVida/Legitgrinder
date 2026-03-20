@@ -1,0 +1,59 @@
+/* Eid Al-Fitr Temporary Theme Styles */
+
+@keyframes float-eid {
+  0% {
+    transform: translateY(100vh) scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-20vh) scale(1) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.eid-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.eid-icon {
+  position: absolute;
+  color: #10b981; /* Emerald green */
+  font-size: 1.5rem;
+  user-select: none;
+  animation: float-eid linear infinite;
+}
+
+/* Include a gold variant */
+.eid-icon.gold {
+  color: #fbbf24; /* amber/gold */
+}
+
+/* Subtle green glow to navbar on hover */
+.glass:hover {
+  box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.1), 0 10px 10px -5px rgba(16, 185, 129, 0.04) !important;
+}
+
+/* Festive text and background colors if needed */
+.text-eid {
+  color: #10b981 !important;
+}
+
+.bg-eid {
+  background-color: #10b981 !important;
+}
+
+.border-eid {
+  border-color: #10b981 !important;
+}
+
+.selection-eid::selection {
+  background: #10b981;
+  color: white;
+}

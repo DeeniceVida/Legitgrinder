@@ -17,7 +17,9 @@ import OrderHistory from './pages/OrderHistory';
 import AIAssistant from './components/AIAssistant';
 import SafeImage from './components/SafeImage';
 import ValentineTheme from './components/ValentineTheme';
+import EidTheme from './components/EidTheme';
 import './valentines.css';
+import './eid.css';
 import { supabase } from './lib/supabase';
 import {
   fetchPricelistData,
@@ -170,6 +172,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col selection:bg-[#3D8593] selection:text-white">
       <ValentineTheme />
+      <EidTheme />
       <Navbar
         isAdmin={isAdmin}
         isLoggedIn={isLoggedIn}
