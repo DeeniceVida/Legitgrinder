@@ -16,7 +16,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
@@ -1157,6 +1157,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             title="Quick Response (WhatsApp)"
                           >
                             <MessageCircle className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Are you sure you want to delete this invoice?')) return;
+                              const result = await deleteInvoice(inv.id);
+                              if (result.success) {
+                                onUpdateInvoices(invoices.filter(i => i.id !== inv.id));
+                                alert("✅ Invoice Deleted");
+                              } else {
+                                alert("❌ Failed to delete invoice: " + (result.error?.message || "Check console for details"));
+                              }
+                            }}
+                            className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"
+                            title="Delete Invoice"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

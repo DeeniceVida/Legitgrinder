@@ -420,6 +420,21 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
         return { success: false, error };
     }
 };
+
+export const deleteInvoice = async (invoiceId: string): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('invoices')
+            .delete()
+            .eq('id', invoiceId);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting invoice:', error);
+        return { success: false, error };
+    }
+};
 // ========================================
 
 // Price Calculator with Full Fee Structure
