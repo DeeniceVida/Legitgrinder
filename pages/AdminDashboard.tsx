@@ -257,7 +257,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       logisticsCostKES: parseFloat(formData.get('logisticsCostKES') as string) || 0,
       serviceFeeKES: parseFloat(formData.get('serviceFeeKES') as string) || 0,
       isPaid: isPaid,
-      paymentStatus: paymentStatus
+      paymentStatus: paymentStatus,
+      paystackReference: (formData.get('paystackReference') as string) || undefined
     };
 
     const result = await createManualInvoice(invoiceData);
@@ -2501,6 +2502,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Order Date (Optional - defaults to today)</label>
                   <input type="date" name="createdAt" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all text-neutral-400" />
                 </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Transactional Code / Receipt Number (Optional)</label>
+                  <input type="text" name="paystackReference" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. QWX982M21 or M-Pesa Code" />
+                </div>
                 
                 {/* Cost Breakdown Inputs */}
                 <div className="col-span-2 mt-4">
@@ -2842,7 +2847,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 shippingFeeKES: parseFloat(formData.get('shippingFeeKES') as string) || 0,
                 logisticsCostKES: parseFloat(formData.get('logisticsCostKES') as string) || 0,
                 serviceFeeKES: parseFloat(formData.get('serviceFeeKES') as string) || 0,
-                createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined
+                createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined,
+                paystackReference: formData.get('paystackReference') as string || undefined
               };
               
               const result = await updateInvoiceBreakdown(editingBreakdownInvoice.id, breakdown);
@@ -2857,6 +2863,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Order Date (Defaults to current)</label>
                   <input name="createdAt" type="date" defaultValue={editingBreakdownInvoice.createdAt ? new Date(editingBreakdownInvoice.createdAt).toISOString().split('T')[0] : (editingBreakdownInvoice.date ? new Date(editingBreakdownInvoice.date).toISOString().split('T')[0] : '')} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all text-gray-500" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Transactional Code / REF</label>
+                  <input name="paystackReference" type="text" defaultValue={editingBreakdownInvoice.paystackReference || ''} placeholder="e.g. QWX9..." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all text-gray-800 placeholder:text-neutral-300" />
                 </div>
                 <div className="col-span-2 border-t border-neutral-100 my-4" />
                 <div>

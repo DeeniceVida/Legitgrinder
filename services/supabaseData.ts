@@ -403,7 +403,7 @@ export const updateInvoicePaymentStatus = async (id: string, paymentStatus: Paym
 
 export const updateInvoiceBreakdown = async (
     id: string,
-    breakdown: { buyingPriceKES: number, shippingFeeKES: number, logisticsCostKES: number, serviceFeeKES: number, createdAt?: string }
+    breakdown: { buyingPriceKES: number, shippingFeeKES: number, logisticsCostKES: number, serviceFeeKES: number, createdAt?: string, paystackReference?: string }
 ): Promise<{ success: boolean; error?: any }> => {
     try {
         const updatePayload: any = {
@@ -415,6 +415,9 @@ export const updateInvoiceBreakdown = async (
         };
         if (breakdown.createdAt) {
           updatePayload.created_at = breakdown.createdAt;
+        }
+        if (breakdown.paystackReference !== undefined) {
+          updatePayload.paystack_reference = breakdown.paystackReference;
         }
 
         const { error } = await supabase
@@ -451,6 +454,7 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 status: OrderStatus.RECEIVED_BY_AGENT,
                 is_paid: invoiceData.isPaid || false,
                 payment_status: invoiceData.paymentStatus || (invoiceData.isPaid ? PaymentStatus.PAID : PaymentStatus.UNPAID),
+                paystack_reference: invoiceData.paystackReference || null,
                 progress: 10,
                 last_update: new Date().toISOString(),
                 user_id: invoiceData.userId, // Optional link to user account
