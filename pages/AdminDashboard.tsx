@@ -1033,6 +1033,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               const printWin = window.open('', '', 'width=900,height=1000');
                               if (!printWin) return;
                               const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
+                              const dispTotal = inv.totalKES ? `KES ${inv.totalKES.toLocaleString()}` : 'TBD';
+                              const dispUnit = inv.totalKES ? (inv.totalKES / (inv.quantity || 1)).toLocaleString() : 'TBD';
+
                               printWin.document.write(`
                                 <html>
                                   <head>
@@ -1071,6 +1074,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       <p><span>Quote Date:</span> ${new Date(inv.date || inv.createdAt).toLocaleDateString('en-GB')}</p>
                                       <p><span>Client Details:</span> ${inv.clientName}</p>
                                       <p><span>Invoice No:</span> IG-${inv.invoiceNumber}</p>
+                                      <p><span>Web:</span> www.legitgrinder.site</p>
                                     </div>
                                     <div class="title">${inv.productName} Invoice</div>
                                     <table>
@@ -1086,12 +1090,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <tr>
                                           <td>${(inv.quantity || 1).toFixed(2)}</td>
                                           <td>${inv.productName}</td>
-                                          <td>${(inv.totalKES / (inv.quantity || 1)).toLocaleString()}</td>
-                                          <td>KES ${inv.totalKES.toLocaleString()}</td>
+                                          <td>${dispUnit}</td>
+                                          <td>${dispTotal}</td>
                                         </tr>
                                         <tr class="total-row">
                                           <td colspan="3">Total</td>
-                                          <td style="border-bottom: 3px double #000; padding-bottom: 5px;">KES ${inv.totalKES.toLocaleString()}</td>
+                                          <td style="border-bottom: 3px double #000; padding-bottom: 5px;">${dispTotal}</td>
                                         </tr>
                                       </tbody>
                                     </table>
