@@ -1172,7 +1172,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         <td class="amount">${(inv.shippingFeeKES || 0).toLocaleString()}</td>
                                       </tr>
                                       <tr>
-                                        <td>Logistics / Admin Cost</td>
+                                        <td>Logistics / Riders Cost</td>
                                         <td class="amount">${(inv.logisticsCostKES || 0).toLocaleString()}</td>
                                       </tr>
                                       <tr>
@@ -2515,7 +2515,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <input type="number" name="shippingFeeKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
                     </div>
                     <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics Cost (KES)</label>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics / Riders Cost (KES)</label>
                       <input type="number" name="logisticsCostKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
                     </div>
                     <div>
@@ -2868,7 +2868,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <input required name="shippingFeeKES" type="number" defaultValue={editingBreakdownInvoice.shippingFeeKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics Cost (KES)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics / Riders Cost (KES)</label>
                   <input required name="logisticsCostKES" type="number" defaultValue={editingBreakdownInvoice.logisticsCostKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
                 </div>
                 <div>
