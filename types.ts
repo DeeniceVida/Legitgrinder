@@ -90,6 +90,10 @@ export interface Invoice {
   isPaid: boolean;
   paymentStatus: PaymentStatus;
   totalKES?: number;
+  buyingPriceKES?: number;
+  shippingFeeKES?: number;
+  logisticsCostKES?: number;
+  serviceFeeKES?: number;
   date?: string;
   createdAt?: string;
   paystackReference?: string;

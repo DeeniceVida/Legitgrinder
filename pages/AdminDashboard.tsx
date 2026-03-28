@@ -251,6 +251,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       productName: formData.get('productName') as string,
       quantity: parseInt(formData.get('quantity') as string) || 1,
       totalKES: totalKES,
+      buyingPriceKES: parseFloat(formData.get('buyingPriceKES') as string) || 0,
+      shippingFeeKES: parseFloat(formData.get('shippingFeeKES') as string) || 0,
+      logisticsCostKES: parseFloat(formData.get('logisticsCostKES') as string) || 0,
+      serviceFeeKES: parseFloat(formData.get('serviceFeeKES') as string) || 0,
       isPaid: isPaid,
       paymentStatus: paymentStatus
     };
@@ -1121,6 +1125,71 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onClick={() => setPrintingReceiptInvoice(inv)}
                             className="p-4 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"
                             title="Print Official Receipt"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const printWin = window.open('', '', 'width=700,height=800');
+                              if (!printWin) return;
+                              printWin.document.write(`
+                                <html>
+                                  <head>
+                                    <title>Tax Record - IG-${inv.invoiceNumber}</title>
+                                    <style>
+                                      body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1a1a; }
+                                      .header { font-size: 20px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 30px; text-transform: uppercase; }
+                                      .meta { margin-bottom: 30px; font-size: 14px; }
+                                      .meta p { margin: 5px 0; }
+                                      table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                                      th, td { border: 1px solid #ccc; padding: 12px; text-align: left; }
+                                      th { background: #f5f5f5; font-weight: bold; }
+                                      .amount { text-align: right; font-family: monospace; font-size: 14px; }
+                                      .total-row { font-weight: bold; background: #eee; }
+                                    </style>
+                                  </head>
+                                  <body>
+                                    <div class="header">Internal Tax Record & Cost Breakdown</div>
+                                    <div class="meta">
+                                      <p><strong>Invoice No:</strong> IG-${inv.invoiceNumber}</p>
+                                      <p><strong>Date:</strong> ${new Date(inv.date || inv.createdAt).toLocaleString()}</p>
+                                      <p><strong>Item:</strong> ${inv.productName}</p>
+                                      <p><strong>Client:</strong> ${inv.clientName}</p>
+                                    </div>
+                                    <table>
+                                      <tr>
+                                        <th>Cost Component</th>
+                                        <th class="amount">Amount (KES)</th>
+                                      </tr>
+                                      <tr>
+                                        <td>Buying Price</td>
+                                        <td class="amount">${(inv.buyingPriceKES || 0).toLocaleString()}</td>
+                                      </tr>
+                                      <tr>
+                                        <td>Shipping Fee</td>
+                                        <td class="amount">${(inv.shippingFeeKES || 0).toLocaleString()}</td>
+                                      </tr>
+                                      <tr>
+                                        <td>Logistics / Admin Cost</td>
+                                        <td class="amount">${(inv.logisticsCostKES || 0).toLocaleString()}</td>
+                                      </tr>
+                                      <tr>
+                                        <td>Service Fee</td>
+                                        <td class="amount">${(inv.serviceFeeKES || 0).toLocaleString()}</td>
+                                      </tr>
+                                      <tr class="total-row">
+                                        <td>Total Collected</td>
+                                        <td class="amount">${(inv.totalKES || 0).toLocaleString()}</td>
+                                      </tr>
+                                    </table>
+                                  </body>
+                                </html>
+                              `);
+                              printWin.document.close();
+                              printWin.print();
+                            }}
+                            className="p-4 bg-orange-50 text-orange-600 rounded-2xl hover:bg-orange-600 hover:text-white transition-all"
+                            title="Print Admin Tax Record"
                           >
                             <FileText className="w-4 h-4" />
                           </button>
@@ -2418,6 +2487,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES / TBD)</label>
                   <input type="text" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000 or TBD" />
+                </div>
+                
+                {/* Cost Breakdown Inputs */}
+                <div className="col-span-2 mt-4">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#3D8593] mb-4 border-b pb-2">Internal Cost Breakdown (Optional)</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Buying Price (KES)</label>
+                      <input type="number" name="buyingPriceKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Shipping Fee (KES)</label>
+                      <input type="number" name="shippingFeeKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics Cost (KES)</label>
+                      <input type="number" name="logisticsCostKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
+                    </div>
+                    <div>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Service Fee (KES)</label>
+                      <input type="number" name="serviceFeeKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
+                    </div>
+                  </div>
                 </div>
               </div>
 
