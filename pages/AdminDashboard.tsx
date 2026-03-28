@@ -16,7 +16,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
@@ -157,6 +157,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
+  const [editingBreakdownInvoice, setEditingBreakdownInvoice] = useState<Invoice | null>(null);
 
   // Security & MFA State
   const [securityLoading, setSecurityLoading] = useState(false);
@@ -1149,9 +1150,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     </style>
                                   </head>
                                   <body>
-                                    <div class="header">Internal Tax Record & Cost Breakdown</div>
+                                    <div class="header">INVOICE BREAKDOWN</div>
                                     <div class="meta">
                                       <p><strong>Invoice No:</strong> IG-${inv.invoiceNumber}</p>
+                                      <p><strong>Transaction Code:</strong> ${inv.paystackReference || 'MANUAL-SYNC'}</p>
                                       <p><strong>Date:</strong> ${new Date(inv.date || inv.createdAt).toLocaleString()}</p>
                                       <p><strong>Item:</strong> ${inv.productName}</p>
                                       <p><strong>Client:</strong> ${inv.clientName}</p>
@@ -1192,6 +1194,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             title="Print Admin Tax Record"
                           >
                             <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingBreakdownInvoice(inv)}
+                            className="p-4 bg-sky-50 text-sky-600 rounded-2xl hover:bg-sky-600 hover:text-white transition-all"
+                            title="Edit Invoice Breakdown"
+                          >
+                            <Edit3 className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => {

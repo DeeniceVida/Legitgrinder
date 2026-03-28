@@ -401,6 +401,30 @@ export const updateInvoicePaymentStatus = async (id: string, paymentStatus: Paym
     }
 };
 
+export const updateInvoiceBreakdown = async (
+    id: string,
+    breakdown: { buyingPriceKES: number, shippingFeeKES: number, logisticsCostKES: number, serviceFeeKES: number }
+): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('invoices')
+            .update({
+                buying_price_kes: breakdown.buyingPriceKES,
+                shipping_fee_kes: breakdown.shippingFeeKES,
+                logistics_cost_kes: breakdown.logisticsCostKES,
+                service_fee_kes: breakdown.serviceFeeKES,
+                last_update: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating invoice breakdown:', error);
+        return { success: false, error };
+    }
+};
+
 export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string }> => {
     try {
         // Generate a simple numeric invoice number if not provided
