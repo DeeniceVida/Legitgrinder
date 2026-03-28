@@ -242,7 +242,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const isPaid = paymentStatus === PaymentStatus.PAID;
 
     const rawTotal = formData.get('totalKES') as string;
-    const isTBD = formData.get('isTBD') === 'on';
+    const isTBD = rawTotal.trim().toUpperCase() === 'TBD' || formData.get('isTBD') === 'on';
     const totalKES = isTBD ? 0 : (parseFloat(rawTotal) || 0);
 
     const invoiceData: Partial<Invoice> = {
@@ -2412,12 +2412,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <input required type="number" name="quantity" defaultValue="1" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES)</label>
-                  <input type="number" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000" />
-                  <div className="flex items-center gap-2 mt-4 ml-2">
-                    <input type="checkbox" id="isTBD" name="isTBD" className="w-4 h-4 text-[#3D8593] bg-neutral-100 border-none rounded focus:ring-[#3D8593]" />
-                    <label htmlFor="isTBD" className="text-xs font-bold text-gray-500">Amount is To Be Determined (TBD)</label>
-                  </div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES / TBD)</label>
+                  <input type="text" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000 or TBD" />
                 </div>
               </div>
 
@@ -2487,6 +2483,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const balance = formData.get('balance') as string;
               const transactionRef = formData.get('transactionRef') as string;
 
+              const amtStr = amountReceived.trim().toUpperCase() === 'TBD' ? 'TBD' : `KES ${parseFloat(amountReceived).toLocaleString()}`;
+              const balStr = balance.trim().toUpperCase() === 'TBD' ? 'TBD' : `KES ${parseFloat(balance).toLocaleString()}`;
+              const isTotalTBD = amountReceived.trim().toUpperCase() === 'TBD' || balance.trim().toUpperCase() === 'TBD';
+              const totStr = isTotalTBD ? 'TBD' : `KES ${(parseFloat(amountReceived || '0') + parseFloat(balance || '0')).toLocaleString()}`;
+
               const inv = printingReceiptInvoice;
               const printWin = window.open('', '', 'width=900,height=800');
               if (!printWin) return;
@@ -2543,9 +2544,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                       <div class="financial-summary">
                         <table class="summary-table">
-                          <tr><td>Amount received:</td> <td class="val" style="color: #3d8593;">KES ${parseFloat(amountReceived).toLocaleString()}</td></tr>
-                          <tr><td>Balance:</td> <td class="val" style="color: #ef4444;">KES ${parseFloat(balance).toLocaleString()}</td></tr>
-                          <tr><td style="background: #f9f9f9;">Total:</td> <td class="val" style="background: #f9f9f9; color: #3d8593;">KES ${(parseFloat(amountReceived || '0') + parseFloat(balance || '0')).toLocaleString()}</td></tr>
+                          <tr><td>Amount received:</td> <td class="val" style="color: #3d8593;">${amtStr}</td></tr>
+                          <tr><td>Balance:</td> <td class="val" style="color: #ef4444;">${balStr}</td></tr>
+                          <tr><td style="background: #f9f9f9;">Total:</td> <td class="val" style="background: #f9f9f9; color: #3d8593;">${totStr}</td></tr>
                         </table>
                         
                         <div>
@@ -2577,11 +2578,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Amount Received</label>
-                  <input required name="amountReceived" type="number" defaultValue={printingReceiptInvoice.totalKES} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
+                  <input required name="amountReceived" type="text" defaultValue={printingReceiptInvoice.totalKES === 0 ? "TBD" : printingReceiptInvoice.totalKES} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Balance Due</label>
-                  <input required name="balance" type="number" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
+                  <input required name="balance" type="text" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
                 </div>
               </div>
               <button
