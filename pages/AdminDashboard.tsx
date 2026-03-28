@@ -241,12 +241,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const paymentStatus = formData.get('paymentStatus') as PaymentStatus;
     const isPaid = paymentStatus === PaymentStatus.PAID;
 
+    const rawTotal = formData.get('totalKES') as string;
+    const isTBD = formData.get('isTBD') === 'on';
+    const totalKES = isTBD ? 0 : (parseFloat(rawTotal) || 0);
+
     const invoiceData: Partial<Invoice> = {
       clientName: formData.get('clientName') as string,
       clientWhatsapp: formData.get('clientWhatsapp') as string,
       productName: formData.get('productName') as string,
       quantity: parseInt(formData.get('quantity') as string) || 1,
-      totalKES: parseFloat(formData.get('totalKES') as string),
+      totalKES: totalKES,
       isPaid: isPaid,
       paymentStatus: paymentStatus
     };
@@ -2329,7 +2333,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Standard Legit Assurance Warranty Included</p>
                     </td>
                     <td className="py-6 text-right">
-                      <p className="text-xl font-black">KES {printingInvoice.totalKES?.toLocaleString()}</p>
+                      <p className="text-xl font-black">
+                        {printingInvoice.totalKES ? `KES ${printingInvoice.totalKES.toLocaleString()}` : "TBD"}
+                      </p>
                     </td>
                   </tr>
                 </tbody>
@@ -2407,7 +2413,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES)</label>
-                  <input required type="number" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000" />
+                  <input type="number" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000" />
+                  <div className="flex items-center gap-2 mt-4 ml-2">
+                    <input type="checkbox" id="isTBD" name="isTBD" className="w-4 h-4 text-[#3D8593] bg-neutral-100 border-none rounded focus:ring-[#3D8593]" />
+                    <label htmlFor="isTBD" className="text-xs font-bold text-gray-500">Amount is To Be Determined (TBD)</label>
+                  </div>
                 </div>
               </div>
 
