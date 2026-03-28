@@ -2497,6 +2497,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES / TBD)</label>
                   <input type="text" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000 or TBD" />
                 </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Order Date (Optional - defaults to today)</label>
+                  <input type="date" name="createdAt" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all text-neutral-400" />
+                </div>
                 
                 {/* Cost Breakdown Inputs */}
                 <div className="col-span-2 mt-4">
@@ -2813,6 +2817,76 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Edit Invoice Breakdown Modal */}
+      {editingBreakdownInvoice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[3rem] p-10 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 relative border border-white/20">
+            <button
+              onClick={() => setEditingBreakdownInvoice(null)}
+              className="absolute top-8 right-8 p-3 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+            <div className="mb-8">
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Edit <span className="text-[#3D8593]">Breakdown</span></h3>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: IG-{editingBreakdownInvoice.invoiceNumber}</p>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const createdAtRaw = formData.get('createdAt') as string;
+              
+              const breakdown = {
+                buyingPriceKES: parseFloat(formData.get('buyingPriceKES') as string) || 0,
+                shippingFeeKES: parseFloat(formData.get('shippingFeeKES') as string) || 0,
+                logisticsCostKES: parseFloat(formData.get('logisticsCostKES') as string) || 0,
+                serviceFeeKES: parseFloat(formData.get('serviceFeeKES') as string) || 0,
+                createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined
+              };
+              
+              const result = await updateInvoiceBreakdown(editingBreakdownInvoice.id, breakdown);
+              if (result.success) {
+                setEditingBreakdownInvoice(null);
+                window.location.reload();
+              } else {
+                alert('Failed to update breakdown details.');
+              }
+            }} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Order Date (Defaults to current)</label>
+                  <input name="createdAt" type="date" defaultValue={editingBreakdownInvoice.createdAt ? new Date(editingBreakdownInvoice.createdAt).toISOString().split('T')[0] : (editingBreakdownInvoice.date ? new Date(editingBreakdownInvoice.date).toISOString().split('T')[0] : '')} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all text-gray-500" />
+                </div>
+                <div className="col-span-2 border-t border-neutral-100 my-4" />
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Buying Price (KES)</label>
+                  <input required name="buyingPriceKES" type="number" defaultValue={editingBreakdownInvoice.buyingPriceKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Shipping Fee (KES)</label>
+                  <input required name="shippingFeeKES" type="number" defaultValue={editingBreakdownInvoice.shippingFeeKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics Cost (KES)</label>
+                  <input required name="logisticsCostKES" type="number" defaultValue={editingBreakdownInvoice.logisticsCostKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Service Fee (KES)</label>
+                  <input required name="serviceFeeKES" type="number" defaultValue={editingBreakdownInvoice.serviceFeeKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-5 bg-sky-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl shadow-sky-100"
+              >
+                Save Updates
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

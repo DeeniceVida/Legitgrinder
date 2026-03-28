@@ -403,18 +403,23 @@ export const updateInvoicePaymentStatus = async (id: string, paymentStatus: Paym
 
 export const updateInvoiceBreakdown = async (
     id: string,
-    breakdown: { buyingPriceKES: number, shippingFeeKES: number, logisticsCostKES: number, serviceFeeKES: number }
+    breakdown: { buyingPriceKES: number, shippingFeeKES: number, logisticsCostKES: number, serviceFeeKES: number, createdAt?: string }
 ): Promise<{ success: boolean; error?: any }> => {
     try {
+        const updatePayload: any = {
+            buying_price_kes: breakdown.buyingPriceKES,
+            shipping_fee_kes: breakdown.shippingFeeKES,
+            logistics_cost_kes: breakdown.logisticsCostKES,
+            service_fee_kes: breakdown.serviceFeeKES,
+            last_update: new Date().toISOString()
+        };
+        if (breakdown.createdAt) {
+          updatePayload.created_at = breakdown.createdAt;
+        }
+
         const { error } = await supabase
             .from('invoices')
-            .update({
-                buying_price_kes: breakdown.buyingPriceKES,
-                shipping_fee_kes: breakdown.shippingFeeKES,
-                logistics_cost_kes: breakdown.logisticsCostKES,
-                service_fee_kes: breakdown.serviceFeeKES,
-                last_update: new Date().toISOString()
-            })
+            .update(updatePayload)
             .eq('id', id);
 
         if (error) throw error;
@@ -448,7 +453,8 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 payment_status: invoiceData.paymentStatus || (invoiceData.isPaid ? PaymentStatus.PAID : PaymentStatus.UNPAID),
                 progress: 10,
                 last_update: new Date().toISOString(),
-                user_id: invoiceData.userId // Optional link to user account
+                user_id: invoiceData.userId, // Optional link to user account
+                created_at: invoiceData.createdAt || new Date().toISOString()
             })
             .select()
             .single();
