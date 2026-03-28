@@ -2289,7 +2289,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="flex justify-between items-start border-b-2 border-black pb-8 mb-8">
               <div>
                 <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">LEGIT GRINDER</h1>
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">Official Sales Invoice / Ship Label</p>
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500 mb-2">Official Sales Invoice / Ship Label</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#3D8593]">Web: www.legitgrinder.site • IG: @legitgrinderimports</p>
               </div>
               <div className="text-right">
                 <p className="text-xl font-black">#{printingInvoice.invoiceNumber}</p>
@@ -2516,6 +2517,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div>Email: Mungaimports@gmail.com</div>
                         <div>Socials: Legitgrinderimports</div>
                         <div>Phone: +254 791873538</div>
+                        <div>Web: www.legitgrinder.site</div>
                       </div>
                       <center><div class="receipt-label">RECEIPT</div></center>
                       
