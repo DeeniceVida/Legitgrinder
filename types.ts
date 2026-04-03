@@ -76,6 +76,12 @@ export enum PaymentStatus {
   PAID = 'Paid'
 }
 
+export interface InvoiceItem {
+  name: string;
+  quantity: number;
+  priceKES: number;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -84,6 +90,7 @@ export interface Invoice {
   clientWhatsapp?: string;
   productName: string;
   quantity?: number;
+  items?: InvoiceItem[];
   status: OrderStatus;
   progress: number;
   lastUpdate: string;

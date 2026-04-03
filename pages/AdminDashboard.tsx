@@ -154,6 +154,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingAdBanner, setEditingAdBanner] = useState<AdBanner | 'new' | null>(null);
 
   const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
+  const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
@@ -242,15 +243,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const paymentStatus = formData.get('paymentStatus') as PaymentStatus;
     const isPaid = paymentStatus === PaymentStatus.PAID;
 
+    const generatedTotalKES = manualOrderItems.reduce((sum, item) => sum + item.priceKES, 0);
     const rawTotal = formData.get('totalKES') as string;
     const isTBD = rawTotal.trim().toUpperCase() === 'TBD' || formData.get('isTBD') === 'on';
-    const totalKES = isTBD ? 0 : (parseFloat(rawTotal) || 0);
+    const totalKES = isTBD ? 0 : (parseFloat(rawTotal) || generatedTotalKES); // fallback to auto-computed
+
+    // Construct single productName fallback and extract items
+    const fallbackProductName = manualOrderItems.map(i => `${i.quantity}x ${i.name}`).join(' + ');
 
     const invoiceData: Partial<Invoice> = {
       clientName: formData.get('clientName') as string,
       clientWhatsapp: formData.get('clientWhatsapp') as string,
-      productName: formData.get('productName') as string,
-      quantity: parseInt(formData.get('quantity') as string) || 1,
+      productName: fallbackProductName,
+      quantity: 1,
+      items: manualOrderItems,
       totalKES: totalKES,
       buyingPriceKES: parseFloat(formData.get('buyingPriceKES') as string) || 0,
       shippingFeeKES: parseFloat(formData.get('shippingFeeKES') as string) || 0,
@@ -2410,17 +2416,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="py-6">
-                      <p className="text-lg font-black uppercase">{printingInvoice.productName}</p>
-                      <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Standard Legit Assurance Warranty Included</p>
-                    </td>
-                    <td className="py-6 text-right">
-                      <p className="text-xl font-black">
-                        {printingInvoice.totalKES ? `KES ${printingInvoice.totalKES.toLocaleString()}` : "TBD"}
-                      </p>
-                    </td>
-                  </tr>
+                  {printingInvoice.items && printingInvoice.items.length > 0 ? (
+                    printingInvoice.items.map((item, idx) => (
+                      <tr key={idx} className="border-b border-neutral-100">
+                        <td className="py-6">
+                          <p className="text-lg font-black uppercase">{item.quantity}x {item.name}</p>
+                          <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Standard Legit Assurance Warranty Included</p>
+                        </td>
+                        <td className="py-6 text-right">
+                          <p className="text-xl font-black">
+                            {item.priceKES ? `KES ${item.priceKES.toLocaleString()}` : "TBD"}
+                          </p>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr className="border-b border-neutral-100">
+                      <td className="py-6">
+                        <p className="text-lg font-black uppercase">{printingInvoice.productName}</p>
+                        <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Standard Legit Assurance Warranty Included</p>
+                      </td>
+                      <td className="py-6 text-right">
+                        <p className="text-xl font-black">
+                          {printingInvoice.totalKES ? `KES ${printingInvoice.totalKES.toLocaleString()}` : "TBD"}
+                        </p>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2487,16 +2509,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <input name="clientWhatsapp" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. 254791873538" />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Product Specification</label>
-                  <input required name="productName" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. M3 Pro MacBook Pro 14" />
+                  <div className="flex justify-between items-end mb-4">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block ml-2">Items</label>
+                    <button type="button" onClick={() => setManualOrderItems([...manualOrderItems, { name: '', quantity: 1, priceKES: 0 }])} className="text-[10px] font-black uppercase text-[#3D8593] hover:text-[#2d626c] transition-colors flex items-center gap-1">
+                      <Plus className="w-3 h-3" /> Add Item
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {manualOrderItems.map((item, idx) => (
+                      <div key={idx} className="flex gap-4 items-start relative group">
+                        <div className="flex-1">
+                          <input required value={item.name} onChange={(e) => {
+                            const newItems = [...manualOrderItems];
+                            newItems[idx].name = e.target.value;
+                            setManualOrderItems(newItems);
+                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-300" placeholder="Product Spec (e.g. M3 Pro MacBook)" />
+                        </div>
+                        <div className="w-24">
+                          <input required type="number" min="1" value={item.quantity} onChange={(e) => {
+                            const newItems = [...manualOrderItems];
+                            newItems[idx].quantity = parseInt(e.target.value) || 1;
+                            setManualOrderItems(newItems);
+                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-4 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all text-center" placeholder="Qty" />
+                        </div>
+                        <div className="w-40">
+                          <input required type="number" min="0" value={item.priceKES} onChange={(e) => {
+                            const newItems = [...manualOrderItems];
+                            newItems[idx].priceKES = parseFloat(e.target.value) || 0;
+                            setManualOrderItems(newItems);
+                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-4 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all text-right" placeholder="Total KES" />
+                        </div>
+                        {manualOrderItems.length > 1 && (
+                          <button type="button" onClick={() => setManualOrderItems(manualOrderItems.filter((_, i) => i !== idx))} className="absolute -right-3 -top-3 hidden group-hover:flex items-center justify-center w-6 h-6 bg-rose-100 text-rose-500 rounded-full">
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Quantity</label>
-                  <input required type="number" name="quantity" defaultValue="1" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES / TBD)</label>
-                  <input type="text" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="45000 or TBD" />
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES / TBD) (Leave blank to autocalculate)</label>
+                  <input type="text" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-300" placeholder={`Auto computed: ${manualOrderItems.reduce((acc, item) => acc + item.priceKES, 0)}`} />
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Order Date (Optional - defaults to today)</label>
