@@ -53,7 +53,7 @@ const Calculators: React.FC = () => {
       applePickupFeeKES = FEE_STRUCTURE.APPLE_PICKUP_FEE_USD * KES_PER_USD;
     }
 
-    const specialDiscountKES = 850;
+    const specialDiscountKES = 1000;
 
     setUsPhoneResult({
       buyingPriceKES,
