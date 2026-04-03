@@ -7,7 +7,7 @@ import { getStockStatus, createInvoice, verifyPaystackPayment } from '../service
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../lib/supabase';
 import SafeImage from '../components/SafeImage';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 interface ShopProps {
   products: Product[];
@@ -24,6 +24,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
 
@@ -37,6 +38,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     setQuantity(1);
     setSelectedVariations({});
     setActiveAccordion('description');
+    setExpandedImageUrl(null);
   }, [productIdParam]);
 
   // Fetch logged in user for metadata
@@ -182,9 +184,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
               <button
                 onClick={() => {
-                  const newParams = new URLSearchParams(searchParams);
-                  newParams.delete('product');
-                  setSearchParams(newParams);
+                  if (window.history.length > 2) {
+                    navigate(-1);
+                  } else {
+                    const newParams = new URLSearchParams(searchParams);
+                    newParams.delete('product');
+                    setSearchParams(newParams, { replace: true });
+                  }
                 }}
                 className="hover:text-gray-900 transition-colors flex items-center gap-1"
               >
@@ -525,6 +531,14 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
   return (
     <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32">
+      {expandedImageUrl && (
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out" onClick={() => setExpandedImageUrl(null)}>
+          <img src={expandedImageUrl} className="max-w-full max-h-full object-contain animate-in zoom-in duration-300" alt="Expanded view" />
+          <button onClick={() => setExpandedImageUrl(null)} className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+      )}
       {/* APP-STYLE HEADER NODE */}
       <div className="px-6 mb-12">
         <div className="max-w-7xl mx-auto">
@@ -593,6 +607,17 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   ) : (
                     <Share2 className="w-4 h-4 text-gray-900 group-hover/share:text-white" />
                   )}
+                </button>
+
+                {/* MAXIMIZE EXPAND OVERLAY */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedImageUrl(p.imageUrls[0]);
+                  }}
+                  className="absolute top-28 right-4 md:top-[8.5rem] md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/expand"
+                >
+                  <Maximize className="w-4 h-4 text-gray-900 group-hover/expand:text-white" />
                 </button>
 
                 <div className={`absolute bottom-4 left-4 md:bottom-6 md:left-6 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593] text-white' :
