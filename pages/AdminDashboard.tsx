@@ -1099,12 +1099,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        <tr>
-                                          <td>${(inv.quantity || 1).toFixed(2)}</td>
-                                          <td>${inv.productName}</td>
-                                          <td>${dispUnit}</td>
-                                          <td>${dispTotal}</td>
-                                        </tr>
+                                        ${(inv.items && inv.items.length > 0) ? inv.items.map(item => `
+                                          <tr>
+                                            <td>${item.quantity.toFixed(2)}</td>
+                                            <td>${item.name}</td>
+                                            <td>${item.priceKES ? (item.priceKES / item.quantity).toLocaleString() : 'TBD'}</td>
+                                            <td>${item.priceKES ? `KES ${item.priceKES.toLocaleString()}` : 'TBD'}</td>
+                                          </tr>
+                                        `).join('') : `
+                                          <tr>
+                                            <td>${(inv.quantity || 1).toFixed(2)}</td>
+                                            <td>${inv.productName}</td>
+                                            <td>${dispUnit}</td>
+                                            <td>${dispTotal}</td>
+                                          </tr>
+                                        `}
                                         <tr class="total-row">
                                           <td colspan="3">Total</td>
                                           <td style="border-bottom: 3px double #000; padding-bottom: 5px;">${dispTotal}</td>
