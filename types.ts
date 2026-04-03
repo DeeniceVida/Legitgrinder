@@ -168,6 +168,7 @@ export interface CalculationResult {
   shippingFeeKES: number;
   serviceFeeKES: number;
   applePickupFeeKES?: number;
+  specialDiscountKES?: number;
   totalKES: number;
 }
 export type SourcingStatus = 'pending' | 'viewed' | 'contacted' | 'completed';

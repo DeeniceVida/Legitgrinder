@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight, Youtube, Share2, Check } from 'lucide-react';
+import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight, Youtube, Share2, Check, X } from 'lucide-react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment } from '../services/supabaseData';
@@ -16,7 +16,6 @@ interface ShopProps {
 
 const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [user, setUser] = useState<any>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, ProductVariation>>({});
@@ -26,6 +25,19 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
+
+  // Derived state to replace selectedProduct state
+  const productIdParam = searchParams.get('product');
+  const selectedProduct = productIdParam ? products.find(p => p.id === productIdParam) || null : null;
+
+  // Reset states when selected product changes
+  useEffect(() => {
+    setSelectedImageIdx(0);
+    setQuantity(1);
+    setSelectedVariations({});
+    setActiveAccordion('description');
+  }, [productIdParam]);
 
   // Fetch logged in user for metadata
   useEffect(() => {
@@ -36,30 +48,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     getUser();
   }, []);
 
-  // Handle product parameter in URL
-  useEffect(() => {
-    const productId = searchParams.get('product');
-    if (productId && products.length > 0) {
-      const product = products.find(p => p.id === productId);
-      if (product) {
-        setSelectedProduct(product);
-      }
-    }
-  }, [searchParams, products]);
 
-  // Sync selectedProduct with URL
-  useEffect(() => {
-    if (selectedProduct) {
-      setSearchParams({ product: selectedProduct.id }, { replace: true });
-    } else if (products.length > 0) {
-      const currentUrlParam = searchParams.get('product');
-      if (currentUrlParam) {
-        const newParams = new URLSearchParams(searchParams);
-        newParams.delete('product');
-        setSearchParams(newParams, { replace: true });
-      }
-    }
-  }, [selectedProduct, products, searchParams, setSearchParams]);
 
   // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
@@ -154,7 +143,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     }
 
     // Clean up
-    setSelectedProduct(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('product');
+    setSearchParams(newParams);
     setPaymentLoading(false);
   };
 
@@ -177,15 +168,27 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
     return (
       <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32 px-6">
+        {expandedImageUrl && (
+          <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out" onClick={() => setExpandedImageUrl(null)}>
+            <img src={expandedImageUrl} className="max-w-full max-h-full object-contain animate-in zoom-in duration-300" alt="Expanded view" />
+            <button onClick={() => setExpandedImageUrl(null)} className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        )}
         <div className="max-w-7xl mx-auto">
           {/* TOP NAVIGATION / BREADCRUMBS */}
           <nav className="flex items-center justify-between mb-12">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
               <button
-                onClick={() => { setSelectedProduct(null); setSelectedVariations({}); }}
+                onClick={() => {
+                  const newParams = new URLSearchParams(searchParams);
+                  newParams.delete('product');
+                  setSearchParams(newParams);
+                }}
                 className="hover:text-gray-900 transition-colors flex items-center gap-1"
               >
-                Home
+                Back to Shop
               </button>
               <ChevronRight className="w-3 h-3" />
               <span className="text-gray-900">Products</span>
@@ -209,7 +212,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-start">
             {/* LEFT: VISUAL ECOSYSTEM */}
             <div className="space-y-8 relative lg:sticky lg:top-32">
-              <div className="aspect-square bg-white rounded-[3rem] overflow-hidden border border-neutral-100 relative group">
+              <div 
+                className="aspect-square bg-white rounded-[3rem] overflow-hidden border border-neutral-100 relative group cursor-zoom-in"
+                onClick={() => setExpandedImageUrl(displayImage)}
+              >
                 <SafeImage
                   src={displayImage}
                   className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-700"
@@ -564,7 +570,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
             <div key={p.id} className="group flex flex-col cursor-pointer animate-in fade-in slide-in-from-bottom-8">
               <div
                 className="aspect-square bg-white relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] mb-6 shadow-sm border border-neutral-100 group-hover:shadow-2xl transition-all"
-                onClick={() => setSelectedProduct(p)}
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set('product', p.id);
+                  setSearchParams(params);
+                }}
               >
                 <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
 
@@ -603,7 +613,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
                 {/* CIRCULAR ACTION BUTTON */}
                 <button
-                  onClick={(e) => { e.stopPropagation(); setSelectedProduct(p); }}
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    const params = new URLSearchParams(searchParams);
+                    params.set('product', p.id);
+                    setSearchParams(params); 
+                  }}
                   className="absolute bottom-4 right-0 md:bottom-6 w-10 h-10 md:w-12 md:h-12 bg-black text-white rounded-full flex items-center justify-center shadow-xl hover:bg-[#3D8593] transition-all transform group-hover:scale-110 active:scale-95"
                 >
                   <ArrowUpRight className="w-5 h-5 md:w-6 h-6" />

@@ -53,21 +53,25 @@ const Calculators: React.FC = () => {
       applePickupFeeKES = FEE_STRUCTURE.APPLE_PICKUP_FEE_USD * KES_PER_USD;
     }
 
+    const specialDiscountKES = 850;
+
     setUsPhoneResult({
       buyingPriceKES,
       shippingFeeKES,
       serviceFeeKES,
       applePickupFeeKES: applePickupFeeKES > 0 ? applePickupFeeKES : undefined,
-      totalKES: buyingPriceKES + shippingFeeKES + serviceFeeKES + applePickupFeeKES
+      specialDiscountKES,
+      totalKES: buyingPriceKES + shippingFeeKES + serviceFeeKES + applePickupFeeKES - specialDiscountKES
     });
   }, [phonePriceUSD, phoneUrl]);
 
   const handleShareWhatsApp = (type: string, res: CalculationResult) => {
     const appleFeeText = res.applePickupFeeKES ? `\nApple Store Pick Up Fee: KES ${res.applePickupFeeKES.toLocaleString()}` : '';
+    const discountText = res.specialDiscountKES ? `\nSpecial Client Discount: -KES ${res.specialDiscountKES.toLocaleString()}` : '';
     const text = encodeURIComponent(
       `Hi LegitGrinder, I'd like to place an order for ${type}.\n\n` +
       `Product Link: ${phoneUrl || 'Not provided'}\n` +
-      `Total: KES ${res.totalKES.toLocaleString()}${appleFeeText}`
+      `Total: KES ${res.totalKES.toLocaleString()}${appleFeeText}${discountText}`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
@@ -236,6 +240,12 @@ const Calculators: React.FC = () => {
                     <div className="flex justify-between items-center py-2 border-b border-neutral-800 group/row cursor-default bg-[#FF9900]/5 -mx-4 px-4 rounded-lg">
                       <span className="text-[#FF9900] text-xs font-bold uppercase tracking-widest">Apple Pick Up Fee</span>
                       <span className="font-black text-lg text-[#FF9900]">KES {usPhoneResult.applePickupFeeKES.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {usPhoneResult.specialDiscountKES && (
+                    <div className="flex justify-between items-center py-2 border-b border-neutral-800 group/row cursor-default bg-green-500/5 -mx-4 px-4 rounded-lg">
+                      <span className="text-green-500 text-xs font-bold uppercase tracking-widest">Client Special Discount</span>
+                      <span className="font-black text-lg text-green-500">-KES {usPhoneResult.specialDiscountKES.toLocaleString()}</span>
                     </div>
                   )}
                   <div className="flex justify-between items-end pt-10">
