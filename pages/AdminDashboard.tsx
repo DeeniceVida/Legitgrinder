@@ -250,11 +250,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     // Construct single productName fallback and extract items
     const fallbackProductName = manualOrderItems.map(i => `${i.quantity}x ${i.name}`).join(' + ');
+    const customTitle = formData.get('customTitle') as string;
 
     const invoiceData: Partial<Invoice> = {
       clientName: formData.get('clientName') as string,
       clientWhatsapp: formData.get('clientWhatsapp') as string,
-      productName: fallbackProductName,
+      productName: customTitle && customTitle.trim() ? customTitle.trim() : fallbackProductName,
       quantity: 1,
       items: manualOrderItems,
       totalKES: totalKES,
@@ -2516,6 +2517,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client WhatsApp Number</label>
                   <input name="clientWhatsapp" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. 254791873538" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Custom Invoice Title (Optional)</label>
+                  <input name="customTitle" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Amazon Packages (defaults to item list)" />
                 </div>
                 <div className="col-span-2">
                   <div className="flex justify-between items-end mb-4">
