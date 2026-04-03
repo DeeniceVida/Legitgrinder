@@ -2485,7 +2485,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* MANUAL INVOICE CREATION MODAL */}
       {isCreatingManualInvoice && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white rounded-[4rem] p-12 w-full max-w-xl shadow-[0_0_100px_rgba(0,0,0,0.4)] animate-in zoom-in-95 duration-300 relative border border-white/20">
+          <div className="bg-white rounded-[4rem] p-12 w-full max-w-xl shadow-[0_0_100px_rgba(0,0,0,0.4)] animate-in zoom-in-95 duration-300 relative border border-white/20 max-h-[95vh] overflow-y-auto">
             <button
               onClick={() => setIsCreatingManualInvoice(false)}
               className="absolute top-10 right-10 p-4 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
