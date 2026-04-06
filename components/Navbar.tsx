@@ -33,6 +33,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, isLoggedIn, onLogout }) => {
     { name: 'Calculators', path: '/calculators' },
     { name: 'Blogs', path: '/blogs' },
     { name: 'Consult', path: '/consultation' },
+    { name: 'About Us', path: '/about' },
   ];
 
   const getLinkClass = (isActive: boolean, isAdminHub: boolean = false) => {

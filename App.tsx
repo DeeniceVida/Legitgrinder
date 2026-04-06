@@ -14,6 +14,7 @@ import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import Books from './pages/Books';
 import OrderHistory from './pages/OrderHistory';
+import AboutUs from './pages/AboutUs';
 import AIAssistant from './components/AIAssistant';
 import SafeImage from './components/SafeImage';
 import ValentineTheme from './components/ValentineTheme';
@@ -32,7 +33,7 @@ import {
   fetchEBooks
 } from './services/supabaseData';
 import {
-  Instagram, Youtube, Globe
+  Instagram, Globe, Star, Play
 } from 'lucide-react';
 import { PHONE_MODELS_SCHEMA } from './constants';
 import {
@@ -190,6 +191,7 @@ const AppContent: React.FC = () => {
           <Route path="/calculators" element={<Calculators />} />
           <Route path="/blogs" element={<Blogs blogs={blogs} faqs={faqs} />} />
           <Route path="/books" element={<Books />} />
+          <Route path="/about" element={<AboutUs />} />
           <Route path="/tracking" element={<Tracking isLoggedIn={isLoggedIn} invoices={invoices} />} />
           <Route path="/history" element={<OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} />} />
           <Route
@@ -234,11 +236,18 @@ const AppContent: React.FC = () => {
                 The most reliable bridge between global tech markets and Kenyan importers. Powered by transparency.
               </p>
               <div className="flex space-x-4">
-                {[Instagram, Youtube, Globe].map((Icon, idx) => (
-                  <a key={idx} href="#" className="p-4 rounded-full border border-gray-800 hover:bg-[#3D8593] hover:border-[#3D8593] transition-all">
-                    <Icon className="w-5 h-5" />
-                  </a>
-                ))}
+                <a href="https://www.instagram.com/legitgrinder.imports" target="_blank" rel="noopener noreferrer" className="p-4 rounded-full border border-gray-800 hover:bg-[#3D8593] hover:border-[#3D8593] transition-all" aria-label="Instagram">
+                  <Instagram className="w-5 h-5" />
+                </a>
+                <a href="https://www.tiktok.com/@legitgrinderimports" target="_blank" rel="noopener noreferrer" className="p-4 rounded-full border border-gray-800 hover:bg-[#3D8593] hover:border-[#3D8593] transition-all" aria-label="TikTok">
+                  <Play className="w-5 h-5" />
+                </a>
+                <a href="https://share.google/DDnPWrlwWvOIsYdHZ" target="_blank" rel="noopener noreferrer" className="p-4 rounded-full border border-gray-800 hover:bg-[#3D8593] hover:border-[#3D8593] transition-all" aria-label="Google Reviews">
+                  <Star className="w-5 h-5" />
+                </a>
+                <a href="https://legitgrinder.site/" target="_blank" rel="noopener noreferrer" className="p-4 rounded-full border border-gray-800 hover:bg-[#3D8593] hover:border-[#3D8593] transition-all" aria-label="Website">
+                  <Globe className="w-5 h-5" />
+                </a>
               </div>
             </div>
             <div>
