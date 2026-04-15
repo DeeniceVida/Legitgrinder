@@ -252,6 +252,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const fallbackProductName = manualOrderItems.map(i => `${i.quantity}x ${i.name}`).join(' + ');
     const customTitle = formData.get('customTitle') as string;
 
+    const createdAtRaw = formData.get('createdAt') as string;
+
     const invoiceData: Partial<Invoice> = {
       clientName: formData.get('clientName') as string,
       clientWhatsapp: formData.get('clientWhatsapp') as string,
@@ -265,7 +267,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       serviceFeeKES: parseFloat(formData.get('serviceFeeKES') as string) || 0,
       isPaid: isPaid,
       paymentStatus: paymentStatus,
-      paystackReference: (formData.get('paystackReference') as string) || undefined
+      paystackReference: (formData.get('paystackReference') as string) || undefined,
+      createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined
     };
 
     const result = await createManualInvoice(invoiceData);
