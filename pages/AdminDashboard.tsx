@@ -155,7 +155,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
   const [isCreatingRefund, setIsCreatingRefund] = useState(false);
-  const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '' });
+  const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '', refundItem: '', transactionCode: '' });
   const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
@@ -2717,6 +2717,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <p><span>Client Details:</span> ${refundData.clientName} (${refundData.clientWhatsapp})</p>
                       <p><span>Credit Note No:</span> ${refundNum}</p>
                       ${refundData.originalInvoiceRef ? `<p><span>Original Invoice Ref:</span> ${refundData.originalInvoiceRef}</p>` : ''}
+                      ${refundData.transactionCode ? `<p><span>Transaction Code:</span> ${refundData.transactionCode}</p>` : ''}
                     </div>
                     <div class="title">OFFICIAL REFUND DRAFT</div>
                     <table>
@@ -2728,7 +2729,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </thead>
                       <tbody>
                         <tr>
-                          <td>${refundData.reason || 'Client Cancellation / Policy Refund'}</td>
+                          <td>
+                            ${refundData.refundItem ? `<strong style="font-size: 11px; text-transform: uppercase; color: #999; display: block; margin-bottom: 4px;">Item: ${refundData.refundItem}</strong>` : ''}
+                            ${refundData.reason || 'Client Cancellation / Policy Refund'}
+                          </td>
                           <td>KES ${Number(refundData.amountKES).toLocaleString()}</td>
                         </tr>
                         <tr class="total-row">
@@ -2762,6 +2766,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Original Invoice Ref (Optional)</label>
                   <input value={refundData.originalInvoiceRef} onChange={e => setRefundData({ ...refundData, originalInvoiceRef: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. QWX982M21 or IG-1234" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Refunded Item (Optional)</label>
+                  <input value={refundData.refundItem} onChange={e => setRefundData({ ...refundData, refundItem: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. M3 Pro MacBook" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Transaction Code (Optional)</label>
+                  <input value={refundData.transactionCode} onChange={e => setRefundData({ ...refundData, transactionCode: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. QWX982M21" />
                 </div>
                 <div className="col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Reason for Refund</label>
