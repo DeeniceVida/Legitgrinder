@@ -154,6 +154,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingAdBanner, setEditingAdBanner] = useState<AdBanner | 'new' | null>(null);
 
   const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
+  const [isCreatingRefund, setIsCreatingRefund] = useState(false);
+  const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '' });
   const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
@@ -971,12 +973,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-10 animate-in fade-in duration-700">
             <div className="flex justify-between items-center px-4">
               <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Order <span className="text-[#3D8593]">Control</span></h2>
-              <button
-                onClick={() => setIsCreatingManualInvoice(true)}
-                className="px-8 py-3 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-2 shadow-xl"
-              >
-                <Plus className="w-4 h-4" /> Create Manual Order
-              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setIsCreatingRefund(true)}
+                  className="px-8 py-3 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-xl"
+                >
+                  <RefreshCcw className="w-4 h-4" /> Refund Generator
+                </button>
+                <button
+                  onClick={() => setIsCreatingManualInvoice(true)}
+                  className="px-8 py-3 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-2 shadow-xl"
+                >
+                  <Plus className="w-4 h-4" /> Create Manual Order
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
@@ -2637,6 +2647,145 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="flex-[2] py-6 bg-[#3D8593] text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-[0_20px_40px_rgba(61,133,147,0.3)] shadow-teal-100"
                 >
                   Initialize Logistics
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REFUND INVOICE MODAL */}
+      {isCreatingRefund && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[4rem] p-12 w-full max-w-xl shadow-[0_0_100px_rgba(225,29,72,0.4)] animate-in zoom-in-95 duration-300 relative border border-white/20 max-h-[95vh] overflow-y-auto">
+            <button
+              onClick={() => setIsCreatingRefund(false)}
+              className="absolute top-10 right-10 p-4 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
+            >
+              <X className="w-6 h-6 text-gray-400" />
+            </button>
+
+            <div className="mb-12">
+              <h3 className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-4 uppercase">Refund <span className="text-rose-600">Protocol</span></h3>
+              <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.3em]">Generate Refund & Credit Note</p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const printWin = window.open('', '', 'width=900,height=1000');
+              if (!printWin) return;
+              const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
+              const d = new Date();
+              const refundNum = `RF-${d.getFullYear()}${d.getMonth() + 1}${d.getDate()}-${Math.floor(Math.random() * 1000)}`;
+
+              printWin.document.write(`
+                <html>
+                  <head>
+                    <title>Refund Note ${refundNum}</title>
+                    <style>
+                      body { font-family: 'Inter', sans-serif; padding: 60px; color: #1a1a1a; position: relative; }
+                      .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.03; width: 80%; z-index: -1; }
+                      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 60px; }
+                      .brand h1 { margin: 0; font-size: 32px; font-weight: 900; }
+                      .brand p { margin: 5px 0 0; font-size: 14px; font-weight: 500; color: #666; }
+                      .logo { width: 120px; }
+                      .meta { text-align: right; margin-top: 20px; }
+                      .meta p { margin: 5px 0; font-size: 14px; font-weight: 700; }
+                      .meta span { font-weight: 400; color: #666; margin-right: 10px; }
+                      .title { text-align: center; font-size: 24px; font-weight: 900; margin: 40px 0; letter-spacing: 2px; color: #e11d48; text-transform: uppercase; }
+                      table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+                      th { background: #e11d48; color: white; padding: 15px; text-align: left; text-transform: uppercase; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
+                      td { padding: 20px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+                      .total-row td { border: none; padding-top: 30px; font-size: 18px; font-weight: 900; text-align: right; color: #e11d48; }
+                      .terms { margin-top: 60px; border-top: 2px solid #000; padding-top: 20px; }
+                      .terms h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-bottom: 15px; }
+                      .terms p { font-size: 13px; color: #444; margin: 8px 0; line-height: 1.6; }
+                      .footer { margin-top: 100px; text-align: center; font-size: 12px; font-weight: 500; color: #999; }
+                    </style>
+                  </head>
+                  <body>
+                    <img src="${logoUrl}" class="watermark" />
+                    <div class="header">
+                      <div class="brand">
+                        <h1>LegitGrinder</h1>
+                        <p>+254791873538</p>
+                      </div>
+                      <img src="${logoUrl}" class="logo" />
+                    </div>
+                    <div class="meta">
+                      <p><span>Date:</span> ${d.toLocaleDateString('en-GB')}</p>
+                      <p><span>Client Details:</span> ${refundData.clientName} (${refundData.clientWhatsapp})</p>
+                      <p><span>Credit Note No:</span> ${refundNum}</p>
+                      ${refundData.originalInvoiceRef ? `<p><span>Original Invoice Ref:</span> ${refundData.originalInvoiceRef}</p>` : ''}
+                    </div>
+                    <div class="title">OFFICIAL REFUND DRAFT</div>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th style="width: 70%">Explanation / Description</th>
+                          <th style="width: 30%">Amount Refunded</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>${refundData.reason || 'Client Cancellation / Policy Refund'}</td>
+                          <td>KES ${Number(refundData.amountKES).toLocaleString()}</td>
+                        </tr>
+                        <tr class="total-row">
+                          <td>Total Refunded</td>
+                          <td style="border-bottom: 3px double #e11d48; padding-bottom: 5px;">- KES ${Number(refundData.amountKES).toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div class="terms">
+                      <h2>Refund Protocol</h2>
+                      <p>This document serves as proof of refund request acknowledgement or completion depending on payment provider processing times.</p>
+                      <p>Bank/Mobile money transfers can take up to 24-48 business hours to reflect in the destination account.</p>
+                    </div>
+                    <div class="footer">LegitGrinder KE Deals in Imports. Integrity First.</div>
+                  </body>
+                </html>
+              `);
+              printWin.document.close();
+              printWin.print();
+              setIsCreatingRefund(false);
+            }} className="space-y-8">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client Full Name</label>
+                  <input required value={refundData.clientName} onChange={e => setRefundData({ ...refundData, clientName: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Dennis Munga" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client WhatsApp Number</label>
+                  <input value={refundData.clientWhatsapp} onChange={e => setRefundData({ ...refundData, clientWhatsapp: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. 254791873538" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Original Invoice Ref (Optional)</label>
+                  <input value={refundData.originalInvoiceRef} onChange={e => setRefundData({ ...refundData, originalInvoiceRef: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. QWX982M21 or IG-1234" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Reason for Refund</label>
+                  <input required value={refundData.reason} onChange={e => setRefundData({ ...refundData, reason: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Out of Stock, Client Cancelled" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Refund Amount (KES)</label>
+                  <input required type="number" min="1" value={refundData.amountKES || ''} onChange={e => setRefundData({ ...refundData, amountKES: parseInt(e.target.value) || 0 })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-300" placeholder="e.g. 150000" />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-6">
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingRefund(false)}
+                  className="flex-1 py-6 bg-neutral-100 text-gray-400 rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[2] py-6 bg-rose-600 text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-[0_20px_40px_rgba(225,29,72,0.3)] shadow-rose-100"
+                >
+                  Generate Refund Document
                 </button>
               </div>
             </form>
