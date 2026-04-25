@@ -56,6 +56,14 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
   const handleWhatsAppInquiry = (p: Product) => {
+    const requiredVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
+    const missingVariations = requiredVariationTypes.filter(type => !selectedVariations[type]);
+
+    if (missingVariations.length > 0) {
+      alert(`Please select your preferred ${missingVariations.join(' and ')} before continuing.`);
+      return;
+    }
+
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
     const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
     const totalPrice = (p.discountPriceKES || p.priceKES) + variationPrice;
@@ -382,6 +390,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       {!showPaystack ? (
                         <button
                           onClick={() => {
+                            const requiredVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
+                            const missingVariations = requiredVariationTypes.filter(type => !selectedVariations[type]);
+                            if (missingVariations.length > 0) {
+                              alert(`Please select your preferred ${missingVariations.join(' and ')} before continuing.`);
+                              return;
+                            }
                             if (!PAYSTACK_PUBLIC_KEY) {
                               alert("Payment system configuration missing. Please ensure VITE_PAYSTACK_PUBLIC_KEY is set in your environment.");
                               return;
