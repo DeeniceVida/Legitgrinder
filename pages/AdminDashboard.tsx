@@ -155,6 +155,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const [isCreatingManualInvoice, setIsCreatingManualInvoice] = useState(false);
   const [isCreatingRefund, setIsCreatingRefund] = useState(false);
+  const [isCreatingImageInvoice, setIsCreatingImageInvoice] = useState(false);
+  const [imageInvoiceItems, setImageInvoiceItems] = useState<{name: string, specs: string, imageUrl: string, quantity: number, priceKES: number}[]>([{ name: '', specs: '', imageUrl: '', quantity: 1, priceKES: 0 }]);
+  const [imageInvoiceClient, setImageInvoiceClient] = useState({ name: '', whatsapp: '' });
   const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '', refundItem: '', transactionCode: '' });
   const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
@@ -973,12 +976,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="space-y-10 animate-in fade-in duration-700">
             <div className="flex justify-between items-center px-4">
               <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Order <span className="text-[#3D8593]">Control</span></h2>
-              <div className="flex gap-4">
+              <div className="flex gap-4 flex-wrap">
                 <button
                   onClick={() => setIsCreatingRefund(true)}
                   className="px-8 py-3 bg-rose-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-xl"
                 >
                   <RefreshCcw className="w-4 h-4" /> Refund Generator
+                </button>
+                <button
+                  onClick={() => { setImageInvoiceItems([{ name: '', specs: '', imageUrl: '', quantity: 1, priceKES: 0 }]); setImageInvoiceClient({ name: '', whatsapp: '' }); setIsCreatingImageInvoice(true); }}
+                  className="px-8 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 shadow-xl"
+                >
+                  <ImageIcon className="w-4 h-4" /> Image Invoice
                 </button>
                 <button
                   onClick={() => setIsCreatingManualInvoice(true)}
@@ -2650,6 +2659,262 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* IMAGE INVOICE GENERATOR MODAL */}
+      {isCreatingImageInvoice && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[4rem] p-10 w-full max-w-2xl shadow-[0_0_100px_rgba(99,102,241,0.3)] animate-in zoom-in-95 duration-300 relative border border-white/20 max-h-[95vh] overflow-y-auto">
+            <button
+              onClick={() => setIsCreatingImageInvoice(false)}
+              className="absolute top-8 right-8 p-4 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
+            >
+              <X className="w-6 h-6 text-gray-400" />
+            </button>
+
+            <div className="mb-10">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black text-gray-900 tracking-tight leading-none uppercase">Image <span className="text-indigo-600">Invoice</span></h3>
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mt-1">Visual Product Invoice Generator</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-8">
+              {/* Client Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Client Name</label>
+                  <input
+                    value={imageInvoiceClient.name}
+                    onChange={e => setImageInvoiceClient({ ...imageInvoiceClient, name: e.target.value })}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all placeholder:text-neutral-300"
+                    placeholder="e.g. Dennis Munga"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">WhatsApp Number</label>
+                  <input
+                    value={imageInvoiceClient.whatsapp}
+                    onChange={e => setImageInvoiceClient({ ...imageInvoiceClient, whatsapp: e.target.value })}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all placeholder:text-neutral-300"
+                    placeholder="254791..."
+                  />
+                </div>
+              </div>
+
+              {/* Items */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-2">Line Items</label>
+                  <button
+                    type="button"
+                    onClick={() => setImageInvoiceItems([...imageInvoiceItems, { name: '', specs: '', imageUrl: '', quantity: 1, priceKES: 0 }])}
+                    className="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Add Item
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  {imageInvoiceItems.map((item, idx) => (
+                    <div key={idx} className="bg-neutral-50 rounded-3xl p-5 relative group border border-neutral-100">
+                      {imageInvoiceItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setImageInvoiceItems(imageInvoiceItems.filter((_, i) => i !== idx))}
+                          className="absolute top-4 right-4 w-7 h-7 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* Image URL + Preview row */}
+                      <div className="flex gap-4 mb-4 items-start">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-white flex-shrink-0">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-neutral-200">
+                              <ImageIcon className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Product Image URL</label>
+                          <input
+                            value={item.imageUrl}
+                            onChange={e => { const n=[...imageInvoiceItems]; n[idx].imageUrl=e.target.value; setImageInvoiceItems(n); }}
+                            className="w-full bg-white border border-neutral-100 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-neutral-300"
+                            placeholder="https://... (paste image link)"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Name + Specs */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Item Name</label>
+                          <input
+                            value={item.name}
+                            onChange={e => { const n=[...imageInvoiceItems]; n[idx].name=e.target.value; setImageInvoiceItems(n); }}
+                            className="w-full bg-white border border-neutral-100 rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-neutral-300"
+                            placeholder="e.g. iPhone 15 Pro Max"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Specs / Description</label>
+                          <textarea
+                            value={item.specs}
+                            onChange={e => { const n=[...imageInvoiceItems]; n[idx].specs=e.target.value; setImageInvoiceItems(n); }}
+                            rows={2}
+                            className="w-full bg-white border border-neutral-100 rounded-xl px-4 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-100 transition-all resize-none placeholder:text-neutral-300 leading-relaxed"
+                            placeholder="256GB, Black Titanium, Air-shipped..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* Qty + Price + Line Total */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Qty</label>
+                          <input
+                            type="number" min="1"
+                            value={item.quantity}
+                            onChange={e => { const n=[...imageInvoiceItems]; n[idx].quantity=parseInt(e.target.value)||1; setImageInvoiceItems(n); }}
+                            className="w-full bg-white border border-neutral-100 rounded-xl px-4 py-2.5 font-bold text-sm focus:ring-2 focus:ring-indigo-100 transition-all text-center"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Unit Price (KES)</label>
+                          <input
+                            type="number" min="0"
+                            value={item.priceKES}
+                            onChange={e => { const n=[...imageInvoiceItems]; n[idx].priceKES=parseFloat(e.target.value)||0; setImageInvoiceItems(n); }}
+                            className="w-full bg-white border border-neutral-100 rounded-xl px-4 py-2.5 font-bold text-sm focus:ring-2 focus:ring-indigo-100 transition-all"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400 block mb-1.5">Line Total</label>
+                          <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 font-black text-sm text-indigo-700">
+                            KES {(item.quantity * item.priceKES).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Auto Total */}
+                <div className="mt-4 bg-indigo-600 rounded-2xl px-6 py-4 flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Grand Total (Auto)</span>
+                  <span className="text-xl font-black text-white">
+                    KES {imageInvoiceItems.reduce((sum, it) => sum + it.quantity * it.priceKES, 0).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Generate Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!imageInvoiceClient.name.trim()) { alert('Please enter a client name.'); return; }
+                  const grandTotal = imageInvoiceItems.reduce((s, it) => s + it.quantity * it.priceKES, 0);
+                  const logoUrl = 'https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg';
+                  const printWin = window.open('', '', 'width=900,height=1100');
+                  if (!printWin) return;
+                  const rowsHtml = imageInvoiceItems.map(it => `
+                    <tr>
+                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; vertical-align:top;">
+                        ${it.imageUrl ? `<img src="${it.imageUrl}" style="width:60px;height:60px;object-fit:cover;border-radius:10px;display:block;border:1px solid #eee;" />` : ''}
+                      </td>
+                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; vertical-align:top;">
+                        <strong style="font-size:15px;display:block;margin-bottom:4px;">${it.name}</strong>
+                        <span style="font-size:12px;color:#666;line-height:1.5;white-space:pre-wrap;">${it.specs}</span>
+                      </td>
+                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:center; font-weight:700;">${it.quantity}</td>
+                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:700;">KES ${it.priceKES.toLocaleString()}</td>
+                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:900; color:#4f46e5;">KES ${(it.quantity*it.priceKES).toLocaleString()}</td>
+                    </tr>
+                  `).join('');
+                  printWin.document.write(`
+                    <html><head><title>Image Invoice – ${imageInvoiceClient.name}</title>
+                    <style>
+                      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+                      * { box-sizing: border-box; }
+                      body { font-family: 'Inter', sans-serif; padding: 60px; color: #1a1a1a; }
+                      .watermark { position: fixed; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-45deg); opacity:0.03; width:80%; z-index:-1; }
+                      .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:50px; border-bottom:3px solid #4f46e5; padding-bottom:30px; }
+                      .brand h1 { margin:0; font-size:28px; font-weight:900; color:#4f46e5; }
+                      .brand p { margin:4px 0 0; font-size:13px; color:#888; }
+                      .logo { width:100px; border-radius:8px; }
+                      .meta { text-align:right; }
+                      .meta p { margin:4px 0; font-size:13px; font-weight:600; }
+                      .meta span { font-weight:400; color:#999; margin-right:8px; }
+                      .title { font-size:22px; font-weight:900; letter-spacing:1px; margin:30px 0; }
+                      table { width:100%; border-collapse:collapse; margin-bottom:30px; }
+                      th { background:#4f46e5; color:white; padding:14px 12px; text-align:left; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:1px; }
+                      th:last-child, th:nth-last-child(2) { text-align:right; }
+                      th:nth-child(3) { text-align:center; }
+                      .total-band { background:#4f46e5; color:white; font-size:18px; font-weight:900; }
+                      .total-band td { padding:18px 12px; border:none; text-align:right; }
+                      .total-band td:first-child { text-align:left; }
+                      .terms { margin-top:50px; border-top:2px solid #eee; padding-top:20px; }
+                      .terms h2 { font-size:13px; font-weight:900; text-transform:uppercase; margin-bottom:10px; }
+                      .terms p { font-size:12px; color:#555; margin:6px 0; line-height:1.6; }
+                      .footer { margin-top:60px; text-align:center; font-size:11px; color:#bbb; }
+                    </style></head><body>
+                    <img src="${logoUrl}" class="watermark" />
+                    <div class="header">
+                      <div class="brand">
+                        <h1>LegitGrinder</h1>
+                        <p>+254 791 873 538 &nbsp;|&nbsp; www.legitgrinder.site</p>
+                      </div>
+                      <div class="meta">
+                        <p><span>Date:</span>${new Date().toLocaleDateString('en-GB')}</p>
+                        <p><span>Client:</span>${imageInvoiceClient.name}</p>
+                        ${imageInvoiceClient.whatsapp ? `<p><span>WhatsApp:</span>${imageInvoiceClient.whatsapp}</p>` : ''}
+                      </div>
+                      <img src="${logoUrl}" class="logo" />
+                    </div>
+                    <div class="title">Product Invoice</div>
+                    <table>
+                      <thead><tr>
+                        <th style="width:80px">Image</th>
+                        <th>Product &amp; Specs</th>
+                        <th style="width:60px;text-align:center">Qty</th>
+                        <th style="width:130px;text-align:right">Unit Price</th>
+                        <th style="width:130px;text-align:right">Total</th>
+                      </tr></thead>
+                      <tbody>${rowsHtml}</tbody>
+                      <tfoot><tr class="total-band">
+                        <td colspan="4">Grand Total</td>
+                        <td>KES ${grandTotal.toLocaleString()}</td>
+                      </tr></tfoot>
+                    </table>
+                    <div class="terms">
+                      <h2>Terms &amp; Conditions</h2>
+                      <p>The total fee is all inclusive to Nairobi. Client caters for delivery to their home/work location.</p>
+                      <p>Payment via mobile money/cash. Shipping: Air (2 weeks) | Sea (30–45 days).</p>
+                    </div>
+                    <div class="footer">LegitGrinder KE – Deals in Imports | Integrity First</div>
+                    </body></html>
+                  `);
+                  printWin.document.close();
+                  printWin.print();
+                }}
+                className="w-full py-6 bg-indigo-600 text-white rounded-3xl font-black uppercase tracking-widest text-[11px] hover:bg-black transition-all shadow-xl shadow-indigo-200 flex items-center justify-center gap-3"
+              >
+                <Printer className="w-5 h-5" /> Generate &amp; Print Image Invoice
+              </button>
+            </div>
           </div>
         </div>
       )}

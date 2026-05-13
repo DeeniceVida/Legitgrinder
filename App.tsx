@@ -15,6 +15,7 @@ import Blogs from './pages/Blogs';
 import Books from './pages/Books';
 import OrderHistory from './pages/OrderHistory';
 import AboutUs from './pages/AboutUs';
+import ResetPassword from './pages/ResetPassword';
 import AIAssistant from './components/AIAssistant';
 import SafeImage from './components/SafeImage';
 import ValentineTheme from './components/ValentineTheme';
@@ -194,6 +195,7 @@ const AppContent: React.FC = () => {
           <Route path="/about" element={<AboutUs />} />
           <Route path="/tracking" element={<Tracking isLoggedIn={isLoggedIn} invoices={invoices} />} />
           <Route path="/history" element={<OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route
             path="/admin"
             element={

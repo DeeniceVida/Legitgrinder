@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { ArrowRight, Mail, Lock, Phone, User, MapPin, Check, Eye, EyeOff, Sparkles, ShieldCheck, Globe } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Mail, Lock, Phone, User, MapPin, Check, Eye, EyeOff, Sparkles, ShieldCheck, Globe, KeyRound } from 'lucide-react';
 import { Client } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -17,6 +18,9 @@ const SOURCING_CATEGORIES = [
 
 const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -99,6 +103,23 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) throw resetError;
+      setForgotSent(true);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset email.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMFAVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mfaFactor || !mfaChallengeId) return;
@@ -149,7 +170,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-50 rounded-full blur-3xl opacity-50"></div>
           <div className="text-center mb-12 relative z-10">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-neutral-900">
-              {isLogin ? 'Welcome back' : 'Elite Sourcing Hub'}
+              {isForgotPassword ? 'Reset Password' : isLogin ? 'Welcome back' : 'Elite Sourcing Hub'}
             </h1>
             {error && (
               <div className="mt-4 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-xs font-bold animate-in fade-in slide-in-from-top-2">
@@ -158,12 +179,62 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             )}
           </div>
 
-          <div className="flex bg-neutral-50 p-2 rounded-3xl mb-12 relative z-10">
-            <button onClick={() => setIsLogin(true)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Member Login</button>
-            <button onClick={() => setIsLogin(false)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${!isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Join Elite</button>
-          </div>
+          {!isForgotPassword && (
+            <div className="flex bg-neutral-50 p-2 rounded-3xl mb-12 relative z-10">
+              <button onClick={() => setIsLogin(true)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Member Login</button>
+              <button onClick={() => setIsLogin(false)} className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-2xl ${!isLogin ? 'bg-white shadow-xl text-indigo-600' : 'text-neutral-400'}`}>Join Elite</button>
+            </div>
+          )}
 
-          {mfaFactor ? (
+          {isForgotPassword ? (
+            <div className="relative z-10 animate-in fade-in zoom-in-95 duration-500">
+              {forgotSent ? (
+                <div className="text-center space-y-8">
+                  <div className="mx-auto w-24 h-24 bg-emerald-50 rounded-[2.5rem] flex items-center justify-center">
+                    <Check className="w-10 h-10 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-neutral-900 tracking-tight mb-2">Check your inbox!</h3>
+                    <p className="text-sm text-neutral-500 font-medium">A password reset link has been sent to <span className="font-bold text-indigo-600">{forgotEmail}</span>. Click the link in the email to set a new password.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setIsForgotPassword(false); setForgotSent(false); setForgotEmail(''); }}
+                    className="w-full text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-indigo-600 transition-colors"
+                  >
+                    Back to login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-6">
+                  <div className="text-center mb-6">
+                    <div className="mx-auto w-20 h-20 bg-indigo-50 rounded-[2rem] flex items-center justify-center mb-4">
+                      <KeyRound className="w-9 h-9 text-indigo-600" />
+                    </div>
+                    <p className="text-sm text-neutral-500 font-medium">Enter your account email and we'll send you a secure reset link.</p>
+                  </div>
+                  <input
+                    required
+                    type="email"
+                    placeholder="Your email address"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 focus:ring-2 focus:ring-indigo-600/20 outline-none"
+                  />
+                  <button type="submit" disabled={loading} className="w-full btn-vibrant-teal py-5 rounded-full font-bold uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 shadow-2xl disabled:opacity-50">
+                    {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <><Mail className="w-4 h-4" /> Send Reset Link</>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsForgotPassword(false); setError(null); }}
+                    className="w-full text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-indigo-600 transition-colors"
+                  >
+                    Back to login
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : mfaFactor ? (
             <form onSubmit={handleMFAVerify} className="space-y-10 relative z-10 animate-in fade-in zoom-in-95 duration-500">
               <div className="text-center">
                 <div className="mx-auto w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center mb-6">
@@ -235,6 +306,18 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               <button type="submit" disabled={loading} className="w-full btn-vibrant-teal py-5 rounded-full font-bold uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 shadow-2xl">
                 {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <>{isLogin ? 'Access Dashboard' : 'Confirm Registration'} <ArrowRight className="w-4 h-4" /></>}
               </button>
+
+              {isLogin && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setIsForgotPassword(true); setError(null); }}
+                    className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-indigo-600 transition-colors"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
             </form>
           )}
         </div>
