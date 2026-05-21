@@ -2747,45 +2747,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </style>
                   </head>
                   <body>
-                    <img src="\${logoUrl}" class="watermark" />
+                    <img src="${logoUrl}" class="watermark" />
                     <div class="header">
                       <div class="brand">
                         <h1>LEGITGRINDER IMPORTS</h1>
                         <p>International Trade & Logistics</p>
                         <p>Nairobi, Kenya | +254 791 873538</p>
                       </div>
-                      <img src="\${logoUrl}" class="logo" />
+                      <img src="${logoUrl}" class="logo" />
                     </div>
 
                     <div class="doc-title">Sourcing and Freight Agency Agreement</div>
 
                     <div class="intro">
-                      <p>This Sourcing and Freight Agency Agreement (the "Agreement") is entered into on this <span class="variable">\${dateString}</span>, by and between:</p>
+                      <p>This Sourcing and Freight Agency Agreement (the "Agreement") is entered into on this <span class="variable">${dateString}</span>, by and between:</p>
                       <p><strong>LEGITGRINDER IMPORTS</strong> (hereinafter referred to as the "Agent" or "Service Provider"),</p>
                       <p>AND</p>
-                      <p><span class="variable">\${contractFormData.clientName.toUpperCase()}</span>, holding National ID / Company Registration No. <span class="variable">\${contractFormData.clientIdReg || '______________'}</span> (hereinafter referred to as the "Client" or "Buyer").</p>
+                      <p><span class="variable">${contractFormData.clientName.toUpperCase()}</span>, holding National ID / Company Registration No. <span class="variable">${contractFormData.clientIdReg || '______________'}</span> (hereinafter referred to as the "Client" or "Buyer").</p>
                     </div>
 
                     <div class="section">
                       <h3>1. Scope of Agreement & Relationship of Parties</h3>
                       <p>1.1. The Agent acts strictly as an autonomous sourcing and logistics agent on behalf of the Client.</p>
                       <p>1.2. The Agent's responsibilities include: sourcing the item described herein, placing the order with the supplier, managing international transit via freight forwarding channels, handling customs clearance at the port of entry, and bringing the item to the Agent's warehouse/hub in Nairobi.</p>
-                      <p>1.3. <strong>Item Description:</strong> <span class="variable">\${contractFormData.itemDescription}</span></p>
-                      <p>1.4. <strong>Specifications:</strong> <span class="variable">\${contractFormData.itemSpecifications || 'N/A'}</span></p>
+                      <p>1.3. <strong>Item Description:</strong> <span class="variable">${contractFormData.itemDescription}</span></p>
+                      <p>1.4. <strong>Specifications:</strong> <span class="variable">${contractFormData.itemSpecifications || 'N/A'}</span></p>
                     </div>
 
                     <div class="section">
                       <h3>2. Payment Terms, Non-Refundability & Price Fluctuations</h3>
-                      <p>2.1. <strong>Total Quotation:</strong> KES <span class="variable">\${contractFormData.totalQuotation || '0'}</span></p>
-                      <p>2.2. <strong>Non-Refundable Deposit:</strong> The Client agrees to pay an upfront deposit of KES <span class="variable">\${contractFormData.upfrontPayment || '0'}</span> before the order is placed. Once the Agent places the order with the supplier, this upfront payment is <strong>100% non-refundable</strong>, regardless of whether the Client changes their mind.</p>
-                      <p>2.3. <strong>Shipping Fluctuations:</strong> The estimated shipping balance of KES <span class="variable">\${contractFormData.shippingBalanceEstimate || '0'}</span> is an estimate. If the third-party freight forwarder increases their CBM charges, freight rates, or forex rates fluctuate before arrival, the Client is fully responsible for footing the updated, actual shipping bill.</p>
+                      <p>2.1. <strong>Total Quotation:</strong> KES <span class="variable">${contractFormData.totalQuotation || '0'}</span></p>
+                      <p>2.2. <strong>Non-Refundable Deposit:</strong> The Client agrees to pay an upfront deposit of KES <span class="variable">${contractFormData.upfrontPayment || '0'}</span> before the order is placed. Once the Agent places the order with the supplier, this upfront payment is <strong>100% non-refundable</strong>, regardless of whether the Client changes their mind.</p>
+                      <p>2.3. <strong>Shipping Fluctuations:</strong> The estimated shipping balance of KES <span class="variable">${contractFormData.shippingBalanceEstimate || '0'}</span> is an estimate. If the third-party freight forwarder increases their CBM charges, freight rates, or forex rates fluctuate before arrival, the Client is fully responsible for footing the updated, actual shipping bill.</p>
                       <p>2.4. The item will not be released to the Client until all outstanding balances are cleared.</p>
                     </div>
 
                     <div class="section">
                       <h3>3. Logistics, Delivery, Collection & Storage Penalties</h3>
-                      <p>3.1. <strong>Shipping Method:</strong> <span class="variable">\${contractFormData.shippingMethod}</span></p>
-                      <p>3.2. <strong>Estimated Delivery:</strong> \${contractFormData.shippingMethod === 'Air Freight' ? '2 to 3 weeks after the item departs the origin country.' : '30 to 45 days after the item departs the origin country.'}</p>
+                      <p>3.1. <strong>Shipping Method:</strong> <span class="variable">${contractFormData.shippingMethod}</span></p>
+                      <p>3.2. <strong>Estimated Delivery:</strong> ${contractFormData.shippingMethod === 'Air Freight' ? '2 to 3 weeks after the item departs the origin country.' : '30 to 45 days after the item departs the origin country.'}</p>
                       <p>3.3. <strong>Grace Period Clause:</strong> Both parties agree to a mandatory 15-day grace period beyond the estimated delivery timelines.</p>
                       <p>3.4. <strong>Collection & Storage Fees:</strong> Upon arrival in Nairobi, the Agent will notify the Client. The Client has exactly <strong>7 days</strong> to collect the item free of charge. Starting on the <strong>8th day</strong>, a mandatory storage fee of <strong>500 KES per day</strong> will accrue.</p>
                       <p>3.5. <strong>Confiscation:</strong> If the item remains uncollected or unpaid for <strong>30 days</strong> after the arrival notification, Grinder Imports reserves the legal right to seize, auction, or sell the item to recover all incurred costs, with no refund owed to the Client.</p>
@@ -2817,16 +2817,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div class="sig-block">
                         <p><strong>For the Client:</strong></p>
                         <div class="sig-line"></div>
-                        <p class="sig-name">\${contractFormData.clientName}</p>
+                        <p class="sig-name">${contractFormData.clientName}</p>
                         <p class="sig-title">Client / Buyer</p>
-                        <p class="sig-title">Date: \${dateString}</p>
+                        <p class="sig-title">Date: ${dateString}</p>
                       </div>
                       <div class="sig-block">
                         <p><strong>For the Agent:</strong></p>
-                        <div class="sig-line"></div>
+                        <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1779364844/signature_gf4qjn.png" style="height: 60px; margin-top: 10px; margin-bottom: 5px; display: block;" />
+                        <div style="border-bottom: 1px solid #000; margin-bottom: 10px;"></div>
                         <p class="sig-name">Authorized Representative</p>
                         <p class="sig-title">LEGITGRINDER IMPORTS</p>
-                        <p class="sig-title">Date: \${dateString}</p>
+                        <p class="sig-title">Date: ${dateString}</p>
                       </div>
                     </div>
 
