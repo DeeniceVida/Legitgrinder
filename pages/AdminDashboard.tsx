@@ -2751,6 +2751,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div class="header">
                       <div class="brand">
                         <h1>LEGITGRINDER IMPORTS</h1>
+                        <p>Business No: BN-RRSK5DDD</p>
                         <p>International Trade & Logistics</p>
                         <p>Nairobi, Kenya | +254 791 873538</p>
                       </div>
@@ -2761,7 +2762,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div class="intro">
                       <p>This Sourcing and Freight Agency Agreement (the "Agreement") is entered into on this <span class="variable">${dateString}</span>, by and between:</p>
-                      <p><strong>LEGITGRINDER IMPORTS</strong> (hereinafter referred to as the "Agent" or "Service Provider"),</p>
+                      <p><strong>LEGITGRINDER IMPORTS</strong> (Business No. BN-RRSK5DDD, hereinafter referred to as the "Agent" or "Service Provider"),</p>
                       <p>AND</p>
                       <p><span class="variable">${contractFormData.clientName.toUpperCase()}</span>, holding National ID / Company Registration No. <span class="variable">${contractFormData.clientIdReg || '______________'}</span> (hereinafter referred to as the "Client" or "Buyer").</p>
                     </div>
