@@ -2788,7 +2788,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <p>3.2. <strong>Estimated Delivery:</strong> ${contractFormData.shippingMethod === 'Air Freight' ? '2 to 3 weeks after the item departs the origin country.' : '30 to 45 days after the item departs the origin country.'}</p>
                       <p>3.3. <strong>Grace Period Clause:</strong> Both parties agree to a mandatory 15-day grace period beyond the estimated delivery timelines.</p>
                       <p>3.4. <strong>Collection & Storage Fees:</strong> Upon arrival in Nairobi, the Agent will notify the Client. The Client has exactly <strong>7 days</strong> to collect the item free of charge. Starting on the <strong>8th day</strong>, a mandatory storage fee of <strong>500 KES per day</strong> will accrue.</p>
-                      <p>3.5. <strong>Confiscation:</strong> If the item remains uncollected or unpaid for <strong>30 days</strong> after the arrival notification, Grinder Imports reserves the legal right to seize, auction, or sell the item to recover all incurred costs, with no refund owed to the Client.</p>
+                      <p>3.5. <strong>Confiscation:</strong> If the item remains uncollected or unpaid for <strong>30 days</strong> after the arrival notification, LEGITGRINDER IMPORTS reserves the legal right to seize, auction, or sell the item to recover all incurred costs, with no refund owed to the Client.</p>
                     </div>
 
                     <div class="section">
@@ -2804,7 +2804,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div class="section">
                       <h3>6. Manufacturer Warranties & Product Guarantees</h3>
-                      <p>6.1. LegitGrinder Imports is a third-party agent and <strong>does not offer any independent warranties, guarantees, or performance assurances</strong> on the sourced items.</p>
+                      <p>6.1. LEGITGRINDER IMPORTS is a third-party agent and <strong>does not offer any independent warranties, guarantees, or performance assurances</strong> on the sourced items.</p>
                       <p>6.2. In the event of a factory defect, the Agent agrees to act solely as a liaison between the Client and the Supplier.</p>
                     </div>
 
