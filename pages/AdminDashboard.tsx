@@ -6,7 +6,7 @@ import {
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
-  ShieldCheck, MessageCircle, Youtube, Book, Lock
+  ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -170,6 +170,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [mfaEnrollData, setMfaEnrollData] = useState<{ id: string; qr_code: string; uri: string } | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [mfaError, setMfaError] = useState<string | null>(null);
+
+  // Contract Generator State
+  const [isGeneratingContract, setIsGeneratingContract] = useState(false);
+  const [contractInvoice, setContractInvoice] = useState<Invoice | null>(null);
+  const [contractFormData, setContractFormData] = useState({ clientName: '', clientIdReg: '', itemDescription: '', itemSpecifications: '', shippingMethod: 'Air Freight', totalQuotation: '', upfrontPayment: '', shippingBalanceEstimate: '' });
 
   const handleUpdateAdminCredentials = async () => {
     if (!confirm('Are you sure you want to update your admin credentials? You will be logged out.')) return;
@@ -1240,6 +1245,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             title="Edit Invoice Breakdown"
                           >
                             <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setContractInvoice(inv);
+                              setContractFormData({
+                                clientName: inv.clientName || '',
+                                clientIdReg: '',
+                                itemDescription: inv.productName || '',
+                                itemSpecifications: inv.items?.map(i => i.name).join(', ') || '',
+                                shippingMethod: 'Air Freight',
+                                totalQuotation: inv.totalKES ? inv.totalKES.toString() : '',
+                                upfrontPayment: '',
+                                shippingBalanceEstimate: ''
+                              });
+                              setIsGeneratingContract(true);
+                            }}
+                            className="p-4 bg-purple-50 text-purple-600 rounded-2xl hover:bg-purple-600 hover:text-white transition-all"
+                            title="Generate Contract"
+                          >
+                            <ScrollText className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => {
@@ -2656,6 +2681,266 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="flex-[2] py-6 bg-[#3D8593] text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-[0_20px_40px_rgba(61,133,147,0.3)] shadow-teal-100"
                 >
                   Initialize Logistics
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CONTRACT GENERATOR MODAL */}
+      {isGeneratingContract && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[4rem] p-10 w-full max-w-3xl shadow-[0_0_100px_rgba(168,85,247,0.3)] animate-in zoom-in-95 duration-300 relative border border-white/20 max-h-[95vh] overflow-y-auto">
+            <button
+              onClick={() => setIsGeneratingContract(false)}
+              className="absolute top-8 right-8 p-4 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
+            >
+              <X className="w-6 h-6 text-gray-400" />
+            </button>
+
+            <div className="mb-10">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-3 bg-purple-50 rounded-2xl text-purple-600">
+                  <ScrollText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-3xl font-black text-gray-900 tracking-tight leading-none uppercase">Legal <span className="text-purple-600">Contract</span></h3>
+                  <p className="text-[10px] font-black text-purple-400 uppercase tracking-[0.3em] mt-1">Sourcing & Freight Agency Agreement</p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!contractInvoice) return;
+
+              const printWin = window.open('', '', 'width=900,height=1000');
+              if (!printWin) return;
+
+              const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
+              const dateString = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+              printWin.document.write(`
+                <html>
+                  <head>
+                    <title>Contract - ${contractFormData.clientName}</title>
+                    <style>
+                      body { font-family: 'Inter', 'Segoe UI', sans-serif; padding: 60px; color: #1a1a1a; line-height: 1.6; position: relative; }
+                      .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.03; width: 80%; z-index: -1; }
+                      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 3px solid #3d8593; padding-bottom: 20px; }
+                      .brand h1 { margin: 0; font-size: 28px; font-weight: 900; color: #3d8593; text-transform: uppercase; }
+                      .brand p { margin: 5px 0 0; font-size: 12px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+                      .logo { width: 100px; }
+                      .doc-title { text-align: center; font-size: 24px; font-weight: 900; margin: 30px 0; text-transform: uppercase; letter-spacing: 2px; text-decoration: underline; }
+                      .intro { margin-bottom: 30px; font-size: 14px; text-align: justify; }
+                      .section { margin-bottom: 25px; }
+                      .section h3 { font-size: 16px; font-weight: 800; text-transform: uppercase; margin-bottom: 10px; color: #3d8593; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+                      .section p { font-size: 14px; text-align: justify; margin: 8px 0; }
+                      .variable { font-weight: 700; text-decoration: underline; }
+                      .signatures { margin-top: 60px; display: flex; justify-content: space-between; }
+                      .sig-block { width: 45%; }
+                      .sig-line { border-bottom: 1px solid #000; margin-top: 50px; margin-bottom: 10px; }
+                      .sig-name { font-weight: 800; font-size: 14px; text-transform: uppercase; }
+                      .sig-title { font-size: 12px; color: #666; }
+                      .footer-note { text-align: center; font-size: 10px; color: #999; margin-top: 40px; text-transform: uppercase; letter-spacing: 1px; }
+                    </style>
+                  </head>
+                  <body>
+                    <img src="\${logoUrl}" class="watermark" />
+                    <div class="header">
+                      <div class="brand">
+                        <h1>LEGITGRINDER IMPORTS</h1>
+                        <p>International Trade & Logistics</p>
+                        <p>Nairobi, Kenya | +254 791 873538</p>
+                      </div>
+                      <img src="\${logoUrl}" class="logo" />
+                    </div>
+
+                    <div class="doc-title">Sourcing and Freight Agency Agreement</div>
+
+                    <div class="intro">
+                      <p>This Sourcing and Freight Agency Agreement (the "Agreement") is entered into on this <span class="variable">\${dateString}</span>, by and between:</p>
+                      <p><strong>LEGITGRINDER IMPORTS</strong> (hereinafter referred to as the "Agent" or "Service Provider"),</p>
+                      <p>AND</p>
+                      <p><span class="variable">\${contractFormData.clientName.toUpperCase()}</span>, holding National ID / Company Registration No. <span class="variable">\${contractFormData.clientIdReg || '______________'}</span> (hereinafter referred to as the "Client" or "Buyer").</p>
+                    </div>
+
+                    <div class="section">
+                      <h3>1. Scope of Agreement & Relationship of Parties</h3>
+                      <p>1.1. The Agent acts strictly as an autonomous sourcing and logistics agent on behalf of the Client.</p>
+                      <p>1.2. The Agent's responsibilities include: sourcing the item described herein, placing the order with the supplier, managing international transit via freight forwarding channels, handling customs clearance at the port of entry, and bringing the item to the Agent's warehouse/hub in Nairobi.</p>
+                      <p>1.3. <strong>Item Description:</strong> <span class="variable">\${contractFormData.itemDescription}</span></p>
+                      <p>1.4. <strong>Specifications:</strong> <span class="variable">\${contractFormData.itemSpecifications || 'N/A'}</span></p>
+                    </div>
+
+                    <div class="section">
+                      <h3>2. Payment Terms, Non-Refundability & Price Fluctuations</h3>
+                      <p>2.1. <strong>Total Quotation:</strong> KES <span class="variable">\${contractFormData.totalQuotation || '0'}</span></p>
+                      <p>2.2. <strong>Non-Refundable Deposit:</strong> The Client agrees to pay an upfront deposit of KES <span class="variable">\${contractFormData.upfrontPayment || '0'}</span> before the order is placed. Once the Agent places the order with the supplier, this upfront payment is <strong>100% non-refundable</strong>, regardless of whether the Client changes their mind.</p>
+                      <p>2.3. <strong>Shipping Fluctuations:</strong> The estimated shipping balance of KES <span class="variable">\${contractFormData.shippingBalanceEstimate || '0'}</span> is an estimate. If the third-party freight forwarder increases their CBM charges, freight rates, or forex rates fluctuate before arrival, the Client is fully responsible for footing the updated, actual shipping bill.</p>
+                      <p>2.4. The item will not be released to the Client until all outstanding balances are cleared.</p>
+                    </div>
+
+                    <div class="section">
+                      <h3>3. Logistics, Delivery, Collection & Storage Penalties</h3>
+                      <p>3.1. <strong>Shipping Method:</strong> <span class="variable">\${contractFormData.shippingMethod}</span></p>
+                      <p>3.2. <strong>Estimated Delivery:</strong> \${contractFormData.shippingMethod === 'Air Freight' ? '2 to 3 weeks after the item departs the origin country.' : '30 to 45 days after the item departs the origin country.'}</p>
+                      <p>3.3. <strong>Grace Period Clause:</strong> Both parties agree to a mandatory 15-day grace period beyond the estimated delivery timelines.</p>
+                      <p>3.4. <strong>Collection & Storage Fees:</strong> Upon arrival in Nairobi, the Agent will notify the Client. The Client has exactly <strong>7 days</strong> to collect the item free of charge. Starting on the <strong>8th day</strong>, a mandatory storage fee of <strong>500 KES per day</strong> will accrue.</p>
+                      <p>3.5. <strong>Confiscation:</strong> If the item remains uncollected or unpaid for <strong>30 days</strong> after the arrival notification, Grinder Imports reserves the legal right to seize, auction, or sell the item to recover all incurred costs, with no refund owed to the Client.</p>
+                    </div>
+
+                    <div class="section">
+                      <h3>4. Limitation of Liability, Government Holds & Transit Risks</h3>
+                      <p>4.1. <strong>Government Delays:</strong> The Agent is <strong>completely exempt from all liability</strong> if the Kenya Revenue Authority (KRA), Kenya Bureau of Standards (KEBS), or any other government entity holds, inspects, or delays the goods beyond the 15-day grace period.</p>
+                      <p>4.2. <strong>Transit Risks:</strong> Liability for loss or severe transit damage falls on the freight forwarding carrier. The Agent will actively manage the dispute and compensation claim with the carrier on behalf of the Client, but is not directly liable for the loss.</p>
+                    </div>
+
+                    <div class="section">
+                      <h3>5. Prohibited Goods Declaration</h3>
+                      <p>5.1. The Client explicitly guarantees and warrants that the item being imported is completely legal, not classified as dangerous goods, and not prohibited or heavily restricted under Kenyan law without the Agent's prior knowledge.</p>
+                    </div>
+
+                    <div class="section">
+                      <h3>6. Manufacturer Warranties & Product Guarantees</h3>
+                      <p>6.1. LegitGrinder Imports is a third-party agent and <strong>does not offer any independent warranties, guarantees, or performance assurances</strong> on the sourced items.</p>
+                      <p>6.2. In the event of a factory defect, the Agent agrees to act solely as a liaison between the Client and the Supplier.</p>
+                    </div>
+
+                    <div class="section">
+                      <h3>7. Governing Law</h3>
+                      <p>7.1. This agreement shall be governed, construed, and enforced in accordance with the Laws of the Republic of Kenya.</p>
+                    </div>
+
+                    <div class="signatures">
+                      <div class="sig-block">
+                        <p><strong>For the Client:</strong></p>
+                        <div class="sig-line"></div>
+                        <p class="sig-name">\${contractFormData.clientName}</p>
+                        <p class="sig-title">Client / Buyer</p>
+                        <p class="sig-title">Date: \${dateString}</p>
+                      </div>
+                      <div class="sig-block">
+                        <p><strong>For the Agent:</strong></p>
+                        <div class="sig-line"></div>
+                        <p class="sig-name">Authorized Representative</p>
+                        <p class="sig-title">LEGITGRINDER IMPORTS</p>
+                        <p class="sig-title">Date: \${dateString}</p>
+                      </div>
+                    </div>
+
+                    <div class="footer-note">This document is legally binding and generated electronically.</div>
+                  </body>
+                </html>
+              `);
+              printWin.document.close();
+              printWin.print();
+              setIsGeneratingContract(false);
+            }}>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Client Name</label>
+                    <input
+                      required
+                      value={contractFormData.clientName}
+                      onChange={e => setContractFormData({ ...contractFormData, clientName: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-neutral-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Client ID / Reg No</label>
+                    <input
+                      required
+                      value={contractFormData.clientIdReg}
+                      onChange={e => setContractFormData({ ...contractFormData, clientIdReg: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-neutral-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Item Description</label>
+                    <input
+                      required
+                      value={contractFormData.itemDescription}
+                      onChange={e => setContractFormData({ ...contractFormData, itemDescription: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-neutral-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Specifications</label>
+                    <input
+                      value={contractFormData.itemSpecifications}
+                      onChange={e => setContractFormData({ ...contractFormData, itemSpecifications: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-neutral-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Total Quotation (KES)</label>
+                    <input
+                      required
+                      type="number"
+                      value={contractFormData.totalQuotation}
+                      onChange={e => setContractFormData({ ...contractFormData, totalQuotation: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-neutral-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Upfront Payment / Deposit (KES)</label>
+                    <input
+                      required
+                      type="number"
+                      value={contractFormData.upfrontPayment}
+                      onChange={e => setContractFormData({ ...contractFormData, upfrontPayment: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-neutral-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Shipping Balance Estimate (KES)</label>
+                    <input
+                      required
+                      type="number"
+                      value={contractFormData.shippingBalanceEstimate}
+                      onChange={e => setContractFormData({ ...contractFormData, shippingBalanceEstimate: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all placeholder:text-neutral-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Shipping Method</label>
+                    <select
+                      value={contractFormData.shippingMethod}
+                      onChange={e => setContractFormData({ ...contractFormData, shippingMethod: e.target.value })}
+                      className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-purple-100 transition-all"
+                    >
+                      <option value="Air Freight">Air Freight</option>
+                      <option value="Sea Freight">Sea Freight</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-10">
+                <button
+                  type="button"
+                  onClick={() => setIsGeneratingContract(false)}
+                  className="flex-1 py-6 bg-neutral-100 text-gray-400 rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-200 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[2] py-6 bg-purple-600 text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-[0_20px_40px_rgba(168,85,247,0.3)] shadow-purple-200 flex items-center justify-center gap-2"
+                >
+                  <ScrollText className="w-5 h-5" /> Generate & Print Contract
                 </button>
               </div>
             </form>
