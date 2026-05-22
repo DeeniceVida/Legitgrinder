@@ -268,14 +268,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   ) : (
                     <>
                       <span className="text-4xl font-black text-[#3D8593]">KES {(currentPrice * quantity).toLocaleString()}</span>
-                      {variationPrice > 0 && (
-                        <div className="h-6 w-[1px] bg-neutral-200"></div>
-                      )}
-                      {variationPrice > 0 && (
-                        <span className="text-xs font-black text-[#FF9900] uppercase tracking-widest">
-                          + Added Selection Cost
-                        </span>
-                      )}
+
                     </>
                   )}
                 </div>
