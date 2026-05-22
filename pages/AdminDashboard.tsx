@@ -24,6 +24,7 @@ import {
 } from '../types';
 import { fetchBanners, addBanner, updateBanner, deleteBanner } from '../services/adBanners';
 import SafeImage from '../components/SafeImage';
+import BusinessCard from '../components/BusinessCard';
 
 
 
@@ -90,7 +91,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -144,6 +145,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'books', name: 'Books', icon: <Book className="w-4 h-4" /> },
     { id: 'adbanners', name: 'Ad Banners', icon: <ImageIcon className="w-4 h-4" /> },
     { id: 'security', name: 'Security', icon: <Lock className="w-4 h-4" /> },
+    { id: 'card', name: 'Business Card', icon: <CreditCard className="w-4 h-4" /> },
   ] as const;
 
   const [ebooks, setEbooks] = useState<EBook[]>([]);
@@ -1955,6 +1957,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 ))
               )}
             </div>
+          </div>
+        )}
+        {activeTab === 'card' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <BusinessCard />
           </div>
         )}
       </main >

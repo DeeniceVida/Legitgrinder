@@ -11,11 +11,13 @@
   "dependencies": {
     "@google/genai": "^1.38.0",
     "@supabase/supabase-js": "^2.93.2",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^0.563.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-is": "^18.3.1",
     "react-paystack": "^6.0.0",
+    "react-qr-code": "^2.0.21",
     "react-router-dom": "^7.13.0",
     "recharts": "^2.12.7"
   },
