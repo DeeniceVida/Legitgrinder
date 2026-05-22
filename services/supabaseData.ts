@@ -438,8 +438,8 @@ export const updateInvoiceBreakdown = async (
 
 export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string }> => {
     try {
-        // Generate a simple numeric invoice number if not provided
-        const invoiceNumber = invoiceData.invoiceNumber || Math.floor(1000 + Math.random() * 9000).toString();
+        // Generate a robust, unique invoice number if not provided
+        const invoiceNumber = invoiceData.invoiceNumber || `INV-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
         const { data, error } = await supabase
             .from('invoices')
