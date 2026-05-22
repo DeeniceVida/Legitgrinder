@@ -71,7 +71,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const varText = varTextStrings.length > 0 ? ` (Selected: ${varTextStrings.join(', ')})` : '';
 
-    const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}${varText}.\nQuantity: ${quantity}\nTotal Price: KES ${totalPrice.toLocaleString()}`);
+    const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}${varText}.\nQuantity: ${quantity}\nTotal Price: KES ${(totalPrice * quantity).toLocaleString()}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
 
@@ -263,7 +263,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
               <div className="mb-10">
                 <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tighter leading-[1.1]">{p.name}</h1>
                 <div className="flex items-center gap-4">
-                  <span className="text-4xl font-black text-[#3D8593]">KES {currentPrice.toLocaleString()}</span>
+                  <span className="text-4xl font-black text-[#3D8593]">KES {(currentPrice * quantity).toLocaleString()}</span>
                   {variationPrice > 0 && (
                     <div className="h-6 w-[1px] bg-neutral-200"></div>
                   )}
