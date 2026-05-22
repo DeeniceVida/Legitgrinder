@@ -263,14 +263,20 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
               <div className="mb-10">
                 <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tighter leading-[1.1]">{p.name}</h1>
                 <div className="flex items-center gap-4">
-                  <span className="text-4xl font-black text-[#3D8593]">KES {(currentPrice * quantity).toLocaleString()}</span>
-                  {variationPrice > 0 && (
-                    <div className="h-6 w-[1px] bg-neutral-200"></div>
-                  )}
-                  {variationPrice > 0 && (
-                    <span className="text-xs font-black text-[#FF9900] uppercase tracking-widest">
-                      + Added Selection Cost
-                    </span>
+                  {Array.isArray(p.variations) && p.variations.length > 0 && Array.from(new Set(p.variations.map((v: ProductVariation) => v.type || 'Other'))).some(type => !selectedVariations[type]) ? (
+                    <span className="text-xl font-bold text-gray-400">Select options to view price</span>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-black text-[#3D8593]">KES {(currentPrice * quantity).toLocaleString()}</span>
+                      {variationPrice > 0 && (
+                        <div className="h-6 w-[1px] bg-neutral-200"></div>
+                      )}
+                      {variationPrice > 0 && (
+                        <span className="text-xs font-black text-[#FF9900] uppercase tracking-widest">
+                          + Added Selection Cost
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
