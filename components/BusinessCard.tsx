@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
 import html2canvas from 'html2canvas';
 import { Download, Globe, Mail, MapPin, Phone, Instagram, Facebook } from 'lucide-react';
-import SafeImage from './SafeImage';
 
 const BusinessCard: React.FC = () => {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -43,7 +42,7 @@ const BusinessCard: React.FC = () => {
         <div className="flex-1 flex flex-col justify-between p-12 lg:p-16 relative z-10 border-r border-white/10">
           <div>
             <div className="flex items-center gap-4 mb-4">
-              <SafeImage src="/favicon.png" alt="Legitgrinder Logo" className="w-16 h-16 object-contain" />
+              <img src="/favicon.png" alt="Legitgrinder Logo" className="w-16 h-16 object-contain" crossOrigin="anonymous" />
               <h1 className="text-4xl lg:text-5xl font-black tracking-tighter text-white">LEGITGRINDER</h1>
             </div>
             <p className="text-[#3D8593] font-bold tracking-[0.2em] uppercase text-sm lg:text-base">Premium Imports & Logistics</p>
@@ -76,9 +75,9 @@ const BusinessCard: React.FC = () => {
         {/* Right Side: QR Code */}
         <div className="w-[40%] flex flex-col items-center justify-center p-12 relative z-10 bg-black/20 backdrop-blur-sm">
           <div className="bg-white p-4 rounded-xl shadow-2xl mb-6">
-            <QRCode value="https://legitgrinder.com" size={200} fgColor="#0f172a" />
+            <QRCode value="https://legitgrinder.site" size={200} fgColor="#0f172a" />
           </div>
-          <p className="text-gray-400 font-medium tracking-widest text-sm uppercase text-center">Scan to visit<br/>legitgrinder.com</p>
+          <p className="text-gray-400 font-medium tracking-widest text-sm uppercase text-center">Scan to visit<br/>legitgrinder.site</p>
         </div>
       </div>
 
