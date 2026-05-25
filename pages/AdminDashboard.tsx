@@ -2769,14 +2769,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div class="intro">
                       <p>This Sourcing and Freight Agency Agreement (the "Agreement") is entered into on this <span class="variable">${dateString}</span>, by and between:</p>
-                      <p><strong>LEGITGRINDER IMPORTS</strong> (Business No. BN-RRSK5DDD, hereinafter referred to as the "Agent" or "Service Provider"),</p>
-                      <p>AND</p>
-                      <p><span class="variable">${contractFormData.clientName.toUpperCase()}</span>, holding National ID / Company Registration No. <span class="variable">${contractFormData.clientIdReg || '______________'}</span> (hereinafter referred to as the "Client" or "Buyer").</p>
+                      <p><strong>LEGITGRINDER IMPORTS</strong>, a registered business entity in the Republic of Kenya, herein represented by <strong>Dennis Munga</strong> (National ID Number: <strong>39279734</strong>), is acting strictly as an autonomous sourcing and logistics agent (the "Agent") on behalf of:</p>
+                      <p><span class="variable">${contractFormData.clientName.toUpperCase()}</span>, holding National ID / Company Registration No. <span class="variable">${contractFormData.clientIdReg || '______________'}</span> (the "Client").</p>
                     </div>
 
                     <div class="section">
                       <h3>1. Scope of Agreement & Relationship of Parties</h3>
-                      <p>1.1. The Agent acts strictly as an autonomous sourcing and logistics agent on behalf of the Client.</p>
+                      <p>1.1. <strong>LegitGrinder Imports</strong>, a registered business entity in the Republic of Kenya, herein represented by <strong>Dennis Munga</strong> (National ID Number: <strong>39279734</strong>), is acting strictly as an autonomous sourcing and logistics agent (the "Agent") on behalf of <span class="variable">${contractFormData.clientName.toUpperCase()}</span> (the "Client").</p>
                       <p>1.2. The Agent's responsibilities include: sourcing the item described herein, placing the order with the supplier, managing international transit via freight forwarding channels, handling customs clearance at the port of entry, and bringing the item to the Agent's warehouse/hub in Nairobi.</p>
                       <p>1.3. <strong>Item Description:</strong> <span class="variable">${contractFormData.itemDescription}</span></p>
                       <p>1.4. <strong>Specifications:</strong> <span class="variable">${contractFormData.itemSpecifications || 'N/A'}</span></p>
@@ -2785,8 +2784,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div class="section">
                       <h3>2. Payment Terms, Non-Refundability & Price Fluctuations</h3>
                       <p>2.1. <strong>Total Quotation:</strong> KES <span class="variable">${contractFormData.totalQuotation || '0'}</span></p>
-                      <p>2.2. <strong>Non-Refundable Deposit:</strong> The Client agrees to pay an upfront deposit of KES <span class="variable">${contractFormData.upfrontPayment || '0'}</span> before the order is placed. Once the Agent places the order with the supplier, this upfront payment is <strong>100% non-refundable</strong>, regardless of whether the Client changes their mind.</p>
-                      <p>2.3. <strong>Shipping Fluctuations:</strong> The estimated shipping balance of KES <span class="variable">${contractFormData.shippingBalanceEstimate || '0'}</span> is an estimate. If the third-party freight forwarder increases their CBM charges, freight rates, or forex rates fluctuate before arrival, the Client is fully responsible for footing the updated, actual shipping bill.</p>
+                      <p>2.2. <strong>Deposit Policy & Non-Arrival Guarantee:</strong> The upfront payment of KES <span class="variable">${contractFormData.upfrontPayment || '0'}</span> must be paid in full before the order is placed. This deposit is <strong>100% non-refundable in the event of Client cancellation or 'buyer’s remorse'</strong> once the order has been processed with the supplier. However, if the item fails to arrive or is permanently lost in transit, this non-refundability clause does not apply; the Client is legally entitled to a <strong>full 100% refund</strong> or an immediate replacement item.</p>
+                      <p>2.3. <strong>Fixed Shipping Rates Policy:</strong> The shipping balance estimate of KES <span class="variable">${contractFormData.shippingBalanceEstimate || '0'}</span> serves as a preliminary figure. The final shipping fee will be permanently <strong>fixed and locked in</strong> with the Client immediately after the goods are received, weighed, and measured by the freight forwarder at the origin warehouse (prior to being loaded onto the ship or plane). Once loaded, no further shipping fluctuations, CBM rate hikes, or forex adjustments will be passed on to the Client.</p>
                       <p>2.4. The item will not be released to the Client until all outstanding balances are cleared.</p>
                     </div>
 
@@ -2801,8 +2800,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div class="section">
                       <h3>4. Limitation of Liability, Government Holds & Transit Risks</h3>
-                      <p>4.1. <strong>Government Delays:</strong> The Agent is <strong>completely exempt from all liability</strong> if the Kenya Revenue Authority (KRA), Kenya Bureau of Standards (KEBS), or any other government entity holds, inspects, or delays the goods beyond the 15-day grace period.</p>
-                      <p>4.2. <strong>Transit Risks:</strong> Liability for loss or severe transit damage falls on the freight forwarding carrier. The Agent will actively manage the dispute and compensation claim with the carrier on behalf of the Client, but is not directly liable for the loss.</p>
+                      <p>4.1. <strong>Government Delays:</strong> The Agent is completely exempt from liability if the Kenya Revenue Authority (KRA), Kenya Bureau of Standards (KEBS), or any other official government entity holds, inspects, or delays the consolidated container/cargo beyond the 15-day grace period, provided all documentation submitted by the Agent was accurate.</p>
+                      <p>4.2. <strong>Cargo Protection & Dispute Handling:</strong> While direct liability for transit damage rests with the third-party freight carrier, the Agent does not alienate themselves from responsibility. The Agent assumes full responsibility for securely packaging/labelling the items at origin (e.g., fragile markers) and <strong>actively managing, filing, and resolving all insurance claims and disputes</strong> with the carrier or supplier on the Client's behalf. The Agent guarantees they will aggressively pursue full compensation, repair, or replacement for the Client at no extra service charge.</p>
                     </div>
 
                     <div class="section">
@@ -2833,8 +2832,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <p><strong>For the Agent:</strong></p>
                         <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1779364844/signature_gf4qjn.png" style="height: 60px; margin-top: 10px; margin-bottom: 5px; display: block;" />
                         <div style="border-bottom: 1px solid #000; margin-bottom: 10px;"></div>
-                        <p class="sig-name">Authorized Representative</p>
-                        <p class="sig-title">LEGITGRINDER IMPORTS</p>
+                        <p class="sig-name">LEGITGRINDER IMPORTS</p>
+                        <p class="sig-title">Represented by: Dennis Munga (ID: 39279734)</p>
                         <p class="sig-title">Date: ${dateString}</p>
                       </div>
                     </div>
