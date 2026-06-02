@@ -56,7 +56,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
   const handleWhatsAppInquiry = (p: Product) => {
-    const requiredVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
+    const allVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
+    const requiredVariationTypes = allVariationTypes.filter(type => type.toLowerCase() !== 'capacity');
     const missingVariations = requiredVariationTypes.filter(type => !selectedVariations[type]);
 
     if (missingVariations.length > 0) {
@@ -263,7 +264,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
               <div className="mb-10">
                 <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tighter leading-[1.1]">{p.name}</h1>
                 <div className="flex items-center gap-4">
-                  {Array.isArray(p.variations) && p.variations.length > 0 && Array.from(new Set(p.variations.map((v: ProductVariation) => v.type || 'Other'))).some(type => !selectedVariations[type]) ? (
+                  {Array.isArray(p.variations) && p.variations.length > 0 && Array.from(new Set(p.variations.map((v: ProductVariation) => v.type || 'Other'))).filter(type => type.toLowerCase() !== 'capacity').some(type => !selectedVariations[type]) ? (
                     <span className="text-xl font-bold text-gray-400">Select options to view price</span>
                   ) : (
                     <>
@@ -389,7 +390,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       {!showPaystack ? (
                         <button
                           onClick={() => {
-                            const requiredVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
+                            const allVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
+                            const requiredVariationTypes = allVariationTypes.filter(type => type.toLowerCase() !== 'capacity');
                             const missingVariations = requiredVariationTypes.filter(type => !selectedVariations[type]);
                             if (missingVariations.length > 0) {
                               alert(`Please select your preferred ${missingVariations.join(' and ')} before continuing.`);
