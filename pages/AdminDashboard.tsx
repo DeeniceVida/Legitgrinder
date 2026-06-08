@@ -163,6 +163,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '', refundItem: '', transactionCode: '' });
   const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
+  const [manualOrderCurrency, setManualOrderCurrency] = useState<'KES' | 'USD'>('KES');
   const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
   const [editingBreakdownInvoice, setEditingBreakdownInvoice] = useState<Invoice | null>(null);
@@ -280,7 +281,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       isPaid: isPaid,
       paymentStatus: paymentStatus,
       paystackReference: (formData.get('paystackReference') as string) || undefined,
-      createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined
+      createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined,
+      currency: manualOrderCurrency
     };
 
     const result = await createManualInvoice(invoiceData);
@@ -1075,7 +1077,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               const printWin = window.open('', '', 'width=900,height=1000');
                               if (!printWin) return;
                               const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
-                              const dispTotal = inv.totalKES ? `KES ${inv.totalKES.toLocaleString()}` : 'TBD';
+                              const dispTotal = inv.totalKES ? `${inv.currency || 'KES'} ${inv.totalKES.toLocaleString()}` : 'TBD';
                               const dispUnit = inv.totalKES ? (inv.totalKES / (inv.quantity || 1)).toLocaleString() : 'TBD';
 
                               printWin.document.write(`
@@ -1134,7 +1136,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                             <td>${item.quantity.toFixed(2)}</td>
                                             <td>${item.name}</td>
                                             <td>${item.priceKES ? (item.priceKES / item.quantity).toLocaleString() : 'TBD'}</td>
-                                            <td>${item.priceKES ? `KES ${item.priceKES.toLocaleString()}` : 'TBD'}</td>
+                                            <td>${item.priceKES ? `${inv.currency || 'KES'} ${item.priceKES.toLocaleString()}` : 'TBD'}</td>
                                           </tr>
                                         `).join('') : `
                                           <tr>
@@ -1207,7 +1209,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     <table>
                                       <tr>
                                         <th>Cost Component</th>
-                                        <th class="amount">Amount (KES)</th>
+                                        <th class="amount">Amount (${inv.currency || 'KES'})</th>
                                       </tr>
                                       <tr>
                                         <td>Buying Price</td>
@@ -2568,9 +2570,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client Full Name</label>
                   <input required name="clientName" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Dennis Munga" />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-1">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client WhatsApp Number</label>
                   <input name="clientWhatsapp" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. 254791873538" />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Currency</label>
+                  <select value={manualOrderCurrency} onChange={(e) => setManualOrderCurrency(e.target.value as 'KES' | 'USD')} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all">
+                    <option value="KES">KES</option>
+                    <option value="USD">USD</option>
+                  </select>
                 </div>
                 <div className="col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Custom Invoice Title (Optional)</label>
@@ -2605,7 +2614,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             const newItems = [...manualOrderItems];
                             newItems[idx].priceKES = parseFloat(e.target.value) || 0;
                             setManualOrderItems(newItems);
-                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-4 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all text-right" placeholder="Total KES" />
+                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-4 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all text-right" placeholder={`Total ${manualOrderCurrency}`} />
                         </div>
                         {manualOrderItems.length > 1 && (
                           <button type="button" onClick={() => setManualOrderItems(manualOrderItems.filter((_, i) => i !== idx))} className="absolute -right-3 -top-3 hidden group-hover:flex items-center justify-center w-6 h-6 bg-rose-100 text-rose-500 rounded-full">
@@ -2617,7 +2626,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount (KES / TBD) (Leave blank to autocalculate)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount ({manualOrderCurrency} / TBD) (Leave blank to autocalculate)</label>
                   <input type="text" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-300" placeholder={`Auto computed: ${manualOrderItems.reduce((acc, item) => acc + item.priceKES, 0)}`} />
                 </div>
                 <div>

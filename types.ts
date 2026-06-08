@@ -104,6 +104,7 @@ export interface Invoice {
   date?: string;
   createdAt?: string;
   paystackReference?: string;
+  currency?: 'KES' | 'USD';
 }
 
 
