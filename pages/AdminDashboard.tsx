@@ -160,6 +160,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isCreatingImageInvoice, setIsCreatingImageInvoice] = useState(false);
   const [imageInvoiceItems, setImageInvoiceItems] = useState<{name: string, specs: string, imageUrl: string, quantity: number, priceKES: number}[]>([{ name: '', specs: '', imageUrl: '', quantity: 1, priceKES: 0 }]);
   const [imageInvoiceClient, setImageInvoiceClient] = useState({ name: '', whatsapp: '' });
+  const [imageInvoiceCurrency, setImageInvoiceCurrency] = useState<'KES' | 'USD'>('KES');
   const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '', refundItem: '', transactionCode: '' });
   const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
@@ -2990,7 +2991,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="space-y-8">
               {/* Client Info */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Client Name</label>
                   <input
@@ -3008,6 +3009,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all placeholder:text-neutral-300"
                     placeholder="254791..."
                   />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Currency</label>
+                  <select
+                    value={imageInvoiceCurrency}
+                    onChange={e => setImageInvoiceCurrency(e.target.value as 'KES' | 'USD')}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-indigo-100 transition-all text-gray-900"
+                  >
+                    <option value="KES">KES</option>
+                    <option value="USD">USD</option>
+                  </select>
                 </div>
               </div>
 
@@ -3094,7 +3106,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Unit Price (KES)</label>
+                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Unit Price ({imageInvoiceCurrency})</label>
                           <input
                             type="number" min="0"
                             value={item.priceKES}
@@ -3106,7 +3118,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div>
                           <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400 block mb-1.5">Line Total</label>
                           <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 font-black text-sm text-indigo-700">
-                            KES {(item.quantity * item.priceKES).toLocaleString()}
+                            {imageInvoiceCurrency} {(item.quantity * item.priceKES).toLocaleString()}
                           </div>
                         </div>
                       </div>
@@ -3118,7 +3130,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="mt-4 bg-indigo-600 rounded-2xl px-6 py-4 flex justify-between items-center">
                   <span className="text-[10px] font-black uppercase tracking-widest text-indigo-200">Grand Total (Auto)</span>
                   <span className="text-xl font-black text-white">
-                    KES {imageInvoiceItems.reduce((sum, it) => sum + it.quantity * it.priceKES, 0).toLocaleString()}
+                    {imageInvoiceCurrency} {imageInvoiceItems.reduce((sum, it) => sum + it.quantity * it.priceKES, 0).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -3142,8 +3154,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <span style="font-size:12px;color:#666;line-height:1.5;white-space:pre-wrap;">${it.specs}</span>
                       </td>
                       <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:center; font-weight:700;">${it.quantity}</td>
-                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:700;">KES ${it.priceKES.toLocaleString()}</td>
-                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:900; color:#4f46e5;">KES ${(it.quantity*it.priceKES).toLocaleString()}</td>
+                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:700;">${imageInvoiceCurrency} ${it.priceKES.toLocaleString()}</td>
+                      <td style="padding:16px 12px; border-bottom:1px solid #f0f0f0; text-align:right; font-weight:900; color:#4f46e5;">${imageInvoiceCurrency} ${(it.quantity*it.priceKES).toLocaleString()}</td>
                     </tr>
                   `).join('');
                   printWin.document.write(`
@@ -3198,7 +3210,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <tbody>${rowsHtml}</tbody>
                       <tfoot><tr class="total-band">
                         <td colspan="4">Grand Total</td>
-                        <td>KES ${grandTotal.toLocaleString()}</td>
+                        <td style="font-weight:900;">${imageInvoiceCurrency} ${grandTotal.toLocaleString()}</td>
                       </tr></tfoot>
                     </table>
                     <div class="terms">
