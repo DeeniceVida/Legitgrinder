@@ -1135,14 +1135,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                           <tr>
                                             <td>${item.quantity.toFixed(2)}</td>
                                             <td>${item.name}</td>
-                                            <td>${item.priceKES ? (item.priceKES / item.quantity).toLocaleString() : 'TBD'}</td>
+                                            <td>${item.priceKES ? `${inv.currency || 'KES'} ${(item.priceKES / item.quantity).toLocaleString()}` : 'TBD'}</td>
                                             <td>${item.priceKES ? `${inv.currency || 'KES'} ${item.priceKES.toLocaleString()}` : 'TBD'}</td>
                                           </tr>
                                         `).join('') : `
                                           <tr>
                                             <td>${(inv.quantity || 1).toFixed(2)}</td>
                                             <td>${inv.productName}</td>
-                                            <td>${dispUnit}</td>
+                                            <td>${inv.totalKES ? `${inv.currency || 'KES'} ${dispUnit}` : 'TBD'}</td>
                                             <td>${dispTotal}</td>
                                           </tr>
                                         `}
@@ -2792,9 +2792,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                     <div class="section">
                       <h3>2. Payment Terms, Non-Refundability & Price Fluctuations</h3>
-                      <p>2.1. <strong>Total Quotation:</strong> KES <span class="variable">${contractFormData.totalQuotation || '0'}</span></p>
-                      <p>2.2. <strong>Deposit Policy & Non-Arrival Guarantee:</strong> The upfront payment of KES <span class="variable">${contractFormData.upfrontPayment || '0'}</span> must be paid in full before the order is placed. This deposit is <strong>100% non-refundable in the event of Client cancellation or 'buyer’s remorse'</strong> once the order has been processed with the supplier. However, if the item fails to arrive or is permanently lost in transit, this non-refundability clause does not apply; the Client is legally entitled to a <strong>full 100% refund</strong> or an immediate replacement item.</p>
-                      <p>2.3. <strong>Fixed Shipping Rates Policy:</strong> The shipping balance estimate of KES <span class="variable">${contractFormData.shippingBalanceEstimate || '0'}</span> serves as a preliminary figure. The final shipping fee will be permanently <strong>fixed and locked in</strong> with the Client immediately after the goods are received, weighed, and measured by the freight forwarder at the origin warehouse (prior to being loaded onto the ship or plane). Once loaded, no further shipping fluctuations, CBM rate hikes, or forex adjustments will be passed on to the Client.</p>
+                      <p>2.1. <strong>Total Quotation:</strong> ${contractInvoice?.currency || 'KES'} <span class="variable">${contractFormData.totalQuotation || '0'}</span></p>
+                      <p>2.2. <strong>Deposit Policy & Non-Arrival Guarantee:</strong> The upfront payment of ${contractInvoice?.currency || 'KES'} <span class="variable">${contractFormData.upfrontPayment || '0'}</span> must be paid in full before the order is placed. This deposit is <strong>100% non-refundable in the event of Client cancellation or 'buyer’s remorse'</strong> once the order has been processed with the supplier. However, if the item fails to arrive or is permanently lost in transit, this non-refundability clause does not apply; the Client is legally entitled to a <strong>full 100% refund</strong> or an immediate replacement item.</p>
+                      <p>2.3. <strong>Fixed Shipping Rates Policy:</strong> The shipping balance estimate of ${contractInvoice?.currency || 'KES'} <span class="variable">${contractFormData.shippingBalanceEstimate || '0'}</span> serves as a preliminary figure. The final shipping fee will be permanently <strong>fixed and locked in</strong> with the Client immediately after the goods are received, weighed, and measured by the freight forwarder at the origin warehouse (prior to being loaded onto the ship or plane). Once loaded, no further shipping fluctuations, CBM rate hikes, or forex adjustments will be passed on to the Client.</p>
                       <p>2.4. The item will not be released to the Client until all outstanding balances are cleared.</p>
                     </div>
 
@@ -3396,12 +3396,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const balance = formData.get('balance') as string;
               const transactionRef = formData.get('transactionRef') as string;
 
-              const amtStr = amountReceived.trim().toUpperCase() === 'TBD' ? 'TBD' : `KES ${parseFloat(amountReceived).toLocaleString()}`;
-              const balStr = balance.trim().toUpperCase() === 'TBD' ? 'TBD' : `KES ${parseFloat(balance).toLocaleString()}`;
-              const isTotalTBD = amountReceived.trim().toUpperCase() === 'TBD' || balance.trim().toUpperCase() === 'TBD';
-              const totStr = isTotalTBD ? 'TBD' : `KES ${(parseFloat(amountReceived || '0') + parseFloat(balance || '0')).toLocaleString()}`;
-
               const inv = printingReceiptInvoice;
+              const curr = inv?.currency || 'KES';
+              const amtStr = amountReceived.trim().toUpperCase() === 'TBD' ? 'TBD' : `${curr} ${parseFloat(amountReceived).toLocaleString()}`;
+              const balStr = balance.trim().toUpperCase() === 'TBD' ? 'TBD' : `${curr} ${parseFloat(balance).toLocaleString()}`;
+              const isTotalTBD = amountReceived.trim().toUpperCase() === 'TBD' || balance.trim().toUpperCase() === 'TBD';
+              const totStr = isTotalTBD ? 'TBD' : `${curr} ${(parseFloat(amountReceived || '0') + parseFloat(balance || '0')).toLocaleString()}`;
+
+
               const printWin = window.open('', '', 'width=900,height=800');
               if (!printWin) return;
               const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
