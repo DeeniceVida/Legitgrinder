@@ -281,7 +281,8 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             serviceFeeKES: parseFloat(inv.service_fee_kes || 0),
             paystackReference: inv.paystack_reference,
             date: inv.created_at,
-            createdAt: inv.created_at
+            createdAt: inv.created_at,
+            currency: inv.currency || 'KES'
         }));
     } catch (error) {
         console.error('Error fetching invoices:', error);
@@ -319,7 +320,8 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
             serviceFeeKES: parseFloat(inv.service_fee_kes || 0),
             paystackReference: inv.paystack_reference,
             date: inv.created_at,
-            createdAt: inv.created_at
+            createdAt: inv.created_at,
+            currency: inv.currency || 'KES'
         }));
     } catch (error) {
         console.error('Error fetching user invoices:', error);
@@ -358,7 +360,8 @@ export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoi
             serviceFeeKES: parseFloat(data.service_fee_kes || 0),
             paystackReference: data.paystack_reference,
             date: data.created_at,
-            createdAt: data.created_at
+            createdAt: data.created_at,
+            currency: data.currency || 'KES'
         };
     } catch (error) {
         console.error('Error fetching invoice by number:', error);
@@ -462,7 +465,8 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 progress: 10,
                 last_update: new Date().toISOString(),
                 user_id: invoiceData.userId, // Optional link to user account
-                created_at: invoiceData.createdAt || new Date().toISOString()
+                created_at: invoiceData.createdAt || new Date().toISOString(),
+                currency: invoiceData.currency || 'KES'
             })
             .select()
             .single();
