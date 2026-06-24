@@ -12,6 +12,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar
 } from 'recharts';
+import * as XLSX from 'xlsx';
 import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
@@ -249,6 +250,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const link = `${window.location.origin}/tracking?id=${invoiceNumber}`;
     navigator.clipboard.writeText(link);
     alert('✅ Tracking link copied to clipboard!');
+  };
+
+  const handleExportTaxDocs = () => {
+    if (!invoices || invoices.length === 0) {
+      alert("No invoices available to export.");
+      return;
+    }
+
+    const validInvoices = invoices.filter(inv => inv.paymentStatus !== PaymentStatus.UNPAID && inv.paymentStatus !== 'Unpaid');
+
+    if (validInvoices.length === 0) {
+      alert("No paid or partially paid invoices available to export.");
+      return;
+    }
+
+    const data = validInvoices.map(inv => {
+      const total = inv.totalKES || 0;
+      const deductibles = (inv.buyingPriceKES || 0) + (inv.shippingFeeKES || 0) + (inv.logisticsCostKES || 0);
+      const profit = inv.serviceFeeKES || 0;
+
+      return {
+        'Invoice #': inv.invoiceNumber,
+        'Date': inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : (inv.date || 'N/A'),
+        'Client': inv.clientName,
+        'Product': inv.productName,
+        'Amount (KES)': total,
+        'Deductible (KES)': deductibles,
+        'Profit (KES)': profit
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Tax_Invoices");
+    XLSX.writeFile(workbook, "Tax_Supporting_Docs.xlsx");
   };
 
   const handleCreateManualOrder = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -760,6 +796,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <p className="text-[#3D8593] font-bold uppercase text-[9px] tracking-[0.4em] mt-3">Elite Logistics Control & Intelligence</p>
           </div>
           <div className="flex gap-4 w-full md:w-auto">
+            {activeTab === 'invoices' && (
+              <button
+                onClick={handleExportTaxDocs}
+                className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" /> Export Tax Docs
+              </button>
+            )}
             {activeTab === 'clients' && (
               <button className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl">
                 <Download className="w-4 h-4 mr-2" /> Export Segment
