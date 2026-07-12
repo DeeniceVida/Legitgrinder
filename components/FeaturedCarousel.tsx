@@ -51,12 +51,15 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {/* Track */}
-      <div className="relative h-[300px] md:h-[280px]">
+      {/* Track — taller on mobile so the stacked layout fits fully */}
+      <div className="relative h-[440px] sm:h-[360px] md:h-[300px]">
         {products.map((p, i) => {
           const theme = THEMES[i % THEMES.length];
-          const price = p.discountPriceKES || p.priceKES;
-          const onSale = !!p.discountPriceKES;
+          const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0);
+          const base = p.discountPriceKES || p.priceKES;
+          const displayPrice = pv.length ? base + Math.min(...pv.map(v => v.priceKES)) : base;
+          const isFrom = pv.length > 0;
+          const onSale = !!p.discountPriceKES && !isFrom;
           const inStock = p.availability === Availability.LOCAL && (p.stockCount || 0) > 0;
           return (
             <div
@@ -65,47 +68,48 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
               style={{ backgroundColor: theme.bg, color: theme.text }}
               aria-hidden={i !== index}
             >
-              <div className="h-full max-w-6xl mx-auto px-6 md:px-12 grid grid-cols-1 md:grid-cols-2 items-center gap-4">
-                {/* Copy */}
-                <div className="py-8 order-2 md:order-1">
-                  <div className="flex items-center gap-2 mb-3">
+              <div className="h-full max-w-6xl mx-auto px-5 md:px-12 grid grid-cols-1 md:grid-cols-2 items-center gap-1 md:gap-4">
+                {/* Image — top on mobile, right on desktop */}
+                <div className="order-1 md:order-2 flex items-center justify-center md:justify-end pt-6 md:py-6 h-[130px] sm:h-[150px] md:h-full shrink-0">
+                  <button onClick={() => onOpen(p.id)} className="h-full max-h-[120px] sm:max-h-[150px] md:max-h-[220px] aspect-square cursor-pointer">
+                    <SafeImage src={p.imageUrls[0]} alt={p.name} className="h-full w-full object-contain drop-shadow-2xl" />
+                  </button>
+                </div>
+
+                {/* Copy — centered on mobile, left on desktop */}
+                <div className="order-2 md:order-1 pb-16 md:py-8 text-center md:text-left flex flex-col items-center md:items-start">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-2 md:mb-3">
                     {onSale && (
-                      <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: theme.accent, color: theme.bg }}>On Offer</span>
+                      <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: theme.accent, color: theme.bg }}>On Offer</span>
                     )}
-                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
-                      {inStock ? `In stock · ${p.stockCount} available` : p.availability === Availability.IMPORT ? 'Import on order' : 'Ready to ship'}
+                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-60">
+                      {inStock ? `In stock · ${p.stockCount} left` : p.availability === Availability.IMPORT ? 'Import on order' : 'Ready to ship'}
                     </span>
                   </div>
-                  <h3 className="text-2xl md:text-4xl font-bold tracking-tight leading-[1.05] mb-2 line-clamp-2 heading-accent">
+                  <h3 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight leading-[1.1] mb-2 line-clamp-2 heading-accent px-2 md:px-0">
                     {p.name}
                   </h3>
-                  <div className="flex items-baseline gap-3 mb-6">
-                    <span className="text-xl md:text-2xl font-black tracking-tight">KES {price.toLocaleString()}</span>
+                  <div className="flex items-baseline gap-2 mb-4 md:mb-6">
+                    {isFrom && <span className="text-[10px] font-black uppercase tracking-widest opacity-50">From</span>}
+                    <span className="text-lg sm:text-xl md:text-2xl font-black tracking-tight">KES {displayPrice.toLocaleString()}</span>
                     {onSale && <span className="text-sm line-through opacity-50">KES {p.priceKES.toLocaleString()}</span>}
                   </div>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex gap-2.5">
                     <button
                       onClick={() => onOpen(p.id)}
-                      className="px-7 py-3.5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center gap-2 transition-transform hover:scale-105"
+                      className="px-6 md:px-7 py-3 md:py-3.5 rounded-full font-black uppercase text-[10px] md:text-[11px] tracking-widest flex items-center gap-2 transition-transform active:scale-95 hover:scale-105"
                       style={{ backgroundColor: theme.accent, color: theme.bg }}
                     >
-                      Buy Now <ArrowRight size={15} weight="bold" />
+                      Buy Now <ArrowRight size={14} weight="bold" />
                     </button>
                     <button
                       onClick={() => askOnWhatsApp(p)}
-                      className="px-7 py-3.5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center gap-2 border-2 transition-colors hover:bg-black/5"
+                      className="px-6 md:px-7 py-3 md:py-3.5 rounded-full font-black uppercase text-[10px] md:text-[11px] tracking-widest flex items-center gap-2 border-2 transition-colors active:scale-95 hover:bg-black/5"
                       style={{ borderColor: theme.accent, color: theme.accent }}
                     >
-                      <WhatsappLogo size={15} weight="fill" /> Ask
+                      <WhatsappLogo size={14} weight="fill" /> Ask
                     </button>
                   </div>
-                </div>
-
-                {/* Image */}
-                <div className="order-1 md:order-2 h-full flex items-center justify-center md:justify-end py-6">
-                  <button onClick={() => onOpen(p.id)} className="h-full max-h-[160px] md:max-h-[220px] aspect-square cursor-pointer">
-                    <SafeImage src={p.imageUrls[0]} alt={p.name} className="h-full w-full object-contain drop-shadow-2xl" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -113,11 +117,10 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
         })}
       </div>
 
-      {/* Controls */}
+      {/* Controls — pinned bottom bar so they never overlap content */}
       {count > 1 && (
-        <>
-          {/* Dots (bottom-left) */}
-          <div className="absolute bottom-5 left-6 md:left-12 z-20 flex items-center gap-2">
+        <div className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-between px-5 md:px-12 py-4 pointer-events-none">
+          <div className="flex items-center gap-1.5 pointer-events-auto">
             {products.map((_, i) => (
               <button
                 key={i}
@@ -128,16 +131,15 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
               />
             ))}
           </div>
-          {/* Arrows (bottom-right) */}
-          <div className="absolute bottom-4 right-4 md:right-6 z-20 flex items-center gap-2">
-            <button onClick={() => go(-1)} aria-label="Previous" className="w-10 h-10 rounded-full bg-white/70 backdrop-blur hover:bg-white text-gray-900 flex items-center justify-center transition-colors shadow">
-              <CaretLeft size={18} weight="bold" />
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <button onClick={() => go(-1)} aria-label="Previous" className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-white/80 backdrop-blur hover:bg-white text-gray-900 flex items-center justify-center transition-colors shadow">
+              <CaretLeft size={16} weight="bold" />
             </button>
-            <button onClick={() => go(1)} aria-label="Next" className="w-10 h-10 rounded-full bg-[#0f1a1c] hover:bg-[#3D8593] text-white flex items-center justify-center transition-colors shadow">
-              <CaretRight size={18} weight="bold" />
+            <button onClick={() => go(1)} aria-label="Next" className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-[#0f1a1c] hover:bg-[#3D8593] text-white flex items-center justify-center transition-colors shadow">
+              <CaretRight size={16} weight="bold" />
             </button>
           </div>
-        </>
+        </div>
       )}
     </section>
   );

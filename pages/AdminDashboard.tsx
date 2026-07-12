@@ -3169,28 +3169,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <Plus className="w-3 h-3" /> Add
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {/* Column hints */}
-                  <div className="flex gap-2 px-1">
-                    <span className="flex-1 text-[8px] font-black uppercase tracking-widest text-neutral-300">Product</span>
-                    <span className="w-16 text-[8px] font-black uppercase tracking-widest text-neutral-300 text-center">Qty</span>
-                    <span className="w-28 text-[8px] font-black uppercase tracking-widest text-neutral-300 text-right">Unit Price</span>
-                    <span className="w-5"></span>
-                  </div>
+                <div className="space-y-3">
                   {manualOrderItems.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
+                    <div key={idx} className="bg-neutral-50/60 border border-neutral-100 rounded-xl p-2.5 space-y-2 relative">
+                      {/* Product name — full width so there's room to type */}
                       <input required value={item.name} onChange={(e) => {
                         const n = [...manualOrderItems]; n[idx].name = e.target.value; setManualOrderItems(n);
-                      }} className={inputCls + " flex-1"} placeholder="e.g. M3 Pro MacBook" />
-                      <input required type="number" min="1" value={item.quantity} onChange={(e) => {
-                        const n = [...manualOrderItems]; n[idx].quantity = parseInt(e.target.value) || 1; setManualOrderItems(n);
-                      }} className={inputCls + " w-16 text-center px-2"} />
-                      <input required type="number" min="0" value={item.priceKES} onChange={(e) => {
-                        const n = [...manualOrderItems]; n[idx].priceKES = parseFloat(e.target.value) || 0; setManualOrderItems(n);
-                      }} className={inputCls + " w-28 text-right px-2"} placeholder="0" />
-                      <button type="button" disabled={manualOrderItems.length === 1} onClick={() => setManualOrderItems(manualOrderItems.filter((_, i) => i !== idx))} className="w-5 h-5 flex items-center justify-center text-neutral-300 hover:text-rose-500 disabled:opacity-0 transition-colors">
-                        <X className="w-4 h-4" />
-                      </button>
+                      }} className={inputCls + " w-full bg-white"} placeholder="Product name (e.g. M3 Pro MacBook)" />
+                      {/* Qty + Unit price on their own row */}
+                      <div className="flex gap-2">
+                        <div className="w-20">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 block mb-0.5 ml-1">Qty</span>
+                          <input required type="number" min="1" value={item.quantity} onChange={(e) => {
+                            const n = [...manualOrderItems]; n[idx].quantity = parseInt(e.target.value) || 1; setManualOrderItems(n);
+                          }} className={inputCls + " w-full text-center px-2 bg-white"} />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 block mb-0.5 ml-1">Unit Price ({manualOrderCurrency})</span>
+                          <input required type="number" min="0" value={item.priceKES} onChange={(e) => {
+                            const n = [...manualOrderItems]; n[idx].priceKES = parseFloat(e.target.value) || 0; setManualOrderItems(n);
+                          }} className={inputCls + " w-full text-right px-3 bg-white"} placeholder="0" />
+                        </div>
+                      </div>
+                      {manualOrderItems.length > 1 && (
+                        <button type="button" onClick={() => setManualOrderItems(manualOrderItems.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-neutral-200 rounded-full flex items-center justify-center text-neutral-400 hover:text-rose-500 hover:border-rose-200 transition-colors shadow-sm">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
