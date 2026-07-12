@@ -2711,6 +2711,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onChange={(e) => updateVariation(idx, { imageUrl: e.target.value })}
                             className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:ring-2 focus:ring-teal-100"
                           />
+                          <div className="relative w-28" title="Extra added to the product's base price for this option (e.g. golf +base, pegboard +2000). Customer sees only the final total.">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">+KES</span>
+                            <input
+                              type="number"
+                              placeholder="Add-on"
+                              value={v.priceKES || ''}
+                              onChange={(e) => updateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
+                              className="w-full bg-white border border-neutral-100 rounded-xl pl-11 pr-2 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                            />
+                          </div>
                           <div className="relative w-24" title="Pieces in stock for this variant (leave blank to not track)">
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">PCS</span>
                             <input

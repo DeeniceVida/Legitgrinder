@@ -71,9 +71,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     }
 
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    // Variant price REPLACES the base (no adding): a priced variant is the full price
-    const selectedPriced = selectedVarsList.find((v: ProductVariation) => (v.priceKES || 0) > 0);
-    const totalPrice = selectedPriced ? selectedPriced.priceKES : (p.discountPriceKES || p.priceKES);
+    // Final price = base + selected variant add-on(s); customer sees only the total
+    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
+    const totalPrice = (p.discountPriceKES || p.priceKES) + variationPrice;
 
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const varText = varTextStrings.length > 0 ? ` (Selected: ${varTextStrings.join(', ')})` : '';
@@ -95,8 +95,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     setPaymentLoading(true);
     const trackingCode = response.reference;
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    const selectedPriced = selectedVarsList.find((v: ProductVariation) => (v.priceKES || 0) > 0);
-    const totalPrice = selectedPriced ? selectedPriced.priceKES : (product.discountPriceKES || product.priceKES);
+    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
+    const totalPrice = (product.discountPriceKES || product.priceKES) + variationPrice;
 
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const fullProductName = product.name + (varTextStrings.length > 0 ? ` (${varTextStrings.join(', ')})` : '');
@@ -210,12 +210,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const isLocal = p.availability === Availability.LOCAL;
     const basePrice = p.discountPriceKES || p.priceKES;
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    // Each priced variant IS its own full price (replaces base — never added on top)
+    // Final price = base + selected variant add-on(s). Customer only ever sees the total.
     const pricedVariants = (p.variations || []).filter((v: ProductVariation) => (v.priceKES || 0) > 0);
-    const selectedPriced = selectedVarsList.find((v: ProductVariation) => (v.priceKES || 0) > 0);
-    const minVariantPrice = pricedVariants.length ? Math.min(...pricedVariants.map((v: ProductVariation) => v.priceKES)) : basePrice;
-    const needsVariantForPrice = pricedVariants.length > 0 && !selectedPriced;
-    const currentPrice = selectedPriced ? selectedPriced.priceKES : basePrice;
+    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
+    const minVariantAddon = pricedVariants.length ? Math.min(...pricedVariants.map((v: ProductVariation) => v.priceKES)) : 0;
+    const needsVariantForPrice = pricedVariants.length > 0 && !selectedVarsList.some((v: ProductVariation) => (v.priceKES || 0) > 0);
+    const currentPrice = basePrice + variationPrice;   // final total once a variant is picked
+    const fromPrice = basePrice + minVariantAddon;      // starting price shown before selection
 
     // Use image from the last selected variation that has an image
     const variationWithImage = [...selectedVarsList].reverse().find((v: ProductVariation) => v.imageUrl);
@@ -310,9 +311,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 <div className="flex items-baseline gap-3">
                   {needsVariantForPrice && <span className="text-sm font-black uppercase tracking-widest text-gray-400">From</span>}
                   <span className="text-4xl font-black text-gray-900 tracking-tight">
-                    KES {((needsVariantForPrice ? minVariantPrice : currentPrice) * quantity).toLocaleString()}
+                    KES {((needsVariantForPrice ? fromPrice : currentPrice) * quantity).toLocaleString()}
                   </span>
-                  {p.discountPriceKES && !selectedPriced && !needsVariantForPrice && (
+                  {p.discountPriceKES && pricedVariants.length === 0 && (
                     <span className="text-lg text-gray-400 line-through font-light">KES {(p.priceKES * quantity).toLocaleString()}</span>
                   )}
                 </div>
@@ -683,7 +684,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     <h3 className="text-sm md:text-base font-bold text-gray-900 leading-snug mb-3 line-clamp-2">{p.name}</h3>
                     {(() => {
                       const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0);
-                      const cardPrice = pv.length ? Math.min(...pv.map(v => v.priceKES)) : (p.discountPriceKES || p.priceKES);
+                      const cardBase = p.discountPriceKES || p.priceKES;
+                      const cardPrice = pv.length ? cardBase + Math.min(...pv.map(v => v.priceKES)) : cardBase;
                       return (
                     <div className="mt-auto flex items-end justify-between gap-2">
                       <div>
