@@ -6,7 +6,7 @@ import {
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
-  ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText
+  ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText, Star
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2022,6 +2022,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </td>
                             <td className="px-6 py-3.5 text-right">
                               <div className="inline-flex gap-2">
+                                <button
+                                  onClick={() => quickUpdateProduct(p.id, { isFeatured: !p.isFeatured } as any)}
+                                  className={`p-2.5 rounded-xl transition-all ${p.isFeatured ? 'bg-[#FF9900] text-white' : 'bg-neutral-50 text-gray-400 hover:bg-amber-50 hover:text-[#FF9900]'}`}
+                                  title={p.isFeatured ? 'Featured in Shop banner — click to remove' : 'Feature in Shop banner'}
+                                >
+                                  <Star className="w-4 h-4" fill={p.isFeatured ? 'currentColor' : 'none'} />
+                                </button>
                                 <button
                                   onClick={() => setEditingProduct(p)}
                                   className="p-2.5 bg-neutral-50 text-gray-500 rounded-xl hover:bg-neutral-900 hover:text-white transition-all"

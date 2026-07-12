@@ -171,7 +171,8 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
             description: p.description || '',
             category: p.category || 'Electronics',
             stockCount: parseInt(p.inventory_quantity || 0),
-            videoUrl: p.video_url
+            videoUrl: p.video_url,
+            isFeatured: p.is_featured || false
         }));
     } catch (error) {
         console.error('Error fetching inventory:', error);
@@ -637,6 +638,7 @@ export const updateProduct = async (productId: string, updates: Partial<Product>
         if (updates.category) updateData.category = updates.category;
         if (updates.availability) updateData.stock_status = updates.availability;
         if (updates.stockCount !== undefined) updateData.inventory_quantity = updates.stockCount;
+        if ((updates as any).isFeatured !== undefined) updateData.is_featured = (updates as any).isFeatured;
         if (updates.variations) updateData.shop_variants = updates.variations;
         if (updates.videoUrl !== undefined) updateData.video_url = updates.videoUrl;
         if ((updates as any).shippingDuration) updateData.shipping_duration = (updates as any).shippingDuration;

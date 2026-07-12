@@ -11,6 +11,7 @@ import { PaystackButton } from 'react-paystack';
 import { supabase } from '../lib/supabase';
 import SafeImage from '../components/SafeImage';
 import { Reveal } from '../components/Motion';
+import FeaturedCarousel from '../components/FeaturedCarousel';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 interface ShopProps {
@@ -566,6 +567,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       )}
 
       <div className="px-6 max-w-7xl mx-auto">
+        {/* FEATURED CAROUSEL — auto-rotating promo of featured products */}
+        {(() => {
+          const featured = products.filter(p => p.isFeatured);
+          return featured.length > 0 ? <FeaturedCarousel products={featured} onOpen={openProduct} /> : null;
+        })()}
+
         {/* HEADER */}
         <Reveal>
           <div className="mb-10 max-w-2xl">

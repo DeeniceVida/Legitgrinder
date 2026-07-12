@@ -70,6 +70,7 @@ export interface Product {
   category: string;
   stockCount?: number;
   videoUrl?: string;
+  isFeatured?: boolean;
 }
 
 export enum PaymentStatus {
