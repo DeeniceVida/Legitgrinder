@@ -71,8 +71,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     }
 
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
-    const totalPrice = (p.discountPriceKES || p.priceKES) + variationPrice;
+    // Variant price REPLACES the base (no adding): a priced variant is the full price
+    const selectedPriced = selectedVarsList.find((v: ProductVariation) => (v.priceKES || 0) > 0);
+    const totalPrice = selectedPriced ? selectedPriced.priceKES : (p.discountPriceKES || p.priceKES);
 
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const varText = varTextStrings.length > 0 ? ` (Selected: ${varTextStrings.join(', ')})` : '';
@@ -94,8 +95,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     setPaymentLoading(true);
     const trackingCode = response.reference;
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
-    const totalPrice = (product.discountPriceKES || product.priceKES) + variationPrice;
+    const selectedPriced = selectedVarsList.find((v: ProductVariation) => (v.priceKES || 0) > 0);
+    const totalPrice = selectedPriced ? selectedPriced.priceKES : (product.discountPriceKES || product.priceKES);
 
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const fullProductName = product.name + (varTextStrings.length > 0 ? ` (${varTextStrings.join(', ')})` : '');
@@ -209,8 +210,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const isLocal = p.availability === Availability.LOCAL;
     const basePrice = p.discountPriceKES || p.priceKES;
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
-    const currentPrice = basePrice + variationPrice;
+    // Each priced variant IS its own full price (replaces base — never added on top)
+    const pricedVariants = (p.variations || []).filter((v: ProductVariation) => (v.priceKES || 0) > 0);
+    const selectedPriced = selectedVarsList.find((v: ProductVariation) => (v.priceKES || 0) > 0);
+    const minVariantPrice = pricedVariants.length ? Math.min(...pricedVariants.map((v: ProductVariation) => v.priceKES)) : basePrice;
+    const needsVariantForPrice = pricedVariants.length > 0 && !selectedPriced;
+    const currentPrice = selectedPriced ? selectedPriced.priceKES : basePrice;
 
     // Use image from the last selected variation that has an image
     const variationWithImage = [...selectedVarsList].reverse().find((v: ProductVariation) => v.imageUrl);
@@ -303,17 +308,17 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 <p className="eyebrow text-[#3D8593] mb-3">{p.category || 'Verified Import'}</p>
                 <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-5 tracking-tighter leading-[1.05]">{p.name}</h1>
                 <div className="flex items-baseline gap-3">
-                  {Array.isArray(p.variations) && p.variations.length > 0 && Array.from(new Set(p.variations.map((v: ProductVariation) => v.type || 'Other'))).filter(type => type.toLowerCase() !== 'capacity').some(type => !selectedVariations[type]) ? (
-                    <span className="text-lg font-bold text-gray-400">Select options to view price</span>
-                  ) : (
-                    <>
-                      <span className="text-4xl font-black text-gray-900 tracking-tight">KES {(currentPrice * quantity).toLocaleString()}</span>
-                      {p.discountPriceKES && variationPrice === 0 && (
-                        <span className="text-lg text-gray-400 line-through font-light">KES {(p.priceKES * quantity).toLocaleString()}</span>
-                      )}
-                    </>
+                  {needsVariantForPrice && <span className="text-sm font-black uppercase tracking-widest text-gray-400">From</span>}
+                  <span className="text-4xl font-black text-gray-900 tracking-tight">
+                    KES {((needsVariantForPrice ? minVariantPrice : currentPrice) * quantity).toLocaleString()}
+                  </span>
+                  {p.discountPriceKES && !selectedPriced && !needsVariantForPrice && (
+                    <span className="text-lg text-gray-400 line-through font-light">KES {(p.priceKES * quantity).toLocaleString()}</span>
                   )}
                 </div>
+                {needsVariantForPrice && (
+                  <p className="text-[11px] font-bold text-[#FF9900] mt-2">Select an option below to see its exact price</p>
+                )}
               </div>
 
               {/* DESCRIPTION ACCORDION */}
@@ -385,9 +390,6 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                                 }`}
                             >
                               <span className={`text-xs font-bold ${soldOut ? 'text-gray-400 line-through' : selectedVariations[type] === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
-                              {v.priceKES > 0 && !soldOut && (
-                                <span className="block text-[9px] font-black text-[#FF9900] mt-1">+ KES {v.priceKES.toLocaleString()}</span>
-                              )}
                               {tracked && (
                                 <span className={`block text-[8px] font-black uppercase tracking-widest mt-1 ${soldOut ? 'text-rose-400' : (v.stockCount as number) <= 2 ? 'text-amber-500' : 'text-emerald-500'}`}>
                                   {soldOut ? 'Out of stock' : `${v.stockCount} left`}
@@ -679,12 +681,17 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   <div className="p-4 md:p-5 flex flex-col flex-1">
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300 mb-1.5">{p.category}</p>
                     <h3 className="text-sm md:text-base font-bold text-gray-900 leading-snug mb-3 line-clamp-2">{p.name}</h3>
+                    {(() => {
+                      const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0);
+                      const cardPrice = pv.length ? Math.min(...pv.map(v => v.priceKES)) : (p.discountPriceKES || p.priceKES);
+                      return (
                     <div className="mt-auto flex items-end justify-between gap-2">
                       <div>
                         <span className="block text-sm md:text-lg font-black text-gray-900 tracking-tight">
-                          KES {(p.discountPriceKES || p.priceKES).toLocaleString()}
+                          {pv.length ? <span className="text-[10px] font-bold text-gray-400 uppercase mr-1">From</span> : null}
+                          KES {cardPrice.toLocaleString()}
                         </span>
-                        {p.discountPriceKES && (
+                        {!pv.length && p.discountPriceKES && (
                           <span className="text-[10px] md:text-xs text-gray-400 line-through">KES {p.priceKES.toLocaleString()}</span>
                         )}
                       </div>
@@ -695,6 +702,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                         <ArrowUpRight size={16} weight="bold" />
                       </span>
                     </div>
+                      );
+                    })()}
                   </div>
                 </article>
               </Reveal>
