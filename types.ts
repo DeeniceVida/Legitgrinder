@@ -91,6 +91,7 @@ export interface Invoice {
   userId?: string;
   clientName: string;
   clientWhatsapp?: string;
+  clientEmail?: string;
   productName: string;
   quantity?: number;
   items?: InvoiceItem[];

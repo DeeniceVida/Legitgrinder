@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { PaystackButton } from 'react-paystack';
 import { SealCheck, WhatsappLogo, Receipt, ShieldCheck, CircleNotch } from '@phosphor-icons/react';
 import { supabase } from '../lib/supabase';
-import { verifyPaystackPayment, recordInvoicePayment } from '../services/supabaseData';
+import { verifyPaystackPayment, recordInvoicePayment, sendInvoiceEmail } from '../services/supabaseData';
 import { WHATSAPP_NUMBER } from '../constants';
 
 /**
@@ -70,9 +70,23 @@ const PayInvoice: React.FC = () => {
     verifyPaystackPayment(response.reference).catch(console.error);
     // Record the payment in Supabase (marks Paid / Partially Paid, stores email + ref)
     const result = await recordInvoicePayment(invoice!.invoiceNumber, invoice!.totalKES, response.reference, email);
-    const balanceNote = result && result.balanceKES > 0
-      ? `\nBalance remaining: KES ${result.balanceKES.toLocaleString()}`
-      : '';
+    const balanceKES = result ? result.balanceKES : 0;
+    const balanceNote = balanceKES > 0 ? `\nBalance remaining: KES ${balanceKES.toLocaleString()}` : '';
+
+    // Email the client their receipt (best-effort; runs on the live site only)
+    sendInvoiceEmail({
+      to: email,
+      kind: 'receipt',
+      invoiceNumber: invoice!.invoiceNumber,
+      clientName: invoice!.clientName,
+      productName: invoice!.productName,
+      currency: invoice!.currency,
+      totalKES: invoice!.totalKES,
+      amountPaidKES: invoice!.totalKES - balanceKES,
+      balanceKES,
+      reference: response.reference,
+      payUrl: balanceKES > 0 ? `${window.location.origin}/pay/${invoice!.invoiceNumber}` : undefined,
+    }).catch(console.error);
     const msg = encodeURIComponent(
       `✅ PAY-LINK PAYMENT RECEIVED\n\n` +
       `Invoice: IG-${invoice?.invoiceNumber}\n` +

@@ -17,7 +17,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
@@ -386,6 +386,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const invoiceData: Partial<Invoice> = {
       clientName: formData.get('clientName') as string,
       clientWhatsapp: formData.get('clientWhatsapp') as string,
+      clientEmail: (formData.get('clientEmail') as string) || undefined,
       productName: customTitle && customTitle.trim() ? customTitle.trim() : fallbackProductName,
       quantity: 1,
       items: manualOrderItems,
@@ -1560,6 +1561,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <CreditCard className="w-4 h-4" />
                             </button>
                           )}
+                          <button
+                            onClick={async () => {
+                              const to = inv.clientEmail || prompt(`Email the ${inv.isPaid ? 'receipt' : 'invoice'} for IG-${inv.invoiceNumber} to which address?`, '');
+                              if (!to) return;
+                              const r = await sendInvoiceEmail({
+                                to,
+                                kind: inv.isPaid ? 'receipt' : 'invoice',
+                                invoiceNumber: inv.invoiceNumber,
+                                clientName: inv.clientName,
+                                productName: inv.productName,
+                                items: inv.items,
+                                currency: inv.currency,
+                                totalKES: inv.totalKES || 0,
+                                amountPaidKES: inv.isPaid ? (inv.totalKES || 0) : undefined,
+                                payUrl: inv.isPaid ? undefined : `${window.location.origin}/pay/${inv.invoiceNumber}`,
+                              });
+                              alert(r.success ? `✅ ${inv.isPaid ? 'Receipt' : 'Invoice'} emailed to ${to}` : `❌ Email failed: ${r.error || 'unknown error'}`);
+                            }}
+                            className="p-2 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
+                            title={`Email ${inv.isPaid ? 'receipt' : 'invoice'} to client`}
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => {
                               const printWin = window.open('', '', 'width=900,height=1000');
@@ -3154,6 +3178,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <option value="KES">KES</option>
                     <option value="USD">USD</option>
                   </select>
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Client Email <span className="text-neutral-300 normal-case font-medium">— for emailed invoice/receipt</span></label>
+                  <input type="email" name="clientEmail" className={inputCls} placeholder="client@example.com" />
                 </div>
                 <div className="col-span-2">
                   <label className={labelCls}>Invoice Title <span className="text-neutral-300 normal-case font-medium">— optional</span></label>

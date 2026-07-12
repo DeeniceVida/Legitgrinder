@@ -38,6 +38,45 @@ export const decrementVariantStock = async (
 };
 
 /**
+ * Send a branded invoice/receipt email via the /api/send-email Cloudflare
+ * Pages Function (which calls Resend server-side). Only works on the deployed
+ * site (Pages Functions don't run under local Vite). Non-blocking best-effort.
+ */
+export interface InvoiceEmailPayload {
+    to: string;
+    kind: 'receipt' | 'invoice';
+    invoiceNumber: string;
+    clientName: string;
+    productName?: string;
+    items?: { name: string; quantity?: number; priceKES?: number }[];
+    currency?: string;
+    totalKES: number;
+    amountPaidKES?: number;
+    balanceKES?: number;
+    reference?: string;
+    payUrl?: string;
+}
+
+export const sendInvoiceEmail = async (payload: InvoiceEmailPayload): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const res = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            console.error('sendInvoiceEmail failed:', data?.error);
+            return { success: false, error: data?.error };
+        }
+        return { success: true };
+    } catch (e: any) {
+        console.error('sendInvoiceEmail error:', e);
+        return { success: false, error: e.message };
+    }
+};
+
+/**
  * Record a pay-link payment (deposit or full) against an invoice via the
  * record_invoice_payment RPC (see add_invoice_payment.sql). Returns the new
  * payment state (status, balance) or null on failure.
@@ -319,6 +358,7 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             invoiceNumber: inv.invoice_number,
             clientName: inv.client_name,
             clientWhatsapp: inv.client_whatsapp,
+            clientEmail: inv.client_email,
             productName: inv.product_name,
             quantity: inv.quantity || 1,
             items: inv.items || [],
@@ -358,6 +398,7 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
             invoiceNumber: inv.invoice_number,
             clientName: inv.client_name,
             clientWhatsapp: inv.client_whatsapp,
+            clientEmail: inv.client_email,
             productName: inv.product_name,
             quantity: inv.quantity || 1,
             items: inv.items || [],
@@ -503,6 +544,7 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 invoice_number: invoiceNumber,
                 client_name: invoiceData.clientName,
                 client_whatsapp: invoiceData.clientWhatsapp,
+                client_email: (invoiceData as any).clientEmail || null,
                 product_name: invoiceData.productName,
                 quantity: invoiceData.quantity || 1,
                 items: invoiceData.items || [],
