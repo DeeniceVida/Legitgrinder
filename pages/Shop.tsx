@@ -1,12 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, ChevronRight, ChevronLeft, Minus, Plus, Star, ChevronDown, ChevronUp, Package, Clock, Percent, Truck, CheckCircle2, AlertCircle, Search, Maximize, Heart, ArrowUpRight, Youtube, Share2, Check, X } from 'lucide-react';
+import {
+  CaretRight, Minus, Plus, Star, Package, Clock, Truck, WarningCircle,
+  MagnifyingGlass, ArrowUpRight, YoutubeLogo, ShareNetwork, Check, X, WhatsappLogo
+} from '@phosphor-icons/react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
-import { getStockStatus, createInvoice, verifyPaystackPayment } from '../services/supabaseData';
+import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../lib/supabase';
 import SafeImage from '../components/SafeImage';
+import { Reveal } from '../components/Motion';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 interface ShopProps {
@@ -23,6 +27,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [showPaystack, setShowPaystack] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -39,6 +44,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     setSelectedVariations({});
     setActiveAccordion('description');
     setExpandedImageUrl(null);
+    if (productIdParam) window.scrollTo(0, 0);
   }, [productIdParam]);
 
   // Fetch logged in user for metadata
@@ -49,8 +55,6 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     };
     getUser();
   }, []);
-
-
 
   // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
@@ -123,6 +127,26 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         if (!invoiceResult.success) {
           console.error("Database record failed:", invoiceResult.error);
         }
+
+        // 3. Deduct purchased pieces from stock (locally-stocked items only —
+        //    "Import on Order" items are sourced per order and hold no stock)
+        if (product.availability === Availability.LOCAL) {
+          const trackedVariant = selectedVarsList.find((v: ProductVariation) => typeof v.stockCount === 'number');
+          if (trackedVariant) {
+            // Variant-tracked stock: deducts the variant AND the product total atomically
+            const newVariants = await decrementVariantStock(product.id, trackedVariant.type || 'Other', trackedVariant.name, quantity);
+            if (onUpdateProducts) {
+              onUpdateProducts(products.map(p => p.id === product.id
+                ? { ...p, stockCount: Math.max(0, (p.stockCount || 0) - quantity), ...(newVariants ? { variations: newVariants } : {}) }
+                : p));
+            }
+          } else {
+            const newQty = await decrementProductStock(product.id, quantity);
+            if (newQty !== null && onUpdateProducts) {
+              onUpdateProducts(products.map(p => p.id === product.id ? { ...p, stockCount: newQty } : p));
+            }
+          }
+        }
       } catch (err) {
         console.error("Background sync error:", err);
       }
@@ -160,11 +184,25 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     setPaymentLoading(false);
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const categories = ['All', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))];
 
+  const filteredProducts = products.filter(p => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const openProduct = (id: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('product', id);
+    setSearchParams(params);
+  };
+
+  /* ================================================================
+     PRODUCT DETAIL VIEW
+     ================================================================ */
   if (selectedProduct) {
     const p = selectedProduct;
     const isLocal = p.availability === Availability.LOCAL;
@@ -178,18 +216,18 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const displayImage = variationWithImage ? variationWithImage.imageUrl : p.imageUrls[selectedImageIdx];
 
     return (
-      <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32 px-6">
+      <div className="bg-brand-bg min-h-screen pt-32 pb-28 px-6">
         {expandedImageUrl && (
           <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out" onClick={() => setExpandedImageUrl(null)}>
             <img src={expandedImageUrl} className="max-w-full max-h-full object-contain animate-in zoom-in duration-300" alt="Expanded view" />
-            <button onClick={() => setExpandedImageUrl(null)} className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all">
-              <X className="w-6 h-6" />
+            <button onClick={() => setExpandedImageUrl(null)} aria-label="Close image" className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all">
+              <X size={24} />
             </button>
           </div>
         )}
         <div className="max-w-7xl mx-auto">
           {/* TOP NAVIGATION / BREADCRUMBS */}
-          <nav className="flex items-center justify-between mb-12">
+          <nav className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
               <button
                 onClick={() => {
@@ -203,32 +241,28 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 }}
                 className="hover:text-gray-900 transition-colors flex items-center gap-1"
               >
-                Back to Shop
+                Shop
               </button>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-gray-900">Products</span>
+              <CaretRight size={12} weight="bold" />
+              <span className="text-gray-900">{p.category || 'Products'}</span>
             </div>
             <button
               onClick={(e) => handleShare(e, p)}
-              className="px-6 py-3 bg-white border border-neutral-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] hover:text-white transition-all shadow-sm flex items-center gap-2"
+              className="px-5 py-3 bg-white border border-gray-100 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] hover:text-white transition-all shadow-sm flex items-center gap-2"
             >
               {copiedId === p.id ? (
-                <>
-                  <Check className="w-4 h-4" /> Link Copied
-                </>
+                <><Check size={16} weight="bold" /> Link Copied</>
               ) : (
-                <>
-                  <Share2 className="w-4 h-4" /> Share Product
-                </>
+                <><ShareNetwork size={16} /> Share</>
               )}
             </button>
           </nav>
 
           <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-start">
-            {/* LEFT: VISUAL ECOSYSTEM */}
-            <div className="space-y-8 relative lg:sticky lg:top-32">
-              <div 
-                className="aspect-square bg-white rounded-[3rem] overflow-hidden border border-neutral-100 relative group cursor-zoom-in"
+            {/* LEFT: GALLERY */}
+            <div className="space-y-5 relative lg:sticky lg:top-32">
+              <div
+                className="aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 relative group cursor-zoom-in shadow-sm"
                 onClick={() => setExpandedImageUrl(displayImage)}
               >
                 <SafeImage
@@ -236,67 +270,74 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-700"
                   alt={p.name}
                 />
-                <div className={`absolute top-8 left-8 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593] text-white' :
+                <div className={`absolute top-6 left-6 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593]/95 text-white' :
                   p.stockCount === 0 ? 'bg-red-500/90 text-white' :
                     p.stockCount <= 5 ? 'bg-[#FF9900]/90 text-white' :
-                      'bg-green-500/90 text-white'
+                      'bg-emerald-500/90 text-white'
                   }`}>
                   {p.availability === Availability.IMPORT ? 'Import on Order' : getStockStatus(p.stockCount || 0)}
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-4">
-                {p.imageUrls.map((url, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedImageIdx(idx)}
-                    className={`aspect-square rounded-[1.5rem] overflow-hidden border-2 transition-all duration-500 ${selectedImageIdx === idx ? 'border-[#3D8593] scale-95' : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                  >
-                    <SafeImage src={url} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
+              {p.imageUrls.length > 1 && (
+                <div className="grid grid-cols-4 gap-4">
+                  {p.imageUrls.map((url, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedImageIdx(idx)}
+                      aria-label={`View image ${idx + 1}`}
+                      className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all duration-400 ${selectedImageIdx === idx ? 'border-[#3D8593]' : 'border-transparent opacity-50 hover:opacity-100'
+                        }`}
+                    >
+                      <SafeImage src={url} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* RIGHT: INTELLIGENCE NODE */}
+            {/* RIGHT: DETAILS */}
             <div className="flex flex-col">
-              <div className="mb-10">
-                <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-4 tracking-tighter leading-[1.1]">{p.name}</h1>
-                <div className="flex items-center gap-4">
+              <div className="mb-8">
+                <p className="eyebrow text-[#3D8593] mb-3">{p.category || 'Verified Import'}</p>
+                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-5 tracking-tighter leading-[1.05]">{p.name}</h1>
+                <div className="flex items-baseline gap-3">
                   {Array.isArray(p.variations) && p.variations.length > 0 && Array.from(new Set(p.variations.map((v: ProductVariation) => v.type || 'Other'))).filter(type => type.toLowerCase() !== 'capacity').some(type => !selectedVariations[type]) ? (
-                    <span className="text-xl font-bold text-gray-400">Select options to view price</span>
+                    <span className="text-lg font-bold text-gray-400">Select options to view price</span>
                   ) : (
                     <>
-                      <span className="text-4xl font-black text-[#3D8593]">KES {(currentPrice * quantity).toLocaleString()}</span>
-
+                      <span className="text-4xl font-black text-gray-900 tracking-tight">KES {(currentPrice * quantity).toLocaleString()}</span>
+                      {p.discountPriceKES && variationPrice === 0 && (
+                        <span className="text-lg text-gray-400 line-through font-light">KES {(p.priceKES * quantity).toLocaleString()}</span>
+                      )}
                     </>
                   )}
                 </div>
               </div>
 
-              {/* DESCRIPTION ACCORDION (ELITE CHAIR STYLE) */}
-              <div className="mb-10 bg-white border border-neutral-100 rounded-[2rem] overflow-hidden shadow-sm">
+              {/* DESCRIPTION ACCORDION */}
+              <div className="mb-8 bg-white border border-gray-100 rounded-[1.75rem] overflow-hidden shadow-sm">
                 <button
                   onClick={() => setActiveAccordion(activeAccordion === 'description' ? null : 'description')}
-                  className="w-full px-8 py-6 flex justify-between items-center hover:bg-neutral-50 transition-colors"
+                  className="w-full px-7 py-5 flex justify-between items-center hover:bg-neutral-50 transition-colors"
+                  aria-expanded={activeAccordion === 'description'}
                 >
                   <span className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-900">Description</span>
-                  {activeAccordion === 'description' ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {activeAccordion === 'description' ? <Minus size={16} /> : <Plus size={16} />}
                 </button>
                 <div className={`overflow-hidden transition-all duration-500 ${activeAccordion === 'description' ? 'max-h-[2000px]' : 'max-h-0'}`}>
-                  <div className="px-8 pb-8 text-sm text-gray-500 font-medium leading-relaxed">
-                    <p>{p.description}</p>
+                  <div className="px-7 pb-7 text-sm text-gray-500 font-light leading-relaxed">
+                    <p className="whitespace-pre-line">{p.description}</p>
 
                     {p.videoUrl && (
-                      <div className="mt-4 pt-4 border-t border-neutral-100">
+                      <div className="mt-4 pt-4 border-t border-gray-100">
                         <a
                           href={p.videoUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF9900]/10 text-[#FF9900] rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#FF9900] hover:text-white transition-all shadow-sm"
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-[#FF9900]/10 text-[#FF9900] rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#FF9900] hover:text-white transition-all"
                         >
-                          <Youtube className="w-4 h-4" /> Watch Product Video
+                          <YoutubeLogo size={16} weight="fill" /> Watch Product Video
                         </a>
                       </div>
                     )}
@@ -306,8 +347,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
               {/* VARIATIONS / CONFIGURATIONS */}
               {Array.isArray(p.variations) && p.variations.length > 0 && (
-                <div className="mb-10 space-y-8">
-                  {/* Group variations by type */}
+                <div className="mb-8 space-y-7">
                   {Object.entries(
                     (p.variations || []).reduce((groups: Record<string, ProductVariation[]>, v: ProductVariation) => {
                       const type = v.type || 'Other';
@@ -317,31 +357,44 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     }, {} as Record<string, ProductVariation[]>)
                   ).map(([type, variations]: [string, ProductVariation[]]) => (
                     <div key={type}>
-                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-4">Select {type}</p>
+                      <p className="eyebrow text-gray-400 mb-4">Select {type}</p>
                       <div className="flex flex-wrap gap-3">
-                        {variations.map((v: ProductVariation, idx: number) => (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              const newSelections = { ...selectedVariations };
-                              if (newSelections[type] === v) {
-                                delete newSelections[type];
-                              } else {
-                                newSelections[type] = v;
-                              }
-                              setSelectedVariations(newSelections);
-                            }}
-                            className={`group relative px-6 py-5 rounded-[1.5rem] transition-all duration-300 border-2 ${selectedVariations[type] === v
-                              ? 'border-[#3D8593] bg-[#3D8593]/5'
-                              : 'border-white bg-white shadow-sm hover:shadow-md'
-                              }`}
-                          >
-                            <span className={`text-xs font-bold ${selectedVariations[type] === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
-                            {v.priceKES > 0 && (
-                              <span className="block text-[8px] font-black text-[#FF9900] mt-1">+ KES {v.priceKES.toLocaleString()}</span>
-                            )}
-                          </button>
-                        ))}
+                        {variations.map((v: ProductVariation, idx: number) => {
+                          const tracked = typeof v.stockCount === 'number';
+                          const soldOut = tracked && v.stockCount === 0;
+                          return (
+                            <button
+                              key={idx}
+                              disabled={soldOut}
+                              onClick={() => {
+                                const newSelections = { ...selectedVariations };
+                                if (newSelections[type] === v) {
+                                  delete newSelections[type];
+                                } else {
+                                  newSelections[type] = v;
+                                }
+                                setSelectedVariations(newSelections);
+                              }}
+                              aria-pressed={selectedVariations[type] === v}
+                              className={`px-6 py-4 rounded-2xl transition-all duration-300 border-2 ${soldOut
+                                ? 'border-transparent bg-neutral-100 opacity-50 cursor-not-allowed'
+                                : selectedVariations[type] === v
+                                  ? 'border-[#3D8593] bg-[#3D8593]/5'
+                                  : 'border-transparent bg-white shadow-sm hover:shadow-md'
+                                }`}
+                            >
+                              <span className={`text-xs font-bold ${soldOut ? 'text-gray-400 line-through' : selectedVariations[type] === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
+                              {v.priceKES > 0 && !soldOut && (
+                                <span className="block text-[9px] font-black text-[#FF9900] mt-1">+ KES {v.priceKES.toLocaleString()}</span>
+                              )}
+                              {tracked && (
+                                <span className={`block text-[8px] font-black uppercase tracking-widest mt-1 ${soldOut ? 'text-rose-400' : (v.stockCount as number) <= 2 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                  {soldOut ? 'Out of stock' : `${v.stockCount} left`}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -349,16 +402,16 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
               )}
 
               {/* ACTION CENTER */}
-              <div className="space-y-6 mb-12">
+              <div className="space-y-5 mb-10">
                 {p.availability === Availability.IMPORT && (
-                  <div className="bg-[#3D8593]/5 p-6 rounded-[2rem] border border-[#3D8593]/20 flex items-start gap-4 mb-4">
+                  <div className="bg-[#3D8593]/5 p-6 rounded-[1.75rem] border border-[#3D8593]/20 flex items-start gap-4">
                     <div className="w-10 h-10 bg-[#3D8593]/10 rounded-xl flex items-center justify-center shrink-0">
-                      <Truck className="w-5 h-5 text-[#3D8593]" />
+                      <Truck size={20} weight="duotone" className="text-[#3D8593]" />
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-[0.2em] mb-1">Import Notice</p>
                       <p className="text-xs text-gray-600 font-medium leading-relaxed">
-                        This is an **Import on Order** item. We will source this specifically for you.
+                        This item is sourced specifically for you after ordering.
                         <span className="block mt-1 font-bold text-gray-900 text-[10px] uppercase">
                           2-3 Weeks via Air | 4-5 Weeks via Sea
                         </span>
@@ -371,19 +424,28 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-4">
                       {/* QUANTITY CONTROL */}
-                      <div className="flex items-center bg-white border-2 border-neutral-100 rounded-[1.5rem] p-2 h-[64px]">
+                      <div className="flex items-center bg-white border border-gray-200 rounded-full p-2 h-[60px]">
                         <button
                           onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-50 rounded-xl transition-colors"
+                          aria-label="Decrease quantity"
+                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 rounded-full transition-colors"
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus size={16} />
                         </button>
-                        <span className="px-6 font-black text-lg min-w-[4rem] text-center">{quantity}</span>
+                        <span className="px-4 font-black text-lg min-w-[3.5rem] text-center" aria-live="polite">{quantity}</span>
                         <button
-                          onClick={() => setQuantity(quantity + 1)}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-50 rounded-xl transition-colors"
+                          onClick={() => {
+                            // Cap at available stock: product-level, and tighter if a tracked variant is selected
+                            let maxQty = p.availability === Availability.LOCAL && p.stockCount ? p.stockCount : Infinity;
+                            selectedVarsList.forEach((v: ProductVariation) => {
+                              if (typeof v.stockCount === 'number') maxQty = Math.min(maxQty, v.stockCount);
+                            });
+                            setQuantity(Math.min(quantity + 1, Math.max(1, maxQty)));
+                          }}
+                          aria-label="Increase quantity"
+                          className="w-10 h-10 flex items-center justify-center hover:bg-neutral-100 rounded-full transition-colors"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus size={16} />
                         </button>
                       </div>
 
@@ -403,14 +465,14 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                             }
                             setShowPaystack(true);
                           }}
-                          className="flex-1 h-[64px] bg-black text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-[#3D8593] transition-all shadow-2xl hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
+                          className="shine flex-1 h-[60px] bg-[#0f1a1c] text-white rounded-full font-black uppercase text-[11px] tracking-[0.25em] hover:bg-[#3D8593] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3"
                         >
-                          {(new Date().getMonth() === 1 && new Date().getDate() >= 1 && new Date().getDate() <= 15) ? "💝 Buy Now" : "Buy Now"}
+                          Buy Now
                         </button>
                       ) : (
                         <div className="flex-1 flex flex-col gap-3">
                           <PaystackButton
-                            className="w-full h-[64px] bg-[#3D8593] text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-black transition-all shadow-2xl shadow-teal-900/10"
+                            className="w-full h-[60px] bg-[#3D8593] text-white rounded-full font-black uppercase text-[11px] tracking-[0.25em] hover:bg-[#0f1a1c] transition-all shadow-xl"
                             publicKey="pk_live_b11692e8994766a02428b1176fc67f4b8b958974"
                             amount={Math.round(currentPrice * 100 * quantity)}
                             currency="KES"
@@ -432,9 +494,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
                     <button
                       onClick={() => handleWhatsAppInquiry(p)}
-                      className="w-full h-[64px] bg-[#25D366] text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-[0.3em] hover:bg-[#128C7E] transition-all shadow-xl flex items-center justify-center gap-3"
+                      className="w-full h-[60px] bg-[#25D366] text-white rounded-full font-black uppercase text-[11px] tracking-[0.25em] hover:bg-[#128C7E] transition-all shadow-lg flex items-center justify-center gap-3"
                     >
-                      Order via WhatsApp
+                      <WhatsappLogo size={20} weight="fill" /> Order via WhatsApp
                     </button>
 
                     {showPaystack && (
@@ -447,10 +509,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     )}
 
                     {/* M-PESA FALLBACK BANNER */}
-                    <div className="bg-neutral-900 p-8 rounded-[2rem] border-2 border-[#FF9900]/20 relative overflow-hidden group">
+                    <div className="bg-[#0f1a1c] p-7 rounded-[1.75rem] relative overflow-hidden group">
                       <div className="flex items-start gap-4 relative z-10">
-                        <div className="w-12 h-12 bg-[#FF9900]/10 rounded-2xl flex items-center justify-center shrink-0">
-                          <AlertCircle className="w-6 h-6 text-[#FF9900]" />
+                        <div className="w-11 h-11 bg-[#FF9900]/10 rounded-2xl flex items-center justify-center shrink-0">
+                          <WarningCircle size={22} weight="duotone" className="text-[#FF9900]" />
                         </div>
                         <div>
                           <p className="text-[10px] font-black text-white uppercase tracking-[0.3em] mb-2">M-Pesa Backup Option</p>
@@ -459,83 +521,28 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                           </p>
                         </div>
                       </div>
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF9900]/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-[#FF9900]/10 transition-all duration-1000"></div>
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#FF9900]/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-[#FF9900]/10 transition-all duration-1000" aria-hidden="true"></div>
                     </div>
                   </div>
                 ) : (
-                  <button disabled className="w-full py-8 bg-neutral-100 text-neutral-400 rounded-[2rem] font-black uppercase text-[11px] tracking-[0.3em] cursor-not-allowed italic">
-                    Asset Currently Unavailable
+                  <button disabled className="w-full py-7 bg-neutral-100 text-neutral-400 rounded-full font-black uppercase text-[11px] tracking-[0.3em] cursor-not-allowed">
+                    Currently Unavailable
                   </button>
                 )}
               </div>
 
-              {/* LOGISTICS INTELLIGENCE CARDS */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-white border border-neutral-100 p-8 rounded-[2rem] shadow-sm group hover:border-[#3D8593]/30 transition-all">
-                  <div className="w-10 h-10 bg-neutral-50 rounded-xl flex items-center justify-center mb-6"><Package className="w-5 h-5 text-gray-400" /></div>
+              {/* LOGISTICS CARDS */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white border border-gray-100 p-6 rounded-[1.75rem] shadow-sm hover:border-[#3D8593]/30 transition-all">
+                  <Package size={22} weight="duotone" className="text-[#3D8593] mb-4" />
                   <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Logistics</p>
-                  <p className="text-sm font-black text-gray-900">{isLocal ? 'In-State Pickup' : 'Air Freight'}</p>
+                  <p className="text-sm font-black text-gray-900">{isLocal ? 'In-Stock · Nairobi' : 'Air Freight'}</p>
                 </div>
-                <div className="bg-white border border-neutral-100 p-8 rounded-[2rem] shadow-sm group hover:border-[#3D8593]/30 transition-all">
-                  <div className="w-10 h-10 bg-neutral-50 rounded-xl flex items-center justify-center mb-6"><Clock className="w-5 h-5 text-gray-400" /></div>
+                <div className="bg-white border border-gray-100 p-6 rounded-[1.75rem] shadow-sm hover:border-[#3D8593]/30 transition-all">
+                  <Clock size={22} weight="duotone" className="text-[#3D8593] mb-4" />
                   <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Arrival</p>
                   <p className="text-sm font-black text-gray-900">{isLocal ? 'Immediate' : '2-3 Weeks (Air)'}</p>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* RATING & REVIEWS SECTION */}
-          <div className="mt-32 pt-32 border-t border-neutral-100">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-400 mb-16 text-center">Elite Feedback</h2>
-
-            <div className="grid lg:grid-cols-3 gap-20">
-              {/* RATING SUMMARY */}
-              <div className="lg:col-span-1">
-                <div className="flex items-baseline gap-4 mb-8">
-                  <span className="text-9xl font-black text-gray-900 tracking-tighter">4.8</span>
-                  <div className="text-gray-400">
-                    <div className="flex gap-1 mb-1">
-                      {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-4 h-4 fill-black text-black" />)}
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest">Total 42 Reviews</span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {[5, 4, 3, 2, 1].map((rating) => (
-                    <div key={rating} className="flex items-center gap-4">
-                      <span className="text-[10px] font-black text-gray-400 w-4">{rating}</span>
-                      <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-black rounded-full"
-                          style={{ width: `${rating === 5 ? '85' : rating === 4 ? '10' : '5'}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* TESTIMONIAL FEED */}
-              <div className="lg:col-span-2 grid md:grid-cols-2 gap-8">
-                {[
-                  { name: "Obayedul", date: "13 Oct 2024", comment: "The build quality is exceptional. Exactly what you'd expect from the elite inventory." },
-                  { name: "Sarah K.", date: "28 Dec 2024", comment: "Arrival was faster than the ETA. Perfectly synced with my workstation setup." }
-                ].map((review, i) => (
-                  <div key={i} className="bg-white p-10 rounded-[2.5rem] border border-neutral-100 shadow-sm">
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <p className="font-black text-gray-900 mb-1">{review.name}</p>
-                        <p className="text-[10px] text-gray-400 font-black tracking-widest uppercase">{review.date}</p>
-                      </div>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-3 h-3 fill-black text-black" />)}
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-500 font-medium leading-relaxed italic">"{review.comment}"</p>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -544,129 +551,163 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     );
   }
 
+  /* ================================================================
+     SHOP GRID
+     ================================================================ */
   return (
-    <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32">
+    <div className="bg-brand-bg min-h-screen pt-36 pb-28">
       {expandedImageUrl && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out" onClick={() => setExpandedImageUrl(null)}>
           <img src={expandedImageUrl} className="max-w-full max-h-full object-contain animate-in zoom-in duration-300" alt="Expanded view" />
-          <button onClick={() => setExpandedImageUrl(null)} className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all">
-            <X className="w-6 h-6" />
+          <button onClick={() => setExpandedImageUrl(null)} aria-label="Close image" className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-all">
+            <X size={24} />
           </button>
         </div>
       )}
-      {/* APP-STYLE HEADER NODE */}
-      <div className="px-6 mb-12">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-8">Elite Marketplace</h1>
 
-          {/* SEARCH & SCAN BAR */}
-          <div className="relative mb-8 group">
-            <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-              <Search className="w-5 h-5 text-gray-400" />
-            </div>
+      <div className="px-6 max-w-7xl mx-auto">
+        {/* HEADER */}
+        <Reveal>
+          <div className="mb-10 max-w-2xl">
+            <p className="eyebrow text-[#3D8593] mb-4">The Marketplace</p>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter mb-5 leading-[1.02]">
+              Shop <span className="heading-accent italic font-light text-[#3D8593]">verified imports.</span>
+            </h1>
+            <p className="text-gray-500 font-light">
+              Every item sourced, inspected and priced in KES — CBD pickup or doorstep delivery anywhere in Kenya.
+            </p>
+          </div>
+        </Reveal>
+
+        {/* SEARCH + CATEGORY FILTERS */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
+          <div className="relative w-full lg:max-w-sm">
+            <MagnifyingGlass size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
-              type="text"
-              placeholder="Search assets..."
+              type="search"
+              placeholder="Search products…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-[72px] bg-white border border-neutral-100 rounded-[2.5rem] pl-16 pr-20 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[#3D8593]/5 transition-all shadow-sm"
+              aria-label="Search products"
+              className="w-full h-13 md:h-14 bg-white border border-gray-200 rounded-full pl-12 pr-6 text-sm font-medium focus:border-[#3D8593] transition-colors shadow-sm"
             />
-            <div className="absolute inset-y-2 right-2 p-4 bg-neutral-50 rounded-[2rem] flex items-center justify-center cursor-pointer hover:bg-neutral-100 transition-colors">
-              <Maximize className="w-5 h-5 text-gray-900" />
-            </div>
           </div>
 
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-              {searchQuery ? `Search results for "${searchQuery}"` : 'Popular Items'}
-            </h2>
-            {searchQuery && (
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="tablist" aria-label="Product categories">
+            {categories.map((c) => (
               <button
-                onClick={() => setSearchQuery('')}
-                className="text-[10px] font-black uppercase tracking-widest text-red-500"
+                key={c}
+                role="tab"
+                aria-selected={selectedCategory === c}
+                onClick={() => setSelectedCategory(c)}
+                className={`shrink-0 px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${selectedCategory === c
+                  ? 'bg-[#0f1a1c] text-white shadow-lg'
+                  : 'bg-white text-gray-500 border border-gray-200 hover:border-[#3D8593] hover:text-[#3D8593]'
+                  }`}
               >
-                Clear
+                {c}
               </button>
-            )}
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* PRODUCT GRID - DYNAMIC 2-COLUMN MOBILE */}
-      <div className="px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-3 gap-6 md:gap-12">
-          {filteredProducts.map((p) => (
-            <div key={p.id} className="group flex flex-col cursor-pointer animate-in fade-in slide-in-from-bottom-8">
-              <div
-                className="aspect-square bg-white relative overflow-hidden rounded-[2.5rem] md:rounded-[3.5rem] mb-6 shadow-sm border border-neutral-100 group-hover:shadow-2xl transition-all"
-                onClick={() => {
-                  const params = new URLSearchParams(searchParams);
-                  params.set('product', p.id);
-                  setSearchParams(params);
-                }}
-              >
-                <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000" />
-
-                {/* HEART OVERLAY */}
-                <div className="absolute top-4 right-4 md:top-6 md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/heart">
-                  <Heart className={`w-4 h-4 md:w-5 h-5 group-hover/heart:text-white ${(new Date().getMonth() === 1 && new Date().getDate() >= 1 && new Date().getDate() <= 20) ? 'text-red-500 fill-red-500' : 'text-gray-900'}`} />
-                </div>
-
-                {/* SHARE OVERLAY */}
-                <button
-                  onClick={(e) => handleShare(e, p)}
-                  className="absolute top-16 right-4 md:top-20 md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/share"
-                >
-                  {copiedId === p.id ? (
-                    <Check className="w-4 h-4 text-green-500 group-hover/share:text-white" />
-                  ) : (
-                    <Share2 className="w-4 h-4 text-gray-900 group-hover/share:text-white" />
-                  )}
-                </button>
-
-                {/* MAXIMIZE EXPAND OVERLAY */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedImageUrl(p.imageUrls[0]);
-                  }}
-                  className="absolute top-28 right-4 md:top-[8.5rem] md:right-6 w-10 h-10 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg hover:bg-[#3D8593] hover:text-white transition-all group/expand"
-                >
-                  <Maximize className="w-4 h-4 text-gray-900 group-hover/expand:text-white" />
-                </button>
-
-                <div className={`absolute bottom-4 left-4 md:bottom-6 md:left-6 px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593] text-white' :
-                  p.stockCount === 0 ? 'bg-red-500/90 text-white' :
-                    p.stockCount <= 5 ? 'bg-yellow-500/90 text-white' :
-                      'bg-green-500/90 text-white'
-                  }`}>{p.availability === Availability.IMPORT ? 'Import on Order' : getStockStatus(p.stockCount || 0)}</div>
-              </div>
-
-              <div className="px-1 relative">
-                <h3 className="text-sm md:text-xl font-bold text-gray-900 mb-1 truncate pr-10">{p.name}</h3>
-                <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-sm md:text-xl font-black text-[#3D8593]">KES {(p.discountPriceKES || p.priceKES).toLocaleString()}</span>
-                  {p.discountPriceKES && (
-                    <span className="text-[10px] md:text-sm text-gray-400 line-through">KES {p.priceKES.toLocaleString()}</span>
-                  )}
-                </div>
-
-                {/* CIRCULAR ACTION BUTTON */}
-                <button
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    const params = new URLSearchParams(searchParams);
-                    params.set('product', p.id);
-                    setSearchParams(params); 
-                  }}
-                  className="absolute bottom-4 right-0 md:bottom-6 w-10 h-10 md:w-12 md:h-12 bg-black text-white rounded-full flex items-center justify-center shadow-xl hover:bg-[#3D8593] transition-all transform group-hover:scale-110 active:scale-95"
-                >
-                  <ArrowUpRight className="w-5 h-5 md:w-6 h-6" />
-                </button>
-              </div>
-            </div>
-          ))}
+        {/* RESULT COUNT */}
+        <div className="flex justify-between items-center mb-8">
+          <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
+            {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
+            {searchQuery && <> for “{searchQuery}”</>}
+          </p>
+          {(searchQuery || selectedCategory !== 'All') && (
+            <button
+              onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }}
+              className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
+
+        {/* GRID */}
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {filteredProducts.map((p, i) => (
+              <Reveal key={p.id} delay={(i % 4) * 90}>
+                <article
+                  onClick={() => openProduct(p.id)}
+                  className="group h-full bg-white rounded-[1.75rem] border border-gray-100 overflow-hidden cursor-pointer hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-teal-900/10 hover:border-[#3D8593]/25 transition-all duration-500 flex flex-col"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-neutral-50">
+                    <SafeImage
+                      src={p.imageUrls[0]}
+                      className="w-full h-full object-cover group-hover:scale-[1.06] transition-transform duration-700"
+                      alt={p.name}
+                    />
+
+                    {/* Availability badge */}
+                    <div className={`absolute top-3 left-3 md:top-4 md:left-4 px-3 py-1.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-[0.15em] backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593]/95 text-white' :
+                      p.stockCount === 0 ? 'bg-red-500/90 text-white' :
+                        p.stockCount <= 5 ? 'bg-[#FF9900]/90 text-white' :
+                          'bg-white/90 text-gray-900'
+                      }`}>
+                      {p.availability === Availability.IMPORT ? 'On Order' : getStockStatus(p.stockCount || 0)}
+                    </div>
+
+                    {/* Sale badge */}
+                    {p.discountPriceKES && (
+                      <div className="absolute top-3 right-3 md:top-4 md:right-4 px-3 py-1.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-[0.15em] bg-[#FF9900] text-white shadow-lg">
+                        Sale
+                      </div>
+                    )}
+
+                    {/* Share — appears on hover (always visible on touch) */}
+                    <button
+                      onClick={(e) => handleShare(e, p)}
+                      aria-label={`Share ${p.name}`}
+                      className="absolute bottom-3 right-3 md:bottom-4 md:right-4 w-9 h-9 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center shadow-md hover:bg-[#3D8593] hover:text-white transition-all md:opacity-0 md:group-hover:opacity-100"
+                    >
+                      {copiedId === p.id ? <Check size={15} weight="bold" className="text-emerald-500" /> : <ShareNetwork size={15} />}
+                    </button>
+                  </div>
+
+                  <div className="p-4 md:p-5 flex flex-col flex-1">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300 mb-1.5">{p.category}</p>
+                    <h3 className="text-sm md:text-base font-bold text-gray-900 leading-snug mb-3 line-clamp-2">{p.name}</h3>
+                    <div className="mt-auto flex items-end justify-between gap-2">
+                      <div>
+                        <span className="block text-sm md:text-lg font-black text-gray-900 tracking-tight">
+                          KES {(p.discountPriceKES || p.priceKES).toLocaleString()}
+                        </span>
+                        {p.discountPriceKES && (
+                          <span className="text-[10px] md:text-xs text-gray-400 line-through">KES {p.priceKES.toLocaleString()}</span>
+                        )}
+                      </div>
+                      <span
+                        aria-hidden="true"
+                        className="w-9 h-9 md:w-10 md:h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 group-hover:bg-[#FF9900] group-hover:border-[#FF9900] group-hover:text-white transition-all shrink-0"
+                      >
+                        <ArrowUpRight size={16} weight="bold" />
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              </Reveal>
+            ))}
+          </div>
+        ) : (
+          <div className="py-24 text-center">
+            <Package size={48} weight="duotone" className="text-gray-300 mx-auto mb-6" />
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Nothing matches that search</h3>
+            <p className="text-gray-500 font-light mb-8">Can't find what you need? I can source it for you.</p>
+            <a
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi LegitGrinder! I'm looking for: ${searchQuery}. Can you source it for me?`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 bg-[#0f1a1c] text-white px-10 py-4 rounded-full font-black uppercase text-[11px] tracking-widest hover:bg-[#3D8593] transition-colors"
+            >
+              <WhatsappLogo size={18} weight="fill" /> Request a Sourcing Quote
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -98,6 +98,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [seeding, setSeeding] = useState(false);
   const [syncBrandFilter, setSyncBrandFilter] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const [editingPrice, setEditingPrice] = useState<{ plId: string, capIdx: number } | null>(null);
 
   // Product Management State
@@ -127,26 +128,89 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const hasNewPaidOrders = invoices.some(inv => inv.isPaid && inv.status === OrderStatus.RECEIVED_BY_AGENT);
 
+  // --- Invoice organization: search / filter / sort / summaries ---
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [invoiceFilterPayment, setInvoiceFilterPayment] = useState<'all' | PaymentStatus>('all');
+  const [invoiceFilterMonth, setInvoiceFilterMonth] = useState<string>('all'); // 'all' | 'YYYY-MM'
+  const [invoiceSort, setInvoiceSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
+
+  const invoiceMonths = useMemo(() => {
+    const set = new Set<string>();
+    invoices.forEach(inv => {
+      const d = inv.createdAt || inv.date;
+      if (d) set.add(new Date(d).toISOString().slice(0, 7));
+    });
+    return [...set].sort().reverse();
+  }, [invoices]);
+
+  const filteredInvoices = useMemo(() => {
+    const q = invoiceSearch.trim().toLowerCase();
+    const list = invoices.filter(inv => {
+      if (q && !(`${inv.invoiceNumber}`.toLowerCase().includes(q)
+        || inv.clientName?.toLowerCase().includes(q)
+        || inv.productName?.toLowerCase().includes(q)
+        || inv.paystackReference?.toLowerCase().includes(q))) return false;
+      if (invoiceFilterPayment !== 'all' && inv.paymentStatus !== invoiceFilterPayment) return false;
+      if (invoiceFilterMonth !== 'all') {
+        const d = inv.createdAt || inv.date;
+        if (!d || new Date(d).toISOString().slice(0, 7) !== invoiceFilterMonth) return false;
+      }
+      return true;
+    });
+    const time = (inv: Invoice) => new Date(inv.createdAt || inv.date || 0).getTime();
+    return list.sort((a, b) =>
+      invoiceSort === 'newest' ? time(b) - time(a) :
+      invoiceSort === 'oldest' ? time(a) - time(b) :
+      invoiceSort === 'highest' ? (b.totalKES || 0) - (a.totalKES || 0) :
+      (a.totalKES || 0) - (b.totalKES || 0)
+    );
+  }, [invoices, invoiceSearch, invoiceFilterPayment, invoiceFilterMonth, invoiceSort]);
+
+  const invoiceSummary = useMemo(() => ({
+    count: filteredInvoices.length,
+    totalKES: filteredInvoices.reduce((s, i) => s + (i.totalKES || 0), 0),
+    unpaid: filteredInvoices.filter(i => i.paymentStatus === PaymentStatus.UNPAID).length,
+    inTransit: filteredInvoices.filter(i => i.status !== OrderStatus.DELIVERED).length,
+  }), [filteredInvoices]);
+
+  /** Export the CURRENTLY FILTERED orders with full detail (one sheet) */
+  const handleExportOrders = () => {
+    if (filteredInvoices.length === 0) { alert('No orders match the current filters.'); return; }
+    const data = filteredInvoices.map(inv => ({
+      'Invoice #': inv.invoiceNumber,
+      'Date': inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : (inv.date || 'N/A'),
+      'Client': inv.clientName,
+      'WhatsApp': inv.clientWhatsapp || '',
+      'Product': inv.productName,
+      'Qty': inv.quantity || 1,
+      'Total': inv.totalKES || 0,
+      'Currency': inv.currency || 'KES',
+      'Payment': inv.paymentStatus,
+      'Order Status': inv.status,
+      'Paystack Ref': inv.paystackReference || 'Manual',
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length + 2, 14) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+    const suffix = invoiceFilterMonth === 'all' ? 'All' : invoiceFilterMonth;
+    XLSX.writeFile(wb, `LegitGrinder_Orders_${suffix}.xlsx`);
+  };
+
+  const newPaidOrderCount = invoices.filter(inv => inv.isPaid && inv.status === OrderStatus.RECEIVED_BY_AGENT).length;
+
+  // Leads and Ad Banners tabs removed 2026-07 (unused per owner)
   const tabs = [
-    { id: 'overview', name: 'Dashboard', icon: <BarChart3 className="w-4 h-4" /> },
-    { id: 'clients', name: 'Clients', icon: <Users className="w-4 h-4" /> },
-    {
-      id: 'invoices', name: 'Invoices', icon: (
-        <div className="relative">
-          <FileText className="w-4 h-4" />
-          {hasNewPaidOrders && <span className="absolute -top-1 -right-1 w-2 h-2 bg-emerald-500 rounded-full border border-white pulse"></span>}
-        </div>
-      )
-    },
-    { id: 'products', name: 'Stock (Non-Phones)', icon: <ShoppingBag className="w-4 h-4" /> },
-    { id: 'consultations', name: 'Consult', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 'content', name: 'Content', icon: <List className="w-4 h-4" /> },
-    { id: 'pricelist', name: 'Sync', icon: <RefreshCcw className="w-4 h-4" /> },
-    { id: 'leads', name: 'Leads', icon: <Activity className="w-4 h-4" /> },
-    { id: 'books', name: 'Books', icon: <Book className="w-4 h-4" /> },
-    { id: 'adbanners', name: 'Ad Banners', icon: <ImageIcon className="w-4 h-4" /> },
-    { id: 'security', name: 'Security', icon: <Lock className="w-4 h-4" /> },
-    { id: 'card', name: 'Business Card', icon: <CreditCard className="w-4 h-4" /> },
+    { id: 'overview', name: 'Dashboard', group: 'Main', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'clients', name: 'Clients', group: 'Main', icon: <Users className="w-4 h-4" /> },
+    { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: newPaidOrderCount || undefined, icon: <FileText className="w-4 h-4" /> },
+    { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
+    { id: 'pricelist', name: 'Phone Price Sync', group: 'Operations', icon: <RefreshCcw className="w-4 h-4" /> },
+    { id: 'books', name: 'eBooks', group: 'Operations', icon: <Book className="w-4 h-4" /> },
+    { id: 'security', name: 'Security', group: 'System', icon: <Lock className="w-4 h-4" /> },
+    { id: 'card', name: 'Business Card', group: 'System', icon: <CreditCard className="w-4 h-4" /> },
   ] as const;
 
   const [ebooks, setEbooks] = useState<EBook[]>([]);
@@ -258,10 +322,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    const validInvoices = invoices.filter(inv => inv.paymentStatus !== PaymentStatus.UNPAID && inv.paymentStatus !== 'Unpaid');
+    // Respect the invoice tab's active filters (month, search, etc.), then keep paid/partial only
+    const base = filteredInvoices.length > 0 ? filteredInvoices : invoices;
+    const validInvoices = base.filter(inv => inv.paymentStatus !== PaymentStatus.UNPAID && inv.paymentStatus !== 'Unpaid');
 
     if (validInvoices.length === 0) {
-      alert("No paid or partially paid invoices available to export.");
+      alert("No paid or partially paid invoices match the current filters.");
       return;
     }
 
@@ -272,7 +338,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       return {
         'Invoice #': inv.invoiceNumber,
-        'Date': inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : (inv.date || 'N/A'),
+        'Date': inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : (inv.date || 'N/A'),
         'Client': inv.clientName,
         'Product': inv.productName,
         'Amount (KES)': total,
@@ -281,10 +347,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       };
     });
 
+    // Totals row for quick KRA reconciliation
+    data.push({
+      'Invoice #': 'TOTAL',
+      'Date': '',
+      'Client': '',
+      'Product': `${data.length} invoices`,
+      'Amount (KES)': data.reduce((s, r) => s + (r['Amount (KES)'] as number), 0),
+      'Deductible (KES)': data.reduce((s, r) => s + (r['Deductible (KES)'] as number), 0),
+      'Profit (KES)': data.reduce((s, r) => s + (r['Profit (KES)'] as number), 0),
+    });
+
     const worksheet = XLSX.utils.json_to_sheet(data);
+    worksheet['!cols'] = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length + 2, 15) }));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Tax_Invoices");
-    XLSX.writeFile(workbook, "Tax_Supporting_Docs.xlsx");
+    const suffix = invoiceFilterMonth === 'all' ? 'All' : invoiceFilterMonth;
+    XLSX.writeFile(workbook, `Tax_Supporting_Docs_${suffix}.xlsx`);
   };
 
   const handleCreateManualOrder = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -741,6 +820,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Quick inline product updates (stock steppers, price edits) — optimistic UI + DB save
+  const quickUpdateProduct = async (id: string, updates: Partial<Product>) => {
+    onUpdateProducts(products.map(p => p.id === id ? { ...p, ...updates } : p));
+    const result = await updateProduct(id, updates);
+    if (!result.success) alert('Quick update failed to save — please retry.');
+  };
+
   const handleDeleteClient = async (id: string) => {
     if (confirm('Are you sure you want to remove this client?')) {
       const result = await deleteClient(id);
@@ -763,37 +849,61 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             {item.icon}
             {item.name}
+            {'badge' in item && item.badge ? <span className="ml-1 min-w-4 h-4 px-1 bg-emerald-500 text-white rounded-full text-[8px] flex items-center justify-center">{item.badge}</span> : null}
           </button>
         ))}
       </div>
 
-      <aside className="w-72 bg-white border-r border-gray-100 hidden lg:flex flex-col sticky top-24 h-[calc(100vh-6rem)] ml-6 my-6 rounded-[2.5rem] shadow-2xl overflow-hidden">
-        <div className="p-10 flex items-center space-x-4">
-          <div className="bg-[#3D8593] p-3 rounded-2xl text-white shadow-xl shadow-teal-100">
-            <LayoutDashboard className="w-5 h-5" />
+      {/* Desktop Sidebar — flat, grouped */}
+      <aside className="w-64 bg-white border-r border-gray-100 hidden lg:flex flex-col sticky top-24 h-[calc(100vh-6rem)]">
+        <div className="px-6 py-7 flex items-center gap-3 border-b border-gray-50">
+          <div className="bg-[#3D8593] p-2.5 rounded-xl text-white">
+            <LayoutDashboard className="w-4 h-4" />
           </div>
-          <span className="text-xl font-black tracking-tighter text-[#3D8593]">LEGIT HUB</span>
+          <div>
+            <span className="block text-sm font-black tracking-tight text-gray-900 leading-none">Legit Hub</span>
+            <span className="block text-[9px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">Admin Console</span>
+          </div>
         </div>
-        <nav className="flex-1 px-6 space-y-1">
-          {tabs.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-4 px-6 py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === item.id ? 'bg-teal-50 text-[#3D8593] shadow-sm' : 'text-gray-400 hover:text-[#3D8593]'
-                }`}
-            >
-              {item.icon}
-              <span>{item.name}</span>
-            </button>
+        <nav className="flex-1 px-4 py-5 overflow-y-auto">
+          {(['Main', 'Operations', 'System'] as const).map((group) => (
+            <div key={group} className="mb-6">
+              <p className="px-3 mb-2 text-[9px] font-black uppercase tracking-[0.25em] text-gray-300">{group}</p>
+              <div className="space-y-0.5">
+                {tabs.filter(t => t.group === group).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold transition-all ${activeTab === item.id
+                      ? 'bg-teal-50 text-[#3D8593]'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
+                  >
+                    <span className={activeTab === item.id ? 'text-[#3D8593]' : 'text-gray-400'}>{item.icon}</span>
+                    <span className="flex-1 text-left">{item.name}</span>
+                    {'badge' in item && item.badge ? (
+                      <span className="min-w-5 h-5 px-1.5 bg-emerald-500 text-white rounded-full text-[10px] font-black flex items-center justify-center">{item.badge}</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
+        <div className="px-6 py-5 border-t border-gray-50">
+          <p className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.2em]">LegitGrinder · 2026</p>
+        </div>
       </aside>
 
       <main className="flex-1 p-4 md:p-10 lg:p-12 overflow-y-auto">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-16 gap-6">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-10 gap-6">
           <div>
-            <h1 className="text-5xl font-black tracking-tighter text-gray-900 capitalize leading-none">{activeTab}</h1>
-            <p className="text-[#3D8593] font-bold uppercase text-[9px] tracking-[0.4em] mt-3">Elite Logistics Control & Intelligence</p>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-gray-900 leading-none">
+              {tabs.find(t => t.id === activeTab)?.name || activeTab}
+            </h1>
+            <p className="text-gray-400 font-bold uppercase text-[9px] tracking-[0.3em] mt-2.5">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
           </div>
           <div className="flex gap-4 w-full md:w-auto">
             {activeTab === 'invoices' && (
@@ -805,8 +915,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             )}
             {activeTab === 'clients' && (
-              <button className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl">
-                <Download className="w-4 h-4 mr-2" /> Export Segment
+              <button
+                onClick={() => {
+                  if (clients.length === 0) { alert('No clients to export yet.'); return; }
+                  const data = clients.map(c => ({
+                    'Name': c.name,
+                    'Email': c.email || '',
+                    'Phone': c.phone || '',
+                    'Location': c.location || '',
+                    'Joined': c.joinedDate || '',
+                    'Orders': c.orderCount || 0,
+                    'Total Spent (KES)': c.totalSpentKES || 0,
+                    'Last Order': c.lastOrderDate || '',
+                  }));
+                  const ws = XLSX.utils.json_to_sheet(data);
+                  ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: Math.max(k.length + 2, 16) }));
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, 'Clients');
+                  XLSX.writeFile(wb, 'LegitGrinder_Client_Marketing_List.xlsx');
+                }}
+                className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" /> Export Marketing List
               </button>
             )}
             {activeTab === 'products' && (
@@ -838,24 +968,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             )}
-            {activeTab === 'adbanners' && (
-              <button
-                onClick={() => setEditingAdBanner('new')}
-                className="flex-1 md:flex-none btn-vibrant-teal px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> New Ad Banner
-              </button>
-            )}
           </div>
         </header>
 
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
-          <div className="space-y-12 animate-in fade-in duration-1000">
+          <div className="space-y-4 animate-in fade-in duration-700">
             {pricelist.length < 10 && (
               <div className="bg-amber-50 border-l-4 border-amber-500 p-8 rounded-r-xl flex justify-between items-center shadow-lg">
                 <div className="flex gap-6 items-center">
-                  <div className="p-4 bg-amber-100 rounded-full text-amber-600">
+                  <div className="p-2 bg-amber-100 rounded-full text-amber-600">
                     <RefreshCcw className="w-8 h-8" />
                   </div>
                   <div>
@@ -877,121 +999,339 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {[
-                { label: 'Total Revenue', val: `KES ${(invoices.reduce((acc, inv) => acc + (inv.totalKES || 0), 0) / 1000000).toFixed(1)}M`, trend: '+14.2%', icon: <DollarSign className="text-emerald-500" />, bg: 'bg-emerald-50' },
-                { label: 'Gross Profit', val: `KES ${(invoices.reduce((acc, inv) => acc + (inv.totalKES || 0) * 0.25, 0) / 1000000).toFixed(1)}M`, trend: '+18.5%', icon: <TrendingUp className="text-[#3D8593]" />, bg: 'bg-teal-50' },
-                { label: 'Active Clients', val: clients.length.toString(), trend: '+5.4%', icon: <Activity className="text-[#FF9900]" />, bg: 'bg-orange-50' },
-                { label: 'Total Visitors', val: visitCount.toLocaleString(), trend: 'Live Growth', icon: <Users className="text-indigo-500" />, bg: 'bg-indigo-50' }
-              ].map((stat, i) => (
-                <div key={i} className="bg-white p-10 rounded-[3.5rem] shadow-2xl border border-neutral-100 relative group">
-                  <div className={`w-14 h-14 ${stat.bg} rounded-2xl flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform`}>
-                    {stat.icon}
-                  </div>
-                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">{stat.label}</p>
-                  <h2 className="text-4xl font-black text-gray-900 tracking-tighter">{stat.val}</h2>
-                  <div className="mt-4 flex items-center gap-2">
-                    <span className="text-[9px] font-bold text-emerald-500 px-2 py-0.5 bg-emerald-50 rounded-lg">{stat.trend}</span>
-                    <span className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Growth Rate</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* NEEDS ATTENTION — the daily action queue */}
+            {(() => {
+              const newPaidOrders = invoices.filter(i => i.isPaid && i.status === OrderStatus.RECEIVED_BY_AGENT).length;
+              const unpaidInvoices = invoices.filter(i => i.paymentStatus === PaymentStatus.UNPAID).length;
+              const pendingConsults = consultations.filter(c => c.status === ConsultationStatus.PENDING).length;
+              const lowStock = products.filter(p => p.availability === Availability.LOCAL && (p.stockCount || 0) > 0 && (p.stockCount || 0) <= 2).length;
+              const outOfStock = products.filter(p => p.availability === Availability.LOCAL && (p.stockCount || 0) === 0).length;
+              const actions = [
+                { count: newPaidOrders, label: 'New paid orders to process', tab: 'invoices' as const, color: 'text-emerald-600 bg-emerald-50' },
+                { count: unpaidInvoices, label: 'Unpaid invoices to follow up', tab: 'invoices' as const, color: 'text-rose-600 bg-rose-50' },
+                { count: pendingConsults, label: 'Consultation requests awaiting review', tab: 'consultations' as const, color: 'text-indigo-600 bg-indigo-50' },
+                { count: lowStock, label: 'Products running low (≤2 pieces)', tab: 'products' as const, color: 'text-amber-600 bg-amber-50' },
+                { count: outOfStock, label: 'Products out of stock', tab: 'products' as const, color: 'text-gray-500 bg-neutral-100' },
+              ].filter(a => a.count > 0);
 
-            <div className="grid lg:grid-cols-3 gap-10">
-              <div className="lg:col-span-2 bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-10">Revenue Velocity</h3>
-                <div className="h-[350px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={revenueData}>
-                      <defs>
-                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3D8593" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#3D8593" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, fill: '#9ca3af' }} />
-                      <Tooltip contentStyle={{ borderRadius: '2rem', border: 'none', boxShadow: '0 25px 60px rgba(0,0,0,0.15)' }} />
-                      <Area type="monotone" dataKey="revenue" stroke="#3D8593" strokeWidth={5} fillOpacity={1} fill="url(#colorRev)" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+              return (
+                <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+                  <div className="px-6 py-4 border-b border-neutral-50 flex items-center justify-between">
+                    <h3 className="text-sm font-black text-gray-900 tracking-tight">Needs Attention</h3>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${actions.length ? 'bg-[#FF9900]/10 text-[#FF9900]' : 'bg-emerald-50 text-emerald-600'}`}>
+                      {actions.length ? `${actions.reduce((s, a) => s + a.count, 0)} items` : 'All clear'}
+                    </span>
+                  </div>
+                  {actions.length === 0 ? (
+                    <p className="px-6 py-5 text-sm text-gray-400 font-medium">Nothing pending — orders processed, invoices paid, stock healthy. 🎉</p>
+                  ) : (
+                    <div className="divide-y divide-neutral-50">
+                      {actions.map((a) => (
+                        <button
+                          key={a.label}
+                          onClick={() => setActiveTab(a.tab)}
+                          className="w-full flex items-center justify-between px-6 py-3 hover:bg-neutral-50/60 transition-colors text-left group"
+                        >
+                          <span className="flex items-center gap-3">
+                            <span className={`min-w-8 h-8 px-2 rounded-lg flex items-center justify-center font-black text-sm ${a.color}`}>{a.count}</span>
+                            <span className="font-bold text-[13px] text-gray-900">{a.label}</span>
+                          </span>
+                          <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#3D8593] group-hover:translate-x-1 transition-all" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div className="bg-white rounded-[4rem] p-12 border border-neutral-100 shadow-2xl">
-                <h3 className="text-2xl font-black text-gray-900 tracking-tight mb-2">Category Split</h3>
-                <div className="flex-1 min-h-[300px] w-full flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={categoryData} innerRadius={80} outerRadius={120} paddingAngle={10} dataKey="value" stroke="none">
-                        {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="space-y-4 mt-8">
-                  {categoryData.map((c, i) => (
-                    <div key={i} className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.color }}></div>
-                        <span className="text-gray-400">{c.name}</span>
+              );
+            })()}
+
+            {/* STAT TILES — compact, real deltas vs last month */}
+            {(() => {
+              const now = new Date();
+              const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
+              const thisKey = monthKey(now);
+              const lastKey = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+              const inMonth = (inv: Invoice, key: string) => {
+                const d = inv.createdAt || inv.date;
+                return !!d && monthKey(new Date(d)) === key;
+              };
+              const revThis = invoices.reduce((s, i) => s + (i.isPaid && inMonth(i, thisKey) ? (i.totalKES || 0) : 0), 0);
+              const revLast = invoices.reduce((s, i) => s + (i.isPaid && inMonth(i, lastKey) ? (i.totalKES || 0) : 0), 0);
+              const ordThis = invoices.filter(i => inMonth(i, thisKey)).length;
+              const ordLast = invoices.filter(i => inMonth(i, lastKey)).length;
+              const unpaidValue = invoices.reduce((s, i) => s + (i.paymentStatus === PaymentStatus.UNPAID ? (i.totalKES || 0) : 0), 0);
+              const unpaidCount = invoices.filter(i => i.paymentStatus === PaymentStatus.UNPAID).length;
+
+              const fmtK = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(2)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
+              const delta = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : null;
+
+              const tiles = [
+                { label: 'Revenue (Paid)', val: `KES ${fmtK(revThis)}`, d: delta(revThis, revLast), foot: `vs KES ${fmtK(revLast)} last month`, icon: <DollarSign className="w-4 h-4" />, iconBg: 'bg-teal-50 text-[#3D8593]' },
+                { label: 'Orders', val: ordThis.toLocaleString(), d: delta(ordThis, ordLast), foot: `vs ${ordLast} last month`, icon: <ShoppingBag className="w-4 h-4" />, iconBg: 'bg-indigo-50 text-indigo-500' },
+                { label: 'Outstanding', val: `KES ${fmtK(unpaidValue)}`, d: null, foot: `${unpaidCount} unpaid invoice${unpaidCount === 1 ? '' : 's'}`, icon: <Activity className="w-4 h-4" />, iconBg: 'bg-rose-50 text-rose-500', warn: unpaidCount > 0 },
+                { label: 'Visitors', val: visitCount.toLocaleString(), d: null, foot: `${clients.length} registered clients`, icon: <Users className="w-4 h-4" />, iconBg: 'bg-amber-50 text-[#FF9900]' },
+              ];
+              return (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {tiles.map((t) => (
+                    <div key={t.label} className="bg-white px-5 py-4 rounded-2xl border border-neutral-100 hover:border-neutral-200 transition-colors">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <p className="text-xs font-bold text-gray-500">{t.label}</p>
+                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center ${t.iconBg}`}>{t.icon}</span>
                       </div>
-                      <span className="text-gray-900">{((c.value / Math.max(1, products.length)) * 100).toFixed(1)}%</span>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">{t.val}</h2>
+                        {t.d !== null && (
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${t.d >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-500 bg-rose-50'}`}>
+                            {t.d >= 0 ? '▲' : '▼'} {Math.abs(t.d).toFixed(1)}%
+                          </span>
+                        )}
+                        {t.warn && <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md text-rose-500 bg-rose-50">follow up</span>}
+                      </div>
+                      <p className="text-[10px] font-medium text-gray-400 mt-1.5">{t.foot}</p>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
+              );
+            })()}
+
+            {(() => {
+              // --- Monthly paid revenue, last 6 months (current month highlighted) ---
+              const now = new Date();
+              const months: { key: string; name: string; revenue: number }[] = [];
+              for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, name: d.toLocaleString('default', { month: 'short' }), revenue: 0 });
+              }
+              invoices.forEach(inv => {
+                if (!inv.isPaid) return;
+                const ds = inv.createdAt || inv.date;
+                if (!ds) return;
+                const d = new Date(ds);
+                const m = months.find(x => x.key === `${d.getFullYear()}-${d.getMonth()}`);
+                if (m) m.revenue += (inv.totalKES || 0) / 1000; // in thousands
+              });
+              const currentKey = `${now.getFullYear()}-${now.getMonth()}`;
+              const totalPaid = invoices.reduce((s, i) => s + (i.isPaid ? (i.totalKES || 0) : 0), 0);
+              const rev5 = months[4].revenue, rev6 = months[5].revenue;
+              const trendPct = rev5 > 0 ? ((rev6 - rev5) / rev5) * 100 : null;
+
+              // --- Orders by weekday (most active day) ---
+              const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+              const weekdays = dayNames.map(name => ({ name, orders: 0 }));
+              invoices.forEach(inv => {
+                const ds = inv.createdAt || inv.date;
+                if (ds) weekdays[new Date(ds).getDay()].orders++;
+              });
+              const maxDay = weekdays.reduce((a, b) => (b.orders > a.orders ? b : a), weekdays[0]);
+
+              return (
+                <div className="grid lg:grid-cols-3 gap-4">
+                  {/* REVENUE — bar chart, current month highlighted */}
+                  <div className="lg:col-span-2 bg-white rounded-2xl border border-neutral-100 p-6">
+                    <div className="flex items-start justify-between mb-1">
+                      <div>
+                        <p className="text-xs font-bold text-gray-500 mb-1">Total Paid Revenue</p>
+                        <div className="flex items-baseline gap-2">
+                          <h3 className="text-3xl font-black text-gray-900 tracking-tight">
+                            KES {totalPaid >= 1000000 ? `${(totalPaid / 1000000).toFixed(2)}M` : `${Math.round(totalPaid / 1000)}K`}
+                          </h3>
+                          {trendPct !== null && (
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${trendPct >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-500 bg-rose-50'}`}>
+                              {trendPct >= 0 ? '▲' : '▼'} {Math.abs(trendPct).toFixed(1)}% vs last month
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-300 bg-neutral-50 px-3 py-1.5 rounded-lg">Last 6 months</span>
+                    </div>
+                    <div className="h-[230px] w-full mt-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={months} barCategoryGap="28%">
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#9ca3af' }} />
+                          <YAxis axisLine={false} tickLine={false} width={40} tick={{ fontSize: 10, fontWeight: 700, fill: '#c4c8ce' }} tickFormatter={(v: number) => `${v}K`} />
+                          <Tooltip
+                            cursor={{ fill: 'rgba(61,133,147,0.05)' }}
+                            formatter={(v: number) => [`KES ${(v * 1000).toLocaleString()}`, 'Revenue']}
+                            contentStyle={{ borderRadius: '0.75rem', border: '1px solid #f3f4f6', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', fontSize: 12, fontWeight: 700 }}
+                          />
+                          <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+                            {months.map(m => (
+                              <Cell key={m.key} fill={m.key === currentKey ? '#0f1a1c' : '#e2e8ec'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* RIGHT COLUMN — activity + categories */}
+                  <div className="flex flex-col gap-4">
+                    {/* Most active day */}
+                    <div className="bg-white rounded-2xl border border-neutral-100 p-6 flex-1">
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-xs font-bold text-gray-500">Most Active Day</p>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-2.5 py-1 rounded-lg">{maxDay.name}</span>
+                      </div>
+                      <div className="h-[120px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={weekdays} barCategoryGap="30%">
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#9ca3af' }} />
+                            <Tooltip
+                              cursor={{ fill: 'rgba(61,133,147,0.05)' }}
+                              formatter={(v: number) => [`${v} orders`, '']}
+                              contentStyle={{ borderRadius: '0.75rem', border: '1px solid #f3f4f6', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', fontSize: 11, fontWeight: 700 }}
+                            />
+                            <Bar dataKey="orders" radius={[4, 4, 4, 4]}>
+                              {weekdays.map(d => (
+                                <Cell key={d.name} fill={d.name === maxDay.name ? '#3D8593' : '#e2e8ec'} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <p className="text-[10px] font-medium text-gray-400 mt-2">Orders received per weekday — schedule posts &amp; restocks around {maxDay.name}.</p>
+                    </div>
+
+                    {/* Category donut with centre total */}
+                    <div className="bg-white rounded-2xl border border-neutral-100 p-6">
+                      <p className="text-xs font-bold text-gray-500 mb-2">Stock by Category</p>
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-[110px] h-[110px] shrink-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={categoryData} innerRadius={38} outerRadius={52} paddingAngle={4} dataKey="value" stroke="none">
+                                {categoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                              </Pie>
+                              <Tooltip contentStyle={{ borderRadius: '0.75rem', border: '1px solid #f3f4f6', fontSize: 11, fontWeight: 700 }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <span className="text-lg font-black text-gray-900 leading-none">{products.length}</span>
+                            <span className="text-[8px] font-black uppercase tracking-widest text-gray-400 mt-0.5">items</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 space-y-1.5 min-w-0">
+                          {categoryData.slice(0, 5).map((c, i) => (
+                            <div key={i} className="flex justify-between items-center gap-2">
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }}></span>
+                                <span className="text-[10px] font-bold text-gray-500 truncate">{c.name}</span>
+                              </span>
+                              <span className="text-[10px] font-black text-gray-900">{c.value}</span>
+                            </div>
+                          ))}
+                          {categoryData.length > 5 && (
+                            <p className="text-[9px] font-bold text-gray-300">+{categoryData.length - 5} more categories</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* BEST SELLING PRODUCTS — what's moving fast (from real paid orders) */}
+            {(() => {
+              const sales: Record<string, { sold: number; revenue: number; lastSold: number }> = {};
+              invoices.forEach(inv => {
+                if (!inv.isPaid || !inv.productName) return;
+                const key = inv.productName.replace(/\s*\(.*\)$/, '').trim();
+                if (!sales[key]) sales[key] = { sold: 0, revenue: 0, lastSold: 0 };
+                sales[key].sold += inv.quantity || 1;
+                sales[key].revenue += inv.totalKES || 0;
+                const t = new Date(inv.createdAt || inv.date || 0).getTime();
+                if (t > sales[key].lastSold) sales[key].lastSold = t;
+              });
+              const top = Object.entries(sales).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 6);
+              if (top.length === 0) return null;
+              return (
+                <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+                  <div className="px-6 py-4 border-b border-neutral-50 flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-black text-gray-900 tracking-tight">Best Selling Products</h3>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Ranked by paid revenue — restocking &amp; marketing focus</p>
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-neutral-50">
+                          <th className="px-8 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">#</th>
+                          <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Product</th>
+                          <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Units Sold</th>
+                          <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Revenue</th>
+                          <th className="px-8 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Last Sold</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-50">
+                        {top.map(([name, s], i) => (
+                          <tr key={name} className="hover:bg-neutral-50/50 transition-colors">
+                            <td className="px-8 py-4">
+                              <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black ${i === 0 ? 'bg-[#FF9900]/10 text-[#FF9900]' : 'bg-neutral-100 text-gray-500'}`}>{i + 1}</span>
+                            </td>
+                            <td className="px-4 py-4 font-bold text-sm text-gray-900 max-w-[280px] truncate">{name}</td>
+                            <td className="px-4 py-4"><span className="px-2.5 py-1 bg-teal-50 text-[#3D8593] rounded-lg text-xs font-black">{s.sold} sold</span></td>
+                            <td className="px-4 py-4 font-black text-sm text-gray-900">KES {s.revenue.toLocaleString()}</td>
+                            <td className="px-8 py-4 text-xs text-gray-400 font-medium">{s.lastSold ? new Date(s.lastSold).toLocaleDateString('en-GB') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
         {/* CLIENTS CRM TAB */}
         {activeTab === 'clients' && (
           <div className="space-y-10 animate-in fade-in duration-700">
-            <div className="relative group max-w-2xl">
-              <Search className="absolute left-8 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-300" />
+            <div className="relative group max-w-md">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
               <input
-                type="text"
-                placeholder="Search by name, email, or location..."
-                className="w-full bg-white border border-neutral-100 rounded-[2.5rem] pl-20 pr-10 py-6 text-sm font-medium shadow-2xl focus:ring-8 focus:ring-[#3D8593]/5 outline-none transition-all"
+                type="search"
+                placeholder="Search by name, email, or location…"
+                className="w-full h-12 bg-white border border-neutral-200 rounded-full pl-11 pr-5 text-sm font-medium outline-none focus:border-[#3D8593] transition-colors"
                 value={adminSearchTerm}
                 onChange={(e) => setAdminSearchTerm(e.target.value)}
               />
             </div>
 
-            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto no-scrollbar">
+            <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden overflow-x-auto no-scrollbar">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-neutral-50/50 border-b border-neutral-100">
-                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Identity</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">HQ & Region</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Financial Value</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Buying Pulse</th>
-                    <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">CRM Actions</th>
+                    <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Client Identity</th>
+                    <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">HQ & Region</th>
+                    <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Financial Value</th>
+                    <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Buying Pulse</th>
+                    <th className="px-4 py-3 text-right text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-50">
                   {filteredClients.map(client => (
                     <tr key={client.id} className="hover:bg-neutral-50/30 transition-colors group">
-                      <td className="px-12 py-10">
-                        <div className="flex items-center gap-6">
-                          <div className="w-16 h-16 bg-gradient-to-br from-teal-50 to-indigo-50 rounded-[1.8rem] flex items-center justify-center text-[#3D8593] font-black text-2xl border border-white group-hover:scale-110 transition-transform">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-teal-50 to-indigo-50 rounded-xl flex items-center justify-center text-[#3D8593] font-black text-base border border-white shrink-0">
                             {client.name.charAt(0)}
                           </div>
-                          <div>
-                            <p className="font-black text-gray-900 text-xl tracking-tight leading-none">{client.name}</p>
-                            <p className="text-[11px] text-gray-400 font-bold mt-2 lowercase">{client.email}</p>
-                            <p className="text-[10px] text-[#3D8593] font-bold mt-1 uppercase tracking-widest">{client.phone}</p>
+                          <div className="min-w-0">
+                            <p className="font-black text-gray-900 text-sm tracking-tight leading-none truncate max-w-[180px]">{client.name}</p>
+                            <p className="text-[10px] text-gray-400 font-bold mt-1 lowercase truncate max-w-[180px]">{client.email}</p>
+                            <p className="text-[9px] text-[#3D8593] font-bold mt-0.5">{client.phone}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-10 py-10">
+                      <td className="px-3 py-3">
                         <p className="font-bold text-sm flex items-center gap-2 text-gray-900"><MapPin className="w-4 h-4 text-[#3D8593]" /> {client.location}</p>
                         <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">Member since {client.joinedDate}</p>
                       </td>
-                      <td className="px-10 py-10">
+                      <td className="px-3 py-3">
                         <p className="text-xl font-black text-gray-900 tracking-tighter">KES {client.totalSpentKES.toLocaleString()}</p>
                         <div className="flex items-center gap-2 mt-2">
                           <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${client.purchaseFrequency === 'High' ? 'bg-emerald-50 text-emerald-500' : 'bg-orange-50 text-orange-500'}`}>
@@ -999,7 +1339,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </span>
                         </div>
                       </td>
-                      <td className="px-10 py-10">
+                      <td className="px-3 py-3">
                         <div className="flex flex-wrap gap-1.5 mb-2">
                           {client.purchasedItems.slice(0, 2).map((item, i) => (
                             <span key={i} className="px-2.5 py-1 bg-white border border-neutral-100 rounded-lg text-[9px] font-black uppercase tracking-widest text-gray-500">{item}</span>
@@ -1010,11 +1350,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                         <p className="text-[9px] text-gray-300 font-bold uppercase tracking-widest">Last Activity: {client.lastOrderDate}</p>
                       </td>
-                      <td className="px-12 py-10 text-right">
-                        <div className="flex justify-end gap-3">
-                          <button title="Marketing Blast" className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"><Mail className="w-4 h-4" /></button>
-                          <button title="Full Audit Log" className="p-4 bg-neutral-900 text-white rounded-2xl hover:bg-black transition-all"><History className="w-4 h-4" /></button>
-                          <button title="Remove Client" onClick={() => handleDeleteClient(client.id)} className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-1">
+                          {client.email && (
+                            <a
+                              href={`mailto:${client.email}?subject=${encodeURIComponent('LegitGrinder — New arrivals & price drops')}`}
+                              title={`Email ${client.name}`}
+                              className="p-2 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
+                            ><Mail className="w-4 h-4" /></a>
+                          )}
+                          {client.phone && (
+                            <a
+                              href={`https://wa.me/${client.phone.replace(/\D/g, '').replace(/^0/, '254')}?text=${encodeURIComponent(`Hi ${client.name.split(' ')[0]}! It's LegitGrinder — `)}`}
+                              target="_blank" rel="noopener noreferrer"
+                              title={`WhatsApp ${client.name}`}
+                              className="p-2 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-[#25D366] hover:text-white transition-all"
+                            ><MessageCircle className="w-4 h-4" /></a>
+                          )}
+                          <button title="Remove Client" onClick={() => handleDeleteClient(client.id)} className="p-2 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </td>
                     </tr>
@@ -1052,29 +1405,107 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            <div className="bg-white rounded-[4rem] border border-neutral-100 shadow-2xl overflow-hidden overflow-x-auto">
+            {/* ORDER CONTROL BAR — search / filter / sort / export */}
+            <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm p-5 space-y-4">
+              <div className="flex flex-col xl:flex-row gap-3">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                  <input
+                    type="search"
+                    placeholder="Search invoice #, client, product, Paystack ref…"
+                    value={invoiceSearch}
+                    onChange={(e) => setInvoiceSearch(e.target.value)}
+                    className="w-full h-12 bg-neutral-50 border border-neutral-100 rounded-full pl-11 pr-5 text-sm font-medium outline-none focus:border-[#3D8593] transition-colors"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <select
+                    value={invoiceFilterPayment}
+                    onChange={(e) => setInvoiceFilterPayment(e.target.value as any)}
+                    className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
+                  >
+                    <option value="all">All Payments</option>
+                    {Object.values(PaymentStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <select
+                    value={invoiceFilterMonth}
+                    onChange={(e) => setInvoiceFilterMonth(e.target.value)}
+                    className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
+                  >
+                    <option value="all">All Months</option>
+                    {invoiceMonths.map(m => (
+                      <option key={m} value={m}>
+                        {new Date(m + '-02').toLocaleString('default', { month: 'long', year: 'numeric' })}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={invoiceSort}
+                    onChange={(e) => setInvoiceSort(e.target.value as any)}
+                    className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="highest">Highest Value</option>
+                    <option value="lowest">Lowest Value</option>
+                  </select>
+                  <button
+                    onClick={handleExportOrders}
+                    className="h-12 px-6 bg-[#3D8593] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2"
+                    title="Export the filtered orders to Excel"
+                  >
+                    <Download className="w-4 h-4" /> Export Filtered
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-6 pt-3 border-t border-neutral-50">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <span className="text-gray-900 text-sm mr-1">{invoiceSummary.count}</span> Orders
+                </p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <span className="text-[#3D8593] text-sm mr-1">KES {invoiceSummary.totalKES.toLocaleString()}</span> Filtered Value
+                </p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <span className="text-rose-500 text-sm mr-1">{invoiceSummary.unpaid}</span> Unpaid
+                </p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <span className="text-[#FF9900] text-sm mr-1">{invoiceSummary.inTransit}</span> Not Yet Delivered
+                </p>
+                {(invoiceSearch || invoiceFilterPayment !== 'all' || invoiceFilterMonth !== 'all') && (
+                  <button
+                    onClick={() => { setInvoiceSearch(''); setInvoiceFilterPayment('all'); setInvoiceFilterMonth('all'); }}
+                    className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline ml-auto"
+                  >
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-neutral-50/50 border-b border-neutral-100">
-                    <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Order/Invoice</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">QTY</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Status</th>
-                    <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Logistics Phase</th>
+                    <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Order/Invoice</th>
+                    <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">QTY</th>
+                    <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Client Status</th>
+                    <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Logistics Phase</th>
                     <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Management</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-50">
-                  {invoices.map(inv => (
+                  {filteredInvoices.map(inv => (
                     <tr key={inv.id} className="hover:bg-neutral-50/30 transition-colors">
-                      <td className="px-12 py-10">
-                        <p className="font-black text-gray-900 text-xl tracking-tight leading-none">#{inv.invoiceNumber}</p>
-                        <p className="text-[10px] text-[#3D8593] font-black uppercase tracking-widest mt-2">{inv.productName}</p>
-                        <p className="text-[8px] text-gray-400 font-bold mt-1 uppercase tracking-tighter">{inv.createdAt ? new Date(inv.createdAt).toLocaleString() : 'Date Unknown'}</p>
+                      <td className="px-4 py-3">
+                        <p className="font-black text-gray-900 text-sm tracking-tight leading-none">#{inv.invoiceNumber}</p>
+                        <p className="text-[9px] text-[#3D8593] font-black uppercase tracking-widest mt-1 max-w-[180px] truncate" title={inv.productName}>{inv.productName}</p>
+                        <p className="text-[8px] text-gray-400 font-bold mt-0.5 uppercase">{inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('en-GB') : 'Date Unknown'}</p>
                       </td>
-                      <td className="px-10 py-10">
+                      <td className="px-3 py-3">
                         <span className="bg-neutral-100 text-gray-600 px-3 py-1 rounded-lg text-xs font-black">×{inv.quantity || 1}</span>
                       </td>
-                      <td className="px-10 py-10">
+                      <td className="px-3 py-3">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
@@ -1099,24 +1530,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </select>
                         </div>
                       </td>
-                      <td className="px-10 py-10">
+                      <td className="px-3 py-3">
                         <select
                           value={inv.status}
                           onChange={(e) => updateInvoiceStatusInDB(inv.id, e.target.value as OrderStatus, getOrderProgress(e.target.value as OrderStatus))}
-                          className="bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:ring-4 focus:ring-teal-100"
+                          className="bg-neutral-50 border border-neutral-100 rounded-lg px-2 py-1.5 text-[9px] font-black uppercase tracking-wide outline-none focus:ring-2 focus:ring-teal-100 max-w-[150px]"
                         >
                           {Object.values(OrderStatus).map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
-                      <td className="px-12 py-10 text-right">
-                        <div className="flex justify-end gap-3">
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-1">
                           <button
                             onClick={() => copyTrackingLink(inv.invoiceNumber)}
-                            className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all"
+                            className="p-2 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all"
                             title="Copy Tracking Link"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </button>
+                          {!inv.isPaid && (
+                            <button
+                              onClick={() => {
+                                const payUrl = `${window.location.origin}/pay/${inv.invoiceNumber}`;
+                                navigator.clipboard.writeText(payUrl).then(() => alert(`💳 Pay link copied!\n\n${payUrl}\n\nSend it to ${inv.clientName} — they pay via Paystack (card/M-Pesa) and you get a WhatsApp confirmation with the reference.`));
+                              }}
+                              className="p-2 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all"
+                              title="Copy Pay Link (send to client to pay this invoice)"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               const printWin = window.open('', '', 'width=900,height=1000');
@@ -1210,14 +1653,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               printWin.document.close();
                               printWin.print();
                             }}
-                            className="p-4 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
+                            className="p-2 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
                             title="Generate Elite Invoice"
                           >
                             <Printer className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setPrintingReceiptInvoice(inv)}
-                            className="p-4 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"
+                            className="p-2 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"
                             title="Print Official Receipt"
                           >
                             <FileText className="w-4 h-4" />
@@ -1283,14 +1726,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               printWin.document.close();
                               printWin.print();
                             }}
-                            className="p-4 bg-orange-50 text-orange-600 rounded-2xl hover:bg-orange-600 hover:text-white transition-all"
+                            className="p-2 bg-orange-50 text-orange-600 rounded-2xl hover:bg-orange-600 hover:text-white transition-all"
                             title="Print Admin Tax Record"
                           >
                             <FileText className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => setEditingBreakdownInvoice(inv)}
-                            className="p-4 bg-sky-50 text-sky-600 rounded-2xl hover:bg-sky-600 hover:text-white transition-all"
+                            className="p-2 bg-sky-50 text-sky-600 rounded-2xl hover:bg-sky-600 hover:text-white transition-all"
                             title="Edit Invoice Breakdown"
                           >
                             <Edit3 className="w-4 h-4" />
@@ -1310,53 +1753,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               });
                               setIsGeneratingContract(true);
                             }}
-                            className="p-4 bg-purple-50 text-purple-600 rounded-2xl hover:bg-purple-600 hover:text-white transition-all"
+                            className="p-2 bg-purple-50 text-purple-600 rounded-2xl hover:bg-purple-600 hover:text-white transition-all"
                             title="Generate Contract"
                           >
                             <ScrollText className="w-4 h-4" />
                           </button>
+                          {/* Print Shipping Label & Quick WhatsApp hidden per owner (2026-07) — may re-enable later.
+                              Kept in git history; remove the `false &&` to restore. */}
+                          {false && (
                           <button
-                            onClick={() => {
-                              const printWin = window.open('', '', 'width=500,height=400');
-                              if (!printWin) return;
-                              printWin.document.write(`
-                                <html>
-                                  <body style="font-family: sans-serif; padding: 20px; border: 2px dashed #000; width: 400px; margin: auto;">
-                                    <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px;">
-                                      <h2 style="margin: 0;">LEGITGRINDER SHIPPING</h2>
-                                      <p style="font-size: 10px; margin: 0;">TRACKING CODE: <strong>${inv.paystackReference || 'MANUAL-SYNC'}</strong></p>
-                                    </div>
-                                    <p><strong>TO:</strong> ${inv.clientName}</p>
-                                    <p><strong>ITEM:</strong> ${inv.productName} (Qty: ${inv.quantity || 1})</p>
-                                    <p><strong>REF:</strong> #${inv.invoiceNumber}</p>
-                                    <div style="margin-top: 20px; text-align: center; font-size: 12px; font-weight: bold;">
-                                      ${inv.status.toUpperCase()}
-                                    </div>
-                                    <div style="margin-top: 20px; border: 1px solid #000; height: 50px; display: flex; align-items: center; justify-content: center;">
-                                      ||| |||| || ||||| ||| ||
-                                    </div>
-                                  </body>
-                                </html>
-                              `);
-                              printWin.document.close();
-                              printWin.print();
-                            }}
-                            className="p-4 bg-neutral-900 text-white rounded-2xl hover:bg-teal-600 transition-all"
+                            className="p-2 bg-neutral-900 text-white rounded-2xl hover:bg-teal-600 transition-all"
                             title="Print Shipping Label"
                           >
                             <Truck className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => {
-                              const whatsappNumber = inv.clientWhatsapp ? inv.clientWhatsapp.replace(/\+/g, '').replace(/\s/g, '') : WHATSAPP_NUMBER;
-                              const msg = encodeURIComponent(`Hi ${inv.clientName}, I've received your payment (Ref: ${inv.paystackReference}). Your order for ${inv.productName} is now: ${inv.status}.`);
-                              window.open(`https://wa.me/${whatsappNumber}?text=${msg}`, '_blank');
-                            }}
-                            className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all"
-                            title="Quick Response (WhatsApp)"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                          </button>
+                          )}
                           <button
                             onClick={async () => {
                               if (!confirm('Are you sure you want to delete this invoice?')) return;
@@ -1368,7 +1779,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 alert("❌ Failed to delete invoice: " + (result.error?.message || "Check console for details"));
                               }
                             }}
-                            className="p-4 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"
+                            className="p-2 bg-rose-50 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all"
                             title="Delete Invoice"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1402,16 +1813,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-neutral-50/50 border-b border-neutral-100">
-                      <th className="px-12 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Target Asset</th>
-                      <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Client Protocol</th>
-                      <th className="px-10 py-10 text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Nodes & Logistics</th>
+                      <th className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Target Asset</th>
+                      <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Client Protocol</th>
+                      <th className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Nodes & Logistics</th>
                       <th className="px-12 py-10 text-right text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-50">
                     {leads.map((lead) => (
                       <tr key={lead.id} className="hover:bg-neutral-50/50 transition-colors group">
-                        <td className="px-12 py-10">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-5">
                             <div className="w-14 h-14 bg-neutral-100 rounded-[1.2rem] flex items-center justify-center text-neutral-400 group-hover:bg-[#3D8593]/10 group-hover:text-[#3D8593] transition-all">
                               <Box className="w-6 h-6" />
@@ -1424,11 +1835,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                           </div>
                         </td>
-                        <td className="px-10 py-10">
+                        <td className="px-3 py-3">
                           <p className="font-bold text-sm text-gray-900 flex items-center gap-2"><User className="w-3.5 h-3.5 text-[#3D8593]" /> {lead.clientName}</p>
                           <p className="text-[10px] font-black text-gray-400 mt-1 uppercase tracking-widest italic">{lead.clientWhatsapp}</p>
                         </td>
-                        <td className="px-10 py-10">
+                        <td className="px-3 py-3">
                           <div className="flex flex-col gap-2 mb-2">
                             <div className="flex items-center gap-3">
                               <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.shippingPreference === 'Air' ? 'bg-cyan-50 text-cyan-600' : 'bg-blue-50 text-blue-600'}`}>
@@ -1457,7 +1868,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                           <p className="text-[10px] font-bold text-gray-300 uppercase italic">Type: {lead.itemType}</p>
                         </td>
-                        <td className="px-12 py-10 text-right">
+                        <td className="px-4 py-3 text-right">
                           <select
                             value={lead.status}
                             onChange={async (e) => {
@@ -1495,62 +1906,146 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* SHOP INVENTORY TAB (STOCK) */}
         {
           activeTab === 'products' && (
-            <div className="space-y-10 animate-in fade-in duration-700">
-              <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-r-xl mb-8">
+            <div className="space-y-6 animate-in fade-in duration-700">
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl">
                 <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2">
-                  <Info className="w-4 h-4" /> Decoupled Stock Manager
-                </p>
-                <p className="text-[9px] font-bold text-amber-600 mt-1">
-                  Phones are managed in the <span className="font-black">SYNC</span> tab. This list is for accessories, special items, and legacy stock cleanup.
+                  <Info className="w-4 h-4" /> Phones are managed in the Phone Price Sync tab — this list is your shop stock.
                 </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                {products.map(p => (
-                  <div key={p.id} className="bg-white rounded-[3.5rem] p-10 border border-neutral-100 shadow-2xl relative group overflow-hidden">
-                    <div className="aspect-square rounded-[2.5rem] overflow-hidden mb-8 relative border border-neutral-50">
-                      <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-                      <div className={`absolute top-6 left-6 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl ${p.availability === Availability.LOCAL ? 'bg-emerald-500 text-white' : 'bg-[#FF9900] text-white'}`}>
-                        {p.availability}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <h4 className="text-2xl font-black text-gray-900 tracking-tight truncate">{p.name}</h4>
-                        <span className="text-[10px] font-black uppercase text-gray-300 tracking-[0.2em]">{p.category}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mb-8">
-                      <div>
-                        <p className="text-2xl font-black text-[#3D8593] tracking-tighter">KES {p.priceKES.toLocaleString()}</p>
-                        {p.discountPriceKES && (
-                          <p className="text-[10px] text-gray-400 line-through">KES {p.discountPriceKES.toLocaleString()}</p>
-                        )}
-                      </div>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{p.shippingDuration || 'Standard Shipping'}</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setEditingProduct(p)}
-                        className="flex-1 py-5 bg-neutral-900 text-white rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 hover:bg-black transition-all"
-                      >
-                        <Edit3 className="w-4 h-4" /> Edit Specs
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="p-5 bg-rose-50 text-rose-500 rounded-[1.8rem] hover:bg-rose-500 hover:text-white transition-all"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <button
-                  onClick={() => setEditingProduct('new')}
-                  className="flex flex-col items-center justify-center border-4 border-dashed border-neutral-100 rounded-[3.5rem] p-12 text-neutral-200 hover:border-[#3D8593] hover:text-[#3D8593] transition-all group min-h-[500px]"
-                >
-                  <Plus className="w-16 h-16 mb-6 group-hover:scale-125 transition-transform" />
-                  <span className="font-black uppercase text-[12px] tracking-widest">Stock Global Unit</span>
-                </button>
+
+              {/* Search + quick stats */}
+              <div className="flex flex-col md:flex-row md:items-center gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                  <input
+                    type="search"
+                    placeholder="Search products or categories…"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full h-12 bg-white border border-neutral-200 rounded-full pl-11 pr-5 text-sm font-medium outline-none focus:border-[#3D8593] transition-colors"
+                  />
+                </div>
+                <div className="flex gap-4 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <span><span className="text-gray-900 text-sm mr-1">{products.length}</span> Products</span>
+                  <span><span className="text-amber-500 text-sm mr-1">{products.filter(p => p.availability === Availability.LOCAL && (p.stockCount || 0) > 0 && (p.stockCount || 0) <= 2).length}</span> Low</span>
+                  <span><span className="text-rose-500 text-sm mr-1">{products.filter(p => p.availability === Availability.LOCAL && (p.stockCount || 0) === 0).length}</span> Out</span>
+                </div>
+              </div>
+
+              {/* Stock management table — inline price & quantity edits */}
+              <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm overflow-hidden overflow-x-auto">
+                <table className="w-full text-left min-w-[820px]">
+                  <thead>
+                    <tr className="border-b border-neutral-100 bg-neutral-50/50">
+                      <th className="px-6 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Product</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Availability</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Price (KES)</th>
+                      <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Pieces in Stock</th>
+                      <th className="px-6 py-4 text-right text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-50">
+                    {products
+                      .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.category?.toLowerCase().includes(productSearch.toLowerCase()))
+                      .map(p => {
+                        const isLocal = p.availability === Availability.LOCAL;
+                        const qty = p.stockCount || 0;
+                        return (
+                          <tr key={p.id} className="hover:bg-neutral-50/40 transition-colors">
+                            <td className="px-6 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-11 h-11 rounded-xl overflow-hidden bg-neutral-100 shrink-0 border border-neutral-100">
+                                  <SafeImage src={p.imageUrls[0]} className="w-full h-full object-cover" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-sm text-gray-900 truncate max-w-[240px]">{p.name}</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">{p.category}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <select
+                                value={p.availability}
+                                onChange={(e) => quickUpdateProduct(p.id, { availability: e.target.value as Availability })}
+                                className={`px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border-0 outline-none cursor-pointer ${isLocal ? (qty === 0 ? 'bg-rose-50 text-rose-500' : qty <= 2 ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600') : 'bg-teal-50 text-[#3D8593]'}`}
+                                title="Switch between local stock and import-on-order"
+                              >
+                                <option value={Availability.LOCAL}>{isLocal ? (qty === 0 ? 'Out of Stock' : qty <= 2 ? 'Low Stock' : 'In Stock') : 'In Stock (Local)'}</option>
+                                <option value={Availability.IMPORT}>Import on Order</option>
+                              </select>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {/* Edits the price customers actually pay (discount price when set, else base) */}
+                              {(() => {
+                                const selling = p.discountPriceKES || p.priceKES;
+                                return (
+                                  <div>
+                                    <input
+                                      type="number"
+                                      key={`${p.id}-price-${selling}`}
+                                      defaultValue={selling}
+                                      min={0}
+                                      onBlur={(e) => {
+                                        const val = parseInt(e.target.value, 10);
+                                        if (isNaN(val) || val <= 0 || val === selling) return;
+                                        quickUpdateProduct(p.id, p.discountPriceKES ? { discountPriceKES: val } : { priceKES: val });
+                                      }}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                      className="w-28 h-9 bg-neutral-50 border border-neutral-100 rounded-lg px-3 text-sm font-bold text-gray-900 outline-none focus:border-[#3D8593] focus:bg-white transition-colors"
+                                      title="Selling price — what customers pay. Press Enter or click away to save."
+                                    />
+                                    {p.discountPriceKES ? (
+                                      <p className="text-[9px] text-gray-400 mt-1">was <s>KES {p.priceKES.toLocaleString()}</s> (sale price active)</p>
+                                    ) : null}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {isLocal ? (
+                                <div className="inline-flex items-center bg-neutral-50 border border-neutral-100 rounded-full">
+                                  <button
+                                    onClick={() => quickUpdateProduct(p.id, { stockCount: Math.max(0, qty - 1) })}
+                                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-rose-500 transition-colors"
+                                    aria-label="Remove one piece"
+                                  >−</button>
+                                  <span className={`min-w-8 text-center text-sm font-black ${qty === 0 ? 'text-rose-500' : 'text-gray-900'}`}>{qty}</span>
+                                  <button
+                                    onClick={() => quickUpdateProduct(p.id, { stockCount: qty + 1 })}
+                                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-emerald-500 transition-colors"
+                                    aria-label="Add one piece"
+                                  >+</button>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">Sourced per order</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-3.5 text-right">
+                              <div className="inline-flex gap-2">
+                                <button
+                                  onClick={() => setEditingProduct(p)}
+                                  className="p-2.5 bg-neutral-50 text-gray-500 rounded-xl hover:bg-neutral-900 hover:text-white transition-all"
+                                  title="Full edit (images, description, variations)"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(p.id)}
+                                  className="p-2.5 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+                                  title="Delete product"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+                {products.length === 0 && (
+                  <p className="px-8 py-10 text-sm text-gray-400 font-medium text-center">No products yet — add your first with "New Shop Asset" above.</p>
+                )}
               </div>
             </div>
           )
@@ -1581,7 +2076,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {seeding ? 'Restoring Global Inventory...' : 'RESTORE PHONE MODELS'}
                     </button>
                   </div>
-                  <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Manual Price Management Mode Active</p>
+                  <div className="flex items-center gap-2 px-5 py-2.5 bg-teal-50 border border-teal-100 rounded-full">
+                    <span className="w-2 h-2 rounded-full bg-[#3D8593] animate-pulse"></span>
+                    <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest">
+                      Auto-Sync Active · Back Market prices refresh monthly (16th) · Manual edits create overrides
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1599,13 +2099,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div key={idx} className={`p-8 rounded-[3rem] border transition-all relative ${cap.isManualOverride ? 'bg-orange-50 border-orange-100' : 'bg-white border-neutral-100 hover:border-teal-100 shadow-sm'}`}>
                           <div className="flex justify-between items-center mb-8">
                             <span className="px-4 py-2 bg-neutral-900 text-white text-[9px] font-black rounded-xl uppercase tracking-widest">{cap.capacity}</span>
-                            <span className="text-[8px] text-gray-400 font-bold uppercase tracking-widest">{cap.lastSynced}</span>
+                            <span className={`px-3 py-1.5 text-[8px] font-black rounded-full uppercase tracking-widest ${cap.isManualOverride ? 'bg-orange-100 text-orange-600' : 'bg-teal-50 text-[#3D8593]'}`}>
+                              {cap.isManualOverride ? 'Manual Override' : 'Auto-Synced'}
+                            </span>
                           </div>
                           <div>
-                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-3">Live KES Strategy Price</label>
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-3">
+                              Live KES Price {cap.sourcePriceUSD ? <span className="text-gray-300">· Source ${cap.sourcePriceUSD}</span> : null} <span className="text-gray-300">· {cap.lastSynced}</span>
+                            </label>
                             <div className="flex justify-between items-end">
                               <p className="text-3xl font-black text-gray-900 tracking-tighter">KES {cap.currentPriceKES.toLocaleString()}</p>
-                              <button onClick={() => handleOpenPriceEdit(item.id, idx)} className="p-4 bg-neutral-50 rounded-2xl text-gray-300 hover:text-[#3D8593] shadow-inner">
+                              <button onClick={() => handleOpenPriceEdit(item.id, idx)} className="p-2 bg-neutral-50 rounded-2xl text-gray-300 hover:text-[#3D8593] shadow-inner">
                                 <Edit3 className="w-5 h-5" />
                               </button>
                             </div>
@@ -1715,8 +2219,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="aspect-video rounded-[2.5rem] overflow-hidden mb-8 relative">
                     <SafeImage src={b.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                     <div className="absolute top-6 right-6 flex gap-3">
-                      <button onClick={() => setEditingBlog(b)} className="p-4 bg-white/90 backdrop-blur rounded-2xl shadow-xl hover:bg-white hover:scale-110 transition-all"><Edit3 className="w-5 h-5" /></button>
-                      <button onClick={() => handleDeleteBlog(b.id)} className="p-4 bg-rose-500 text-white rounded-2xl shadow-xl hover:bg-rose-600 hover:scale-110 transition-all"><Trash2 className="w-5 h-5" /></button>
+                      <button onClick={() => setEditingBlog(b)} className="p-2 bg-white/90 backdrop-blur rounded-2xl shadow-xl hover:bg-white hover:scale-110 transition-all"><Edit3 className="w-5 h-5" /></button>
+                      <button onClick={() => handleDeleteBlog(b.id)} className="p-2 bg-rose-500 text-white rounded-2xl shadow-xl hover:bg-rose-600 hover:scale-110 transition-all"><Trash2 className="w-5 h-5" /></button>
                     </div>
                   </div>
                   <span className="text-[10px] font-black text-[#3D8593] uppercase tracking-widest bg-teal-50 px-4 py-2 rounded-full">{b.category}</span>
@@ -2208,6 +2712,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               value={v.priceKES || ''}
                               onChange={(e) => updateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
                               className="w-full bg-white border border-neutral-100 rounded-xl pl-10 pr-3 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                            />
+                          </div>
+                          <div className="relative w-24" title="Pieces in stock for this variant (leave blank to not track)">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">PCS</span>
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Stock"
+                              value={v.stockCount ?? ''}
+                              onChange={(e) => updateVariation(idx, { stockCount: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value) || 0) })}
+                              className="w-full bg-white border border-neutral-100 rounded-xl pl-9 pr-2 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
                             />
                           </div>
                           <button

@@ -53,6 +53,8 @@ export interface ProductVariation {
   name: string;
   priceKES: number; // Override or additional cost
   imageUrl?: string;
+  /** Optional per-variant stock. When set, the shop caps/deducts this variant's pieces. */
+  stockCount?: number;
 }
 
 export interface Product {

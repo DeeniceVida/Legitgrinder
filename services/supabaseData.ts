@@ -2,6 +2,87 @@
 import { supabase } from '../lib/supabase';
 import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus, BlogPost, FAQItem, Invoice, OrderStatus, SourcingRequest, EBook, PaymentStatus } from '../types';
 
+/**
+ * Atomically deduct purchased pieces from a product's stock after a successful
+ * website payment. Uses the `decrement_product_stock` SECURITY DEFINER function
+ * (see add_stock_deduction.sql) because RLS correctly blocks direct guest writes.
+ * Returns the new stock count, or null if the RPC failed / isn't installed yet.
+ */
+/**
+ * Deduct pieces from ONE variant's stock (and the product total) after payment.
+ * Uses decrement_variant_stock (see add_variant_stock_deduction.sql).
+ * Returns the updated variants array, or null on failure.
+ */
+export const decrementVariantStock = async (
+    productId: string,
+    variantType: string,
+    variantName: string,
+    qty: number
+): Promise<any[] | null> => {
+    try {
+        const { data, error } = await supabase.rpc('decrement_variant_stock', {
+            p_product_id: productId,
+            p_variant_type: variantType,
+            p_variant_name: variantName,
+            p_qty: qty
+        });
+        if (error) {
+            console.error('Variant stock deduction failed:', error.message);
+            return null;
+        }
+        return Array.isArray(data) ? data : null;
+    } catch (e) {
+        console.error('Variant stock deduction error:', e);
+        return null;
+    }
+};
+
+/**
+ * Record a pay-link payment (deposit or full) against an invoice via the
+ * record_invoice_payment RPC (see add_invoice_payment.sql). Returns the new
+ * payment state (status, balance) or null on failure.
+ */
+export const recordInvoicePayment = async (
+    invoiceNumber: string,
+    amountKES: number,
+    reference: string,
+    email?: string
+): Promise<{ paymentStatus: string; balanceKES: number; isPaid: boolean } | null> => {
+    try {
+        const { data, error } = await supabase.rpc('record_invoice_payment', {
+            p_invoice_number: invoiceNumber,
+            p_amount_kes: Math.round(amountKES),
+            p_reference: reference,
+            p_email: email || null
+        });
+        if (error || !data?.success) {
+            console.error('record_invoice_payment failed:', error?.message || data?.error);
+            return null;
+        }
+        return { paymentStatus: data.payment_status, balanceKES: data.balance_kes, isPaid: data.is_paid };
+    } catch (e) {
+        console.error('record_invoice_payment error:', e);
+        return null;
+    }
+};
+
+export const decrementProductStock = async (productId: string, qty: number): Promise<number | null> => {
+    try {
+        const { data, error } = await supabase.rpc('decrement_product_stock', {
+            p_product_id: productId,
+            p_qty: qty
+        });
+        if (error) {
+            console.error('Stock deduction failed:', error.message);
+            return null;
+        }
+        return typeof data === 'number' ? data : null;
+    } catch (e) {
+        console.error('Stock deduction error:', e);
+        return null;
+    }
+};
+
 export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
     try {
         // High Reliability Fetch: Get models and variants separately to bypass schema cache issues
@@ -57,39 +138,10 @@ export const fetchPricelistData = async (): Promise<PricelistItem[]> => {
         const result = Object.values(groupedData).filter(m => m.capacities.length > 0);
         console.log(`🔍 DEBUG: Grouped into ${result.length} unique phone models.`);
 
-        // --- FALLBACK MECHANISM ---
-        // If database is empty (wiped or connection issue), generate from static schema
-        // to prevent "No models found" error.
-        if (result.length === 0) {
-            console.warn('⚠️ WARNING: Database returned 0 items. Activating Failover Protocol.');
-            const { PHONE_MODELS_SCHEMA, KES_PER_USD } = await import('../constants'); // Dynamic import to avoid cycles if any
-
-            const fallbackList: PricelistItem[] = [];
-
-            Object.entries(PHONE_MODELS_SCHEMA).forEach(([brand, models]) => {
-                models.forEach((m: any) => {
-                    fallbackList.push({
-                        id: `fallback-${m.name}`,
-                        modelName: m.name,
-                        brand: brand as any,
-                        series: m.series,
-                        syncAlert: true, // Mark as requiring sync
-                        capacities: m.capacities.map((cap: string, idx: number) => ({
-                            id: `fallback-${m.name}-${cap}`,
-                            capacity: cap,
-                            currentPriceKES: 0, // Indicate "On Request" or 0
-                            previousPriceKES: 0,
-                            lastSynced: 'System Fallback',
-                            sourcePriceUSD: 0,
-                            isManualOverride: false
-                        }))
-                    });
-                });
-            });
-            console.log(`🛡️ FAILOVER: Generated ${fallbackList.length} static fallback items.`);
-            return fallbackList;
-        }
-        // --------------------------
+        // NOTE: The old "Failover Protocol" (static fallback list with KES 0 prices)
+        // was removed 2026-07: it caused phantom devices to appear with fake prices
+        // and then vanish when real data arrived. The Pricelist page now shows a
+        // loading skeleton instead, and an honest empty state if the DB is empty.
 
         return result;
     } catch (error) {

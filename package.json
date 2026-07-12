@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.38.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "^2.93.2",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.563.0",
