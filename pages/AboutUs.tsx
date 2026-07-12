@@ -63,7 +63,7 @@ const AboutUs: React.FC = () => {
             <a href="https://www.tiktok.com/@legitgrinderimports" target="_blank" rel="noopener noreferrer" className="bg-white/10 hover:bg-[#3D8593] transition-colors px-6 py-3 rounded-full font-bold">TikTok</a>
             <a href="https://www.instagram.com/legitgrinder.imports" target="_blank" rel="noopener noreferrer" className="bg-white/10 hover:bg-[#3D8593] transition-colors px-6 py-3 rounded-full font-bold">Instagram</a>
             <a href="https://share.google/DDnPWrlwWvOIsYdHZ" target="_blank" rel="noopener noreferrer" className="bg-white/10 hover:bg-[#3D8593] transition-colors px-6 py-3 rounded-full font-bold">Google Reviews</a>
-            <a href="https://legitgrinder.site/" target="_blank" rel="noopener noreferrer" className="bg-white/10 hover:bg-[#3D8593] transition-colors px-6 py-3 rounded-full font-bold">Website</a>
+            <a href="https://legitgrinder.com/" target="_blank" rel="noopener noreferrer" className="bg-white/10 hover:bg-[#3D8593] transition-colors px-6 py-3 rounded-full font-bold">Website</a>
           </div>
 
           <div className="pt-8 border-t border-white/20">

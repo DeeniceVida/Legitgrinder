@@ -1606,7 +1606,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       <p><span>Quote Date:</span> ${new Date(inv.date || inv.createdAt).toLocaleDateString('en-GB')}</p>
                                       <p><span>Client Details:</span> ${inv.clientName}</p>
                                       <p><span>Invoice No:</span> IG-${inv.invoiceNumber}</p>
-                                      <p><span>Web:</span> www.legitgrinder.site</p>
+                                      <p><span>Web:</span> www.legitgrinder.com</p>
                                     </div>
                                     <div class="title">${inv.productName} Invoice</div>
                                     <table>
@@ -3016,7 +3016,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <h1 className="text-4xl font-black tracking-tighter uppercase mb-2">LEGIT GRINDER</h1>
                 <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500 mb-2">Official Sales Invoice / Ship Label</p>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-[#3D8593]">Web: www.legitgrinder.site • IG: @legitgrinderimports</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#3D8593]">Web: www.legitgrinder.com • IG: @legitgrinderimports</p>
               </div>
               <div className="text-right">
                 <p className="text-xl font-black">#{printingInvoice.invoiceNumber}</p>
@@ -3116,160 +3116,158 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       `}</style>
       {/* MANUAL INVOICE CREATION MODAL */}
-      {isCreatingManualInvoice && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white rounded-[4rem] p-12 w-full max-w-xl shadow-[0_0_100px_rgba(0,0,0,0.4)] animate-in zoom-in-95 duration-300 relative border border-white/20 max-h-[95vh] overflow-y-auto">
-            <button
-              onClick={() => setIsCreatingManualInvoice(false)}
-              className="absolute top-10 right-10 p-4 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
-            >
-              <X className="w-6 h-6 text-gray-400" />
-            </button>
-
-            <div className="mb-12">
-              <h3 className="text-4xl font-black text-gray-900 tracking-tight leading-none mb-4 uppercase">Direct <span className="text-[#3D8593]">Protocol</span></h3>
-              <p className="text-[10px] font-black text-[#3D8593] uppercase tracking-[0.3em]">Manual Entry & Logistics Initialization</p>
+      {isCreatingManualInvoice && (() => {
+        const inputCls = "w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 font-semibold text-sm text-gray-900 outline-none focus:border-[#3D8593] focus:bg-white transition-colors placeholder:text-neutral-300 placeholder:font-medium";
+        const labelCls = "text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5";
+        const itemsTotal = manualOrderItems.reduce((acc, item) => acc + (item.priceKES || 0) * (item.quantity || 1), 0);
+        return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 relative max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-7 py-5 border-b border-neutral-100">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-teal-50 text-[#3D8593] flex items-center justify-center"><FileText className="w-5 h-5" /></span>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">New Order</h3>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Create a manual invoice</p>
+                </div>
+              </div>
+              <button onClick={() => setIsCreatingManualInvoice(false)} className="p-2 rounded-lg hover:bg-neutral-100 transition-colors">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
             </div>
 
-            <form onSubmit={handleCreateManualOrder} className="space-y-8">
-              <div className="grid grid-cols-2 gap-6">
+            <form id="manualOrderForm" onSubmit={handleCreateManualOrder} className="flex-1 overflow-y-auto px-7 py-6 space-y-5">
+              {/* Client */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client Full Name</label>
-                  <input required name="clientName" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Dennis Munga" />
+                  <label className={labelCls}>Client Full Name</label>
+                  <input required name="clientName" className={inputCls} placeholder="e.g. Dennis Munga" />
                 </div>
-                <div className="col-span-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Client WhatsApp Number</label>
-                  <input name="clientWhatsapp" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. 254791873538" />
+                <div>
+                  <label className={labelCls}>WhatsApp Number</label>
+                  <input name="clientWhatsapp" className={inputCls} placeholder="254791873538" />
                 </div>
-                <div className="col-span-1">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Currency</label>
-                  <select value={manualOrderCurrency} onChange={(e) => setManualOrderCurrency(e.target.value as 'KES' | 'USD')} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all">
+                <div>
+                  <label className={labelCls}>Currency</label>
+                  <select value={manualOrderCurrency} onChange={(e) => setManualOrderCurrency(e.target.value as 'KES' | 'USD')} className={inputCls}>
                     <option value="KES">KES</option>
                     <option value="USD">USD</option>
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Custom Invoice Title (Optional)</label>
-                  <input name="customTitle" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. Amazon Packages (defaults to item list)" />
-                </div>
-                <div className="col-span-2">
-                  <div className="flex justify-between items-end mb-4">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block ml-2">Items</label>
-                    <button type="button" onClick={() => setManualOrderItems([...manualOrderItems, { name: '', quantity: 1, priceKES: 0 }])} className="text-[10px] font-black uppercase text-[#3D8593] hover:text-[#2d626c] transition-colors flex items-center gap-1">
-                      <Plus className="w-3 h-3" /> Add Item
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    {manualOrderItems.map((item, idx) => (
-                      <div key={idx} className="flex gap-4 items-start relative group">
-                        <div className="flex-1">
-                          <input required value={item.name} onChange={(e) => {
-                            const newItems = [...manualOrderItems];
-                            newItems[idx].name = e.target.value;
-                            setManualOrderItems(newItems);
-                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-300" placeholder="Product Spec (e.g. M3 Pro MacBook)" />
-                        </div>
-                        <div className="w-24">
-                          <input required type="number" min="1" value={item.quantity} onChange={(e) => {
-                            const newItems = [...manualOrderItems];
-                            newItems[idx].quantity = parseInt(e.target.value) || 1;
-                            setManualOrderItems(newItems);
-                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-4 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all text-center" placeholder="Qty" />
-                        </div>
-                        <div className="w-40">
-                          <input required type="number" min="0" value={item.priceKES} onChange={(e) => {
-                            const newItems = [...manualOrderItems];
-                            newItems[idx].priceKES = parseFloat(e.target.value) || 0;
-                            setManualOrderItems(newItems);
-                          }} className="w-full bg-neutral-50 border-none rounded-2xl px-4 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all text-right" placeholder={`Total ${manualOrderCurrency}`} />
-                        </div>
-                        {manualOrderItems.length > 1 && (
-                          <button type="button" onClick={() => setManualOrderItems(manualOrderItems.filter((_, i) => i !== idx))} className="absolute -right-3 -top-3 hidden group-hover:flex items-center justify-center w-6 h-6 bg-rose-100 text-rose-500 rounded-full">
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Total Amount ({manualOrderCurrency} / TBD) (Leave blank to autocalculate)</label>
-                  <input type="text" name="totalKES" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-300" placeholder={`Auto computed: ${manualOrderItems.reduce((acc, item) => acc + item.priceKES, 0)}`} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Order Date (Optional - defaults to today)</label>
-                  <input type="date" name="createdAt" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all text-neutral-400" />
-                </div>
-                <div className="col-span-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Transactional Code / Receipt Number (Optional)</label>
-                  <input type="text" name="paystackReference" className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-teal-100 transition-all placeholder:text-neutral-200" placeholder="e.g. QWX982M21 or M-Pesa Code" />
-                </div>
-                
-                {/* Cost Breakdown Inputs */}
-                <div className="col-span-2 mt-4">
-                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#3D8593] mb-4 border-b pb-2">Internal Cost Breakdown (Optional)</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Buying Price (KES)</label>
-                      <input type="number" name="buyingPriceKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Shipping Fee (KES)</label>
-                      <input type="number" name="shippingFeeKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics / Riders Cost (KES)</label>
-                      <input type="number" name="logisticsCostKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Service Fee (KES)</label>
-                      <input type="number" name="serviceFeeKES" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-xl px-6 py-4 font-bold text-sm focus:ring-4 focus:ring-teal-100 transition-all" />
-                    </div>
-                  </div>
+                  <label className={labelCls}>Invoice Title <span className="text-neutral-300 normal-case font-medium">— optional</span></label>
+                  <input name="customTitle" className={inputCls} placeholder="e.g. Amazon Packages (defaults to items)" />
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Initial Payment Status</label>
-                <div className="flex gap-4">
-                  {Object.values(PaymentStatus).map(status => (
-                    <label key={status} className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-3xl border-2 cursor-pointer transition-all ${status === manualOrderPaymentStatus
-                      ? 'bg-teal-50 border-[#3D8593] text-[#3D8593]'
-                      : 'bg-neutral-50 border-transparent text-gray-400'
-                      }`}>
-                      <input
-                        type="radio"
-                        name="paymentStatus"
-                        value={status}
-                        className="hidden"
-                        checked={status === manualOrderPaymentStatus}
-                        onChange={() => setManualOrderPaymentStatus(status)}
-                      />
-                      <span className="text-[9px] font-black uppercase tracking-tighter">{status}</span>
-                    </label>
+              {/* Items */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className={labelCls + " mb-0"}>Items</label>
+                  <button type="button" onClick={() => setManualOrderItems([...manualOrderItems, { name: '', quantity: 1, priceKES: 0 }])} className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] hover:text-[#2d626c] flex items-center gap-1">
+                    <Plus className="w-3 h-3" /> Add
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {/* Column hints */}
+                  <div className="flex gap-2 px-1">
+                    <span className="flex-1 text-[8px] font-black uppercase tracking-widest text-neutral-300">Product</span>
+                    <span className="w-16 text-[8px] font-black uppercase tracking-widest text-neutral-300 text-center">Qty</span>
+                    <span className="w-28 text-[8px] font-black uppercase tracking-widest text-neutral-300 text-right">Unit Price</span>
+                    <span className="w-5"></span>
+                  </div>
+                  {manualOrderItems.map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <input required value={item.name} onChange={(e) => {
+                        const n = [...manualOrderItems]; n[idx].name = e.target.value; setManualOrderItems(n);
+                      }} className={inputCls + " flex-1"} placeholder="e.g. M3 Pro MacBook" />
+                      <input required type="number" min="1" value={item.quantity} onChange={(e) => {
+                        const n = [...manualOrderItems]; n[idx].quantity = parseInt(e.target.value) || 1; setManualOrderItems(n);
+                      }} className={inputCls + " w-16 text-center px-2"} />
+                      <input required type="number" min="0" value={item.priceKES} onChange={(e) => {
+                        const n = [...manualOrderItems]; n[idx].priceKES = parseFloat(e.target.value) || 0; setManualOrderItems(n);
+                      }} className={inputCls + " w-28 text-right px-2"} placeholder="0" />
+                      <button type="button" disabled={manualOrderItems.length === 1} onClick={() => setManualOrderItems(manualOrderItems.filter((_, i) => i !== idx))} className="w-5 h-5 flex items-center justify-center text-neutral-300 hover:text-rose-500 disabled:opacity-0 transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-6">
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingManualInvoice(false)}
-                  className="flex-1 py-6 bg-neutral-100 text-gray-400 rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-200 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-[2] py-6 bg-[#3D8593] text-white rounded-3xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-all shadow-[0_20px_40px_rgba(61,133,147,0.3)] shadow-teal-100"
-                >
-                  Initialize Logistics
-                </button>
+              {/* Total + date + code */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className={labelCls}>Total Amount <span className="text-neutral-300 normal-case font-medium">— blank = auto-calculate</span></label>
+                  <input type="text" name="totalKES" className={inputCls} placeholder={`Auto: ${manualOrderCurrency} ${itemsTotal.toLocaleString()}`} />
+                </div>
+                <div>
+                  <label className={labelCls}>Order Date <span className="text-neutral-300 normal-case font-medium">— optional</span></label>
+                  <input type="date" name="createdAt" className={inputCls + " text-gray-500"} />
+                </div>
+                <div>
+                  <label className={labelCls}>Receipt / M-Pesa Code <span className="text-neutral-300 normal-case font-medium">— optional</span></label>
+                  <input type="text" name="paystackReference" className={inputCls} placeholder="e.g. QWX982M21" />
+                </div>
+              </div>
+
+              {/* Cost breakdown */}
+              <details className="group">
+                <summary className="flex items-center gap-2 cursor-pointer text-[10px] font-black uppercase tracking-widest text-[#3D8593] list-none">
+                  <ChevronRight className="w-3.5 h-3.5 group-open:rotate-90 transition-transform" /> Internal Cost Breakdown (optional)
+                </summary>
+                <div className="grid grid-cols-2 gap-3 mt-3 pl-1">
+                  {[
+                    { name: 'buyingPriceKES', label: 'Buying Price' },
+                    { name: 'shippingFeeKES', label: 'Shipping Fee' },
+                    { name: 'logisticsCostKES', label: 'Logistics / Riders' },
+                    { name: 'serviceFeeKES', label: 'Service Fee' },
+                  ].map(f => (
+                    <div key={f.name}>
+                      <label className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">{f.label} (KES)</label>
+                      <input type="number" name={f.name} defaultValue="0" className={inputCls + " py-2"} />
+                    </div>
+                  ))}
+                </div>
+              </details>
+
+              {/* Payment status */}
+              <div>
+                <label className={labelCls}>Payment Status</label>
+                <div className="flex gap-2">
+                  {Object.values(PaymentStatus).map(status => (
+                    <label key={status} className={`flex-1 flex items-center justify-center py-2.5 rounded-xl border cursor-pointer transition-all text-[9px] font-black uppercase tracking-wider ${status === manualOrderPaymentStatus
+                      ? 'bg-[#3D8593] border-[#3D8593] text-white'
+                      : 'bg-neutral-50 border-neutral-200 text-gray-400 hover:border-[#3D8593]'
+                      }`}>
+                      <input type="radio" name="paymentStatus" value={status} className="hidden" checked={status === manualOrderPaymentStatus} onChange={() => setManualOrderPaymentStatus(status)} />
+                      {status}
+                    </label>
+                  ))}
+                </div>
               </div>
             </form>
+
+            {/* Footer — live total + actions (sticky) */}
+            <div className="px-7 py-4 border-t border-neutral-100 bg-neutral-50/50">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Order Total</span>
+                <span className="text-lg font-black text-gray-900 tracking-tight">{manualOrderCurrency} {itemsTotal.toLocaleString()}</span>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setIsCreatingManualInvoice(false)} className="px-6 py-3 bg-white border border-neutral-200 text-gray-500 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-100 transition-all">
+                  Cancel
+                </button>
+                <button type="submit" form="manualOrderForm" className="flex-1 py-3 bg-[#3D8593] text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-[#0f1a1c] transition-all flex items-center justify-center gap-2">
+                  <Check className="w-4 h-4" /> Create Order
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* CONTRACT GENERATOR MODAL */}
       {isGeneratingContract && (
@@ -3755,7 +3753,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div class="header">
                       <div class="brand">
                         <h1>LegitGrinder</h1>
-                        <p>+254 791 873 538 &nbsp;|&nbsp; www.legitgrinder.site</p>
+                        <p>+254 791 873 538 &nbsp;|&nbsp; www.legitgrinder.com</p>
                       </div>
                       <div class="meta">
                         <p><span>Date:</span>${new Date().toLocaleDateString('en-GB')}</p>
@@ -3991,64 +3989,88 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <head>
                     <title>Receipt LG-${inv.invoiceNumber}</title>
                     <style>
-                      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-                      body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1a1a; }
-                      .container { border: 1px solid #ccc; padding: 40px; position: relative; }
-                      .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.05; width: 60%; z-index: -1; }
-                      .header-logo { text-align: center; margin-bottom: 20px; }
-                      .header-logo img { width: 100px; }
-                      .contact-bar { display: flex; justify-content: space-between; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; font-size: 11px; margin-bottom: 30px; font-weight: 600; }
-                      .receipt-label { background: black; color: white; display: inline-block; padding: 5px 20px; font-size: 14px; font-weight: 900; margin-bottom: 40px; letter-spacing: 2px; text-transform: uppercase; }
-                      .top-meta { display: flex; justify-content: space-between; margin-bottom: 40px; }
-                      .field { margin-bottom: 25px; display: flex; align-items: flex-end; font-size: 15px; }
-                      .field label { font-weight: 500; min-width: 140px; }
-                      .field div { border-bottom: 1px solid #999; flex: 1; margin-left: 10px; padding: 3px 10px; font-weight: 700; font-style: italic; }
-                      .financial-summary { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; }
-                      .summary-table { border-collapse: collapse; width: 250px; }
-                      .summary-table td { border: 1px solid #ccc; padding: 10px; font-size: 13px; font-weight: 500; }
-                      .summary-table .val { text-align: right; font-weight: 900; }
-                      .signature { border-top: 1px solid #000; width: 250px; text-align: center; padding-top: 10px; font-size: 12px; font-weight: 700; }
-                      .invoice-ref { text-align: right; font-size: 13px; font-weight: 700; }
+                      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+                      * { box-sizing: border-box; }
+                      body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; color: #1a2223; background: #f4f5f4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                      .container { max-width: 720px; margin: auto; background: #fff; border-radius: 20px; overflow: hidden; position: relative; box-shadow: 0 20px 50px rgba(15,26,28,0.08); }
+                      .accent { height: 8px; background: linear-gradient(90deg, #3D8593, #FF9900); }
+                      .inner { padding: 40px 48px; position: relative; }
+                      .watermark { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%) rotate(-18deg); opacity: 0.04; width: 70%; z-index: 0; }
+                      .inner > * { position: relative; z-index: 1; }
+                      .header-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+                      .header-logo img { width: 54px; height: 54px; border-radius: 12px; object-fit: cover; }
+                      .brand-name { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+                      .brand-tag { font-size: 9px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: #3D8593; margin-top: 2px; }
+                      .contact-bar { display: flex; flex-wrap: wrap; gap: 4px 24px; border-top: 1px solid #eef0ef; border-bottom: 1px solid #eef0ef; padding: 12px 0; font-size: 10.5px; margin-bottom: 28px; font-weight: 600; color: #6b7677; }
+                      .receipt-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+                      .receipt-label { background: #0f1a1c; color: #fff; display: inline-block; padding: 8px 22px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; }
+                      .meta-right { text-align: right; font-size: 12px; }
+                      .meta-right .k { color: #9aa4a4; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 9px; }
+                      .meta-right .v { font-weight: 800; font-size: 14px; margin-bottom: 8px; }
+                      .field { margin-bottom: 18px; display: flex; align-items: baseline; font-size: 14px; }
+                      .field label { font-weight: 600; min-width: 150px; color: #6b7677; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+                      .field .fv { border-bottom: 1px dashed #cfd6d6; flex: 1; margin-left: 8px; padding: 2px 8px; font-weight: 700; font-family: 'Instrument Serif', serif; font-style: italic; font-size: 17px; }
+                      .financial-summary { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 44px; gap: 24px; }
+                      .summary-table { border-collapse: separate; border-spacing: 0; width: 280px; border-radius: 12px; overflow: hidden; border: 1px solid #eef0ef; }
+                      .summary-table td { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #4a5556; border-bottom: 1px solid #eef0ef; }
+                      .summary-table tr:last-child td { border-bottom: none; }
+                      .summary-table .val { text-align: right; font-weight: 800; color: #0f1a1c; }
+                      .summary-table .total-row td { background: #3D8593; color: #fff; font-weight: 800; }
+                      .signature { border-top: 2px solid #0f1a1c; width: 220px; text-align: center; padding-top: 8px; font-size: 12px; font-weight: 700; }
+                      .signature .role { color: #9aa4a4; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+                      .thanks { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eef0ef; font-size: 11px; color: #9aa4a4; font-weight: 600; letter-spacing: 0.5px; }
+                      .thanks strong { color: #3D8593; }
+                      @media print { body { background: #fff; padding: 0; } .container { box-shadow: none; border-radius: 0; } }
                     </style>
                   </head>
                   <body>
                     <div class="container">
-                      <img src="${logoUrl}" class="watermark" />
-                      <div class="header-logo">
-                        <img src="${logoUrl}" />
-                      </div>
-                      <div class="contact-bar">
-                        <div>Email: Mungaimports@gmail.com</div>
-                        <div>Socials: Legitgrinderimports</div>
-                        <div>Phone: +254 791873538</div>
-                        <div>Web: www.legitgrinder.site</div>
-                      </div>
-                      <center><div class="receipt-label">RECEIPT</div></center>
-                      
-                      <div class="top-meta">
-                        <div class="field" style="width: 45%"><label>Date:</label> <div>${new Date().toLocaleDateString('en-GB')}</div></div>
-                        <div class="field" style="width: 45%"><label>Receipt No:</label> <div>LG-${inv.invoiceNumber}</div></div>
-                      </div>
-
-                      <div class="field"><label>Received From:</label> <div>${inv.clientName}</div></div>
-                      <div class="field"><label>The sum of money:</label> <div>${sumInWords}</div></div>
-                      <div class="field"><label>REF:</label> <div>${transactionRef || inv.paystackReference || 'MANUAL-ENTRY'}</div></div>
-                      <div class="field"><label>Being Payment of:</label> <div>${inv.productName}</div></div>
-
-                      <div class="financial-summary">
-                        <table class="summary-table">
-                          <tr><td>Amount received:</td> <td class="val" style="color: #3d8593;">${amtStr}</td></tr>
-                          <tr><td>Balance:</td> <td class="val" style="color: #ef4444;">${balStr}</td></tr>
-                          <tr><td style="background: #f9f9f9;">Total:</td> <td class="val" style="background: #f9f9f9; color: #3d8593;">${totStr}</td></tr>
-                        </table>
-                        
-                        <div>
-                          <div class="invoice-ref">Invoice No: IG-${inv.invoiceNumber}</div>
-                          <div style="margin-top: 40px;" class="signature">
-                            Dennis Munga<br/>
-                            Recieved/Approved By:
+                      <div class="accent"></div>
+                      <div class="inner">
+                        <img src="${logoUrl}" class="watermark" />
+                        <div class="header-logo">
+                          <img src="${logoUrl}" />
+                          <div>
+                            <div class="brand-name">LegitGrinder</div>
+                            <div class="brand-tag">Global Logistics</div>
                           </div>
                         </div>
+                        <div class="contact-bar">
+                          <div>Mungaimports@gmail.com</div>
+                          <div>@Legitgrinderimports</div>
+                          <div>+254 791 873 538</div>
+                          <div>www.legitgrinder.com</div>
+                        </div>
+
+                        <div class="receipt-head">
+                          <div class="receipt-label">Receipt</div>
+                          <div class="meta-right">
+                            <div class="k">Date</div>
+                            <div class="v">${new Date().toLocaleDateString('en-GB')}</div>
+                            <div class="k">Receipt No</div>
+                            <div class="v">LG-${inv.invoiceNumber}</div>
+                          </div>
+                        </div>
+
+                        <div class="field"><label>Received From</label> <div class="fv">${inv.clientName}</div></div>
+                        <div class="field"><label>The Sum Of</label> <div class="fv">${sumInWords}</div></div>
+                        <div class="field"><label>Reference</label> <div class="fv">${transactionRef || inv.paystackReference || 'MANUAL-ENTRY'}</div></div>
+                        <div class="field"><label>Being Payment Of</label> <div class="fv">${inv.productName}</div></div>
+
+                        <div class="financial-summary">
+                          <table class="summary-table">
+                            <tr><td>Amount Received</td> <td class="val">${amtStr}</td></tr>
+                            <tr><td>Balance Due</td> <td class="val" style="color:#ef4444;">${balStr}</td></tr>
+                            <tr class="total-row"><td>Total</td> <td class="val" style="color:#fff;">${totStr}</td></tr>
+                          </table>
+
+                          <div class="signature">
+                            <div class="role">Received / Approved By</div>
+                            Dennis Munga
+                          </div>
+                        </div>
+
+                        <div class="thanks">Thank you for choosing <strong>LegitGrinder</strong> — Authenticity Guaranteed · Invoice IG-${inv.invoiceNumber}</div>
                       </div>
                     </div>
                   </body>

@@ -75,9 +75,9 @@ const BusinessCard: React.FC = () => {
         {/* Right Side: QR Code */}
         <div className="w-[40%] flex flex-col items-center justify-center p-12 relative z-10 bg-black/20 backdrop-blur-sm">
           <div className="bg-white p-4 rounded-xl shadow-2xl mb-6">
-            <QRCode value="https://legitgrinder.site" size={200} fgColor="#0f172a" />
+            <QRCode value="https://legitgrinder.com" size={200} fgColor="#0f172a" />
           </div>
-          <p className="text-gray-400 font-medium tracking-widest text-sm uppercase text-center">Scan to visit<br/>legitgrinder.site</p>
+          <p className="text-gray-400 font-medium tracking-widest text-sm uppercase text-center">Scan to visit<br/>legitgrinder.com</p>
         </div>
       </div>
 
