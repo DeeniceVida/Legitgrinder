@@ -4,6 +4,7 @@ import { PaystackButton } from 'react-paystack';
 import { SealCheck, WhatsappLogo, Receipt, ShieldCheck, CircleNotch } from '@phosphor-icons/react';
 import { supabase } from '../lib/supabase';
 import { verifyPaystackPayment, recordInvoicePayment, sendInvoiceEmail } from '../services/supabaseData';
+import { generateDocumentAttachment } from '../utils/receiptDocument';
 import { WHATSAPP_NUMBER } from '../constants';
 
 /**
@@ -73,20 +74,28 @@ const PayInvoice: React.FC = () => {
     const balanceKES = result ? result.balanceKES : 0;
     const balanceNote = balanceKES > 0 ? `\nBalance remaining: KES ${balanceKES.toLocaleString()}` : '';
 
-    // Email the client their receipt (best-effort; runs on the live site only)
-    sendInvoiceEmail({
-      to: email,
-      kind: 'receipt',
-      invoiceNumber: invoice!.invoiceNumber,
-      clientName: invoice!.clientName,
-      productName: invoice!.productName,
-      currency: invoice!.currency,
-      totalKES: invoice!.totalKES,
-      amountPaidKES: invoice!.totalKES - balanceKES,
-      balanceKES,
-      reference: response.reference,
-      payUrl: balanceKES > 0 ? `${window.location.origin}/pay/${invoice!.invoiceNumber}` : undefined,
-    }).catch(console.error);
+    // Email the client their receipt with a downloadable branded PDF attached
+    // (best-effort; the /api/send-email function runs on the live site only)
+    (async () => {
+      const docData = {
+        kind: 'receipt' as const,
+        invoiceNumber: invoice!.invoiceNumber,
+        clientName: invoice!.clientName,
+        productName: invoice!.productName,
+        currency: invoice!.currency,
+        totalKES: invoice!.totalKES,
+        amountPaidKES: invoice!.totalKES - balanceKES,
+        balanceKES,
+        reference: response.reference,
+      };
+      const attachment = await generateDocumentAttachment(docData);
+      await sendInvoiceEmail({
+        ...docData,
+        to: email,
+        payUrl: balanceKES > 0 ? `${window.location.origin}/pay/${invoice!.invoiceNumber}` : undefined,
+        attachment,
+      });
+    })().catch(console.error);
     const msg = encodeURIComponent(
       `✅ PAY-LINK PAYMENT RECEIVED\n\n` +
       `Invoice: IG-${invoice?.invoiceNumber}\n` +

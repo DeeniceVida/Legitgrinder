@@ -26,6 +26,7 @@ import {
 import { fetchBanners, addBanner, updateBanner, deleteBanner } from '../services/adBanners';
 import SafeImage from '../components/SafeImage';
 import BusinessCard from '../components/BusinessCard';
+import { generateDocumentAttachment } from '../utils/receiptDocument';
 
 
 
@@ -1565,9 +1566,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onClick={async () => {
                               const to = inv.clientEmail || prompt(`Email the ${inv.isPaid ? 'receipt' : 'invoice'} for IG-${inv.invoiceNumber} to which address?`, '');
                               if (!to) return;
-                              const r = await sendInvoiceEmail({
-                                to,
-                                kind: inv.isPaid ? 'receipt' : 'invoice',
+                              const kind = inv.isPaid ? 'receipt' as const : 'invoice' as const;
+                              const docData = {
+                                kind,
                                 invoiceNumber: inv.invoiceNumber,
                                 clientName: inv.clientName,
                                 productName: inv.productName,
@@ -1575,12 +1576,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 currency: inv.currency,
                                 totalKES: inv.totalKES || 0,
                                 amountPaidKES: inv.isPaid ? (inv.totalKES || 0) : undefined,
+                                reference: inv.paystackReference,
+                              };
+                              const attachment = await generateDocumentAttachment(docData);
+                              const r = await sendInvoiceEmail({
+                                ...docData,
+                                to,
                                 payUrl: inv.isPaid ? undefined : `${window.location.origin}/pay/${inv.invoiceNumber}`,
+                                attachment,
                               });
-                              alert(r.success ? `✅ ${inv.isPaid ? 'Receipt' : 'Invoice'} emailed to ${to}` : `❌ Email failed: ${r.error || 'unknown error'}`);
+                              alert(r.success ? `✅ ${kind === 'receipt' ? 'Receipt' : 'Invoice'} + PDF emailed to ${to}` : `❌ Email failed: ${r.error || 'unknown error'}`);
                             }}
                             className="p-2 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
-                            title={`Email ${inv.isPaid ? 'receipt' : 'invoice'} to client`}
+                            title={`Email ${inv.isPaid ? 'receipt' : 'invoice'} (+ PDF) to client`}
                           >
                             <Mail className="w-4 h-4" />
                           </button>

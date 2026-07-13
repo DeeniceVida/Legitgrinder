@@ -55,6 +55,7 @@ export interface InvoiceEmailPayload {
     balanceKES?: number;
     reference?: string;
     payUrl?: string;
+    attachment?: { filename: string; content: string };
 }
 
 export const sendInvoiceEmail = async (payload: InvoiceEmailPayload): Promise<{ success: boolean; error?: string }> => {

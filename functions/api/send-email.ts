@@ -23,6 +23,7 @@ interface EmailPayload {
     balanceKES?: number;
     reference?: string;
     payUrl?: string;                    // for invoices with an outstanding balance
+    attachment?: { filename: string; content: string };  // base64 PDF (no data: prefix)
 }
 
 const LOGO = 'https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg';
@@ -130,10 +131,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         const subject = (p.kind === 'receipt' ? 'Payment Receipt' : 'Your Invoice') + ` · IG-${p.invoiceNumber} · LegitGrinder`;
 
+        const emailBody: any = { from: FROM, to: [p.to], reply_to: REPLY_TO, subject, html: buildHtml(p) };
+        if (p.attachment?.content && p.attachment?.filename) {
+            emailBody.attachments = [{ filename: p.attachment.filename, content: p.attachment.content }];
+        }
+
         const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from: FROM, to: [p.to], reply_to: REPLY_TO, subject, html: buildHtml(p) }),
+            body: JSON.stringify(emailBody),
         });
         const data = await res.json() as any;
         if (!res.ok) {
