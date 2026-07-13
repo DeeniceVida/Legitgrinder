@@ -93,6 +93,10 @@ export function buildDocumentHtml(d: DocumentData): string {
 
           ${d.reference ? `<div style="margin-top:20px;font-size:12px;color:#9aa4a4;">Reference: ${esc(d.reference)}</div>` : ''}
 
+          <div style="margin-top:24px;background:#fff8ed;border:1px solid #fde4bf;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:11px;color:#a86b12;line-height:1.5;">Order processing: orders are placed 1 business day after payment is confirmed — the time it takes for funds to settle.</div>
+          </div>
+
           <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:56px;">
             <div style="font-size:11px;color:#9aa4a4;max-width:300px;line-height:1.6;">
               ${isReceipt ? 'Payment received with thanks. Keep this receipt for your records.' : 'Please pay using the link provided or contact us on WhatsApp. Thank you.'}

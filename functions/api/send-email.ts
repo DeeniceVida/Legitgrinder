@@ -107,6 +107,10 @@ function buildHtml(p: EmailPayload): string {
       <div style="text-align:center;margin:28px 0 8px;">
         <a href="${esc(p.payUrl)}" style="display:inline-block;background:#0f1a1c;color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:14px 32px;border-radius:999px;">${isReceipt ? 'Pay Balance' : 'Pay Now'} — ${money(balance, cur)}</a>
       </div>` : ''}
+
+      <div style="margin:24px 0 4px;background:#fff8ed;border:1px solid #fde4bf;border-radius:12px;padding:14px 18px;">
+        <p style="margin:0;font-size:12px;color:#a86b12;line-height:1.5;">⏱️ <strong>Order processing:</strong> orders are placed <strong>1 business day after payment is confirmed</strong> — the time it takes for funds to settle. We'll keep you updated the whole way.</p>
+      </div>
     </div>
 
     <div style="padding:24px 36px 32px;margin-top:16px;border-top:1px solid #eef0ef;text-align:center;">

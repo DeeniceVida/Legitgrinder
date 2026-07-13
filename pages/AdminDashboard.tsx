@@ -1564,7 +1564,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           )}
                           <button
                             onClick={async () => {
-                              const to = inv.clientEmail || prompt(`Email the ${inv.isPaid ? 'receipt' : 'invoice'} for IG-${inv.invoiceNumber} to which address?`, '');
+                              const paidSoFar = inv.amountPaidKES || 0;
+                              const balance = Math.max((inv.totalKES || 0) - paidSoFar, 0);
+                              const isDeposit = !inv.isPaid && paidSoFar > 0;
+                              const label = inv.isPaid ? 'receipt' : isDeposit ? 'balance invoice' : 'invoice';
+                              const to = inv.clientEmail || prompt(`Email the ${label} for IG-${inv.invoiceNumber} to which address?`, '');
                               if (!to) return;
                               const kind = inv.isPaid ? 'receipt' as const : 'invoice' as const;
                               const docData = {
@@ -1575,7 +1579,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 items: inv.items,
                                 currency: inv.currency,
                                 totalKES: inv.totalKES || 0,
-                                amountPaidKES: inv.isPaid ? (inv.totalKES || 0) : undefined,
+                                amountPaidKES: inv.isPaid ? (inv.totalKES || 0) : (paidSoFar > 0 ? paidSoFar : undefined),
+                                balanceKES: inv.isPaid ? 0 : balance,
                                 reference: inv.paystackReference,
                               };
                               const attachment = await generateDocumentAttachment(docData);
@@ -1585,10 +1590,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 payUrl: inv.isPaid ? undefined : `${window.location.origin}/pay/${inv.invoiceNumber}`,
                                 attachment,
                               });
-                              alert(r.success ? `✅ ${kind === 'receipt' ? 'Receipt' : 'Invoice'} + PDF emailed to ${to}` : `❌ Email failed: ${r.error || 'unknown error'}`);
+                              alert(r.success ? `✅ ${label.charAt(0).toUpperCase() + label.slice(1)} + PDF emailed to ${to}${isDeposit ? ` (balance due: ${inv.currency || 'KES'} ${balance.toLocaleString()})` : ''}` : `❌ Email failed: ${r.error || 'unknown error'}`);
                             }}
-                            className="p-2 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
-                            title={`Email ${inv.isPaid ? 'receipt' : 'invoice'} (+ PDF) to client`}
+                            className={`p-2 rounded-2xl transition-all ${!inv.isPaid && (inv.amountPaidKES || 0) > 0 ? 'bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white' : 'bg-teal-50 text-[#3D8593] hover:bg-[#3D8593] hover:text-white'}`}
+                            title={inv.isPaid ? 'Email receipt (+PDF) to client' : (inv.amountPaidKES || 0) > 0 ? 'Email pay-balance link (+PDF) to client' : 'Email invoice (+PDF) to client'}
                           >
                             <Mail className="w-4 h-4" />
                           </button>

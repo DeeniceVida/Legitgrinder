@@ -24,6 +24,8 @@ interface PayableInvoice {
   productName: string;
   quantity: number;
   totalKES: number;
+  amountPaidKES: number;
+  outstandingKES: number;
   currency: string;
   isPaid: boolean;
   paymentStatus: string;
@@ -42,17 +44,21 @@ const PayInvoice: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('invoices')
-          .select('id, invoice_number, client_name, product_name, quantity, total_kes, currency, is_paid, payment_status')
+          .select('id, invoice_number, client_name, product_name, quantity, total_kes, amount_paid_kes, currency, is_paid, payment_status')
           .eq('invoice_number', invoiceNumber)
           .maybeSingle();
         if (!error && data) {
+          const total = data.total_kes || 0;
+          const alreadyPaid = data.amount_paid_kes || 0;
           setInvoice({
             id: data.id,
             invoiceNumber: data.invoice_number,
             clientName: data.client_name,
             productName: data.product_name,
             quantity: data.quantity || 1,
-            totalKES: data.total_kes || 0,
+            totalKES: total,
+            amountPaidKES: alreadyPaid,
+            outstandingKES: Math.max(total - alreadyPaid, 0),
             currency: data.currency || 'KES',
             isPaid: !!data.is_paid,
             paymentStatus: data.payment_status || 'Unpaid',
@@ -69,8 +75,9 @@ const PayInvoice: React.FC = () => {
     setPaid(true);
     // Server-side verification (non-blocking)
     verifyPaystackPayment(response.reference).catch(console.error);
-    // Record the payment in Supabase (marks Paid / Partially Paid, stores email + ref)
-    const result = await recordInvoicePayment(invoice!.invoiceNumber, invoice!.totalKES, response.reference, email);
+    // Record the OUTSTANDING amount just paid (supports deposits & balance top-ups)
+    const chargedNow = invoice!.outstandingKES || invoice!.totalKES;
+    const result = await recordInvoicePayment(invoice!.invoiceNumber, chargedNow, response.reference, email);
     const balanceKES = result ? result.balanceKES : 0;
     const balanceNote = balanceKES > 0 ? `\nBalance remaining: KES ${balanceKES.toLocaleString()}` : '';
 
@@ -84,7 +91,7 @@ const PayInvoice: React.FC = () => {
         productName: invoice!.productName,
         currency: invoice!.currency,
         totalKES: invoice!.totalKES,
-        amountPaidKES: invoice!.totalKES - balanceKES,
+        amountPaidKES: invoice!.totalKES - balanceKES,  // running total paid
         balanceKES,
         reference: response.reference,
       };
@@ -146,17 +153,34 @@ const PayInvoice: React.FC = () => {
               <h1 className="text-2xl font-bold tracking-tight">Invoice IG-{invoice.invoiceNumber}</h1>
             </div>
             <div className="p-8">
-              <dl className="space-y-3 mb-8">
-                <div className="flex justify-between text-sm"><dt className="text-gray-400 font-bold">Billed to</dt><dd className="font-bold text-gray-900">{invoice.clientName}</dd></div>
-                <div className="flex justify-between text-sm gap-4"><dt className="text-gray-400 font-bold shrink-0">Item</dt><dd className="font-bold text-gray-900 text-right">{invoice.productName}</dd></div>
-                <div className="flex justify-between text-sm"><dt className="text-gray-400 font-bold">Quantity</dt><dd className="font-bold text-gray-900">×{invoice.quantity}</dd></div>
-                <div className="flex justify-between items-baseline pt-3 border-t border-gray-100">
-                  <dt className="text-gray-400 font-bold text-sm">Total Due</dt>
-                  <dd className="font-black text-2xl text-gray-900 tracking-tight">{invoice.currency} {invoice.totalKES.toLocaleString()}</dd>
-                </div>
-              </dl>
+              {(() => {
+                const isBalance = invoice.amountPaidKES > 0;
+                const due = invoice.outstandingKES || invoice.totalKES;
+                return (
+                <dl className="space-y-3 mb-6">
+                  <div className="flex justify-between text-sm"><dt className="text-gray-400 font-bold">Billed to</dt><dd className="font-bold text-gray-900">{invoice.clientName}</dd></div>
+                  <div className="flex justify-between text-sm gap-4"><dt className="text-gray-400 font-bold shrink-0">Item</dt><dd className="font-bold text-gray-900 text-right">{invoice.productName}</dd></div>
+                  <div className="flex justify-between text-sm"><dt className="text-gray-400 font-bold">Order Total</dt><dd className="font-bold text-gray-900">{invoice.currency} {invoice.totalKES.toLocaleString()}</dd></div>
+                  {isBalance && (
+                    <div className="flex justify-between text-sm"><dt className="text-gray-400 font-bold">Already Paid</dt><dd className="font-bold text-emerald-600">− {invoice.currency} {invoice.amountPaidKES.toLocaleString()}</dd></div>
+                  )}
+                  <div className="flex justify-between items-baseline pt-3 border-t border-gray-100">
+                    <dt className="text-gray-400 font-bold text-sm">{isBalance ? 'Balance Due Now' : 'Total Due'}</dt>
+                    <dd className="font-black text-2xl text-gray-900 tracking-tight">{invoice.currency} {due.toLocaleString()}</dd>
+                  </div>
+                </dl>
+                );
+              })()}
 
-              {invoice.currency === 'KES' && invoice.totalKES > 0 ? (
+              {/* Processing-time note (Paystack settles before we place the order) */}
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-5">
+                <span className="text-amber-500 mt-0.5">⏱️</span>
+                <p className="text-[11px] font-medium text-amber-700 leading-relaxed">
+                  Your order is placed <strong>1 business day after payment is confirmed</strong> — the time it takes for funds to settle to us. You'll get updates the whole way.
+                </p>
+              </div>
+
+              {invoice.currency === 'KES' && invoice.outstandingKES > 0 ? (
                 <>
                   <label htmlFor="pay-email" className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
                     Your email (your invoice &amp; receipt are sent here)
@@ -173,7 +197,7 @@ const PayInvoice: React.FC = () => {
                     <PaystackButton
                       className="w-full h-14 bg-[#0f1a1c] text-white rounded-full font-black uppercase text-[11px] tracking-[0.25em] hover:bg-[#3D8593] transition-all shadow-xl"
                       publicKey={PAYSTACK_PUBLIC_KEY}
-                      amount={Math.round(invoice.totalKES * 100)}
+                      amount={Math.round(invoice.outstandingKES * 100)}
                       currency="KES"
                       email={email}
                       metadata={{
@@ -182,7 +206,7 @@ const PayInvoice: React.FC = () => {
                           { display_name: 'Client', variable_name: 'client', value: invoice.clientName },
                         ]
                       }}
-                      text={`Pay KES ${invoice.totalKES.toLocaleString()} Securely`}
+                      text={`Pay KES ${invoice.outstandingKES.toLocaleString()} Securely`}
                       onSuccess={handleSuccess}
                       onClose={() => { /* user dismissed */ }}
                     />
