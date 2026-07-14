@@ -39,6 +39,15 @@ const PayInvoice: React.FC = () => {
   const [email, setEmail] = useState('');
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+  // Partial payment: client may choose to pay a deposit and leave a balance
+  const [partialMode, setPartialMode] = useState(false);
+  const [partialAmount, setPartialAmount] = useState('');
+
+  const outstanding = invoice?.outstandingKES || 0;
+  const parsedPartial = Math.min(Math.max(parseInt(partialAmount || '0', 10) || 0, 0), outstanding);
+  const amountToCharge = partialMode && parsedPartial > 0 ? parsedPartial : outstanding;
+  const balanceAfter = Math.max(outstanding - amountToCharge, 0);
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -75,8 +84,8 @@ const PayInvoice: React.FC = () => {
     setPaid(true);
     // Server-side verification (non-blocking)
     verifyPaystackPayment(response.reference).catch(console.error);
-    // Record the OUTSTANDING amount just paid (supports deposits & balance top-ups)
-    const chargedNow = invoice!.outstandingKES || invoice!.totalKES;
+    // Record the amount actually charged (full balance, or a chosen deposit)
+    const chargedNow = amountToCharge || invoice!.outstandingKES || invoice!.totalKES;
     const result = await recordInvoicePayment(invoice!.invoiceNumber, chargedNow, response.reference, email);
     const balanceKES = result ? result.balanceKES : 0;
     const balanceNote = balanceKES > 0 ? `\nBalance remaining: KES ${balanceKES.toLocaleString()}` : '';
@@ -182,6 +191,44 @@ const PayInvoice: React.FC = () => {
 
               {invoice.currency === 'KES' && invoice.outstandingKES > 0 ? (
                 <>
+                  {/* Pay-in-full vs deposit choice */}
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setPartialMode(false)}
+                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${!partialMode ? 'bg-[#3D8593] border-[#3D8593] text-white' : 'bg-white border-gray-200 text-gray-400 hover:border-[#3D8593]'}`}
+                    >
+                      Pay in Full
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setPartialMode(true); if (!partialAmount) setPartialAmount(String(Math.max(Math.round(outstanding / 2), 1))); }}
+                      className={`py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all ${partialMode ? 'bg-[#3D8593] border-[#3D8593] text-white' : 'bg-white border-gray-200 text-gray-400 hover:border-[#3D8593]'}`}
+                    >
+                      Pay a Deposit
+                    </button>
+                  </div>
+
+                  {partialMode && (
+                    <div className="mb-4">
+                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">How much do you want to pay now?</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">KES</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={outstanding}
+                          value={partialAmount}
+                          onChange={(e) => setPartialAmount(e.target.value)}
+                          className="w-full h-12 bg-neutral-50 border border-neutral-200 rounded-xl pl-14 pr-4 text-sm font-bold outline-none focus:border-[#3D8593] transition-colors"
+                        />
+                      </div>
+                      <p className="text-[11px] font-medium text-gray-500 mt-2">
+                        Balance remaining after this payment: <strong className="text-[#FF9900]">KES {balanceAfter.toLocaleString()}</strong> — you'll get a link to pay it later.
+                      </p>
+                    </div>
+                  )}
+
                   <label htmlFor="pay-email" className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
                     Your email (your invoice &amp; receipt are sent here)
                   </label>
@@ -193,11 +240,12 @@ const PayInvoice: React.FC = () => {
                     placeholder="you@example.com"
                     className="w-full h-12 bg-neutral-50 border border-neutral-200 rounded-xl px-4 text-sm font-medium outline-none focus:border-[#3D8593] transition-colors mb-4"
                   />
-                  {emailValid ? (
+                  {emailValid && amountToCharge > 0 ? (
                     <PaystackButton
+                      key={amountToCharge}
                       className="w-full h-14 bg-[#0f1a1c] text-white rounded-full font-black uppercase text-[11px] tracking-[0.25em] hover:bg-[#3D8593] transition-all shadow-xl"
                       publicKey={PAYSTACK_PUBLIC_KEY}
-                      amount={Math.round(invoice.outstandingKES * 100)}
+                      amount={Math.round(amountToCharge * 100)}
                       currency="KES"
                       email={email}
                       metadata={{
@@ -206,13 +254,13 @@ const PayInvoice: React.FC = () => {
                           { display_name: 'Client', variable_name: 'client', value: invoice.clientName },
                         ]
                       }}
-                      text={`Pay KES ${invoice.outstandingKES.toLocaleString()} Securely`}
+                      text={`Pay KES ${amountToCharge.toLocaleString()} Securely`}
                       onSuccess={handleSuccess}
                       onClose={() => { /* user dismissed */ }}
                     />
                   ) : (
                     <button disabled className="w-full h-14 bg-neutral-200 text-neutral-400 rounded-full font-black uppercase text-[11px] tracking-[0.25em] cursor-not-allowed">
-                      Enter your email to pay
+                      {!emailValid ? 'Enter your email to pay' : 'Enter an amount to pay'}
                     </button>
                   )}
                 </>
