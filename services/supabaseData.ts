@@ -55,6 +55,7 @@ export interface InvoiceEmailPayload {
     balanceKES?: number;
     reference?: string;
     payUrl?: string;
+    trackUrl?: string;
     attachment?: { filename: string; content: string };
 }
 
@@ -428,11 +429,15 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
 
 export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoice | null> => {
     try {
-        const { data, error } = await supabase
+        // Match by invoice number OR Paystack reference, so tracking codes from
+        // shop checkouts (which are Paystack refs) resolve too.
+        const needle = invoiceNumber.trim();
+        const { data: rows, error } = await supabase
             .from('invoices')
             .select('*')
-            .eq('invoice_number', invoiceNumber)
-            .maybeSingle();
+            .or(`invoice_number.eq.${needle},paystack_reference.eq.${needle}`)
+            .limit(1);
+        const data = rows?.[0] || null;
 
         if (error) throw error;
         if (!data) return null;

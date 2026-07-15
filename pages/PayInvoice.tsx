@@ -109,6 +109,7 @@ const PayInvoice: React.FC = () => {
         ...docData,
         to: email,
         payUrl: balanceKES > 0 ? `${window.location.origin}/pay/${invoice!.invoiceNumber}` : undefined,
+        trackUrl: `${window.location.origin}/tracking?id=${invoice!.invoiceNumber}`,
         attachment,
       });
     })().catch(console.error);
@@ -151,7 +152,7 @@ const PayInvoice: React.FC = () => {
               Invoice <span className="font-bold text-gray-900">IG-{invoice.invoiceNumber}</span>
               {paid ? ' has been paid. We have been notified and will start processing your order right away.' : ' has already been settled. Thank you!'}
             </p>
-            <Link to="/tracking" className="inline-flex items-center gap-2 bg-[#0f1a1c] text-white px-8 py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-[#3D8593] transition-colors">
+            <Link to={`/tracking?id=${invoice.invoiceNumber}`} className="inline-flex items-center gap-2 bg-[#0f1a1c] text-white px-8 py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-[#3D8593] transition-colors">
               Track My Order
             </Link>
           </div>

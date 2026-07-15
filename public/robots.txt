@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /pay/
+Disallow: /history
+Disallow: /reset-password
+Disallow: /login
+
+Sitemap: https://legitgrinder.com/sitemap.xml

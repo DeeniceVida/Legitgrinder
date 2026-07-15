@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://legitgrinder.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://legitgrinder.com/shop</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://legitgrinder.com/pricelist</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://legitgrinder.com/calculators</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://legitgrinder.com/blogs</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://legitgrinder.com/books</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://legitgrinder.com/about</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://legitgrinder.com/consultation</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://legitgrinder.com/collaboration</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://legitgrinder.com/tracking</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+</urlset>

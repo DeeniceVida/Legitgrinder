@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, MapPin, Clock, CheckCircle2, Package, Truck, Boxes, Lock, ArrowRight, Loader2 } from 'lucide-react';
-import { STATUS_SEQUENCE } from '../constants';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  MagnifyingGlass, Package, Lock, ArrowRight, CircleNotch, CheckCircle,
+  Truck, Clock, SealCheck, WhatsappLogo
+} from '@phosphor-icons/react';
+import { STATUS_SEQUENCE, WHATSAPP_NUMBER } from '../constants';
 import { OrderStatus, Invoice, getOrderProgress } from '../types';
 import { fetchInvoiceByNumber } from '../services/supabaseData';
+import { Reveal } from '../components/Motion';
 
 interface TrackingProps {
   isLoggedIn: boolean;
@@ -16,23 +20,23 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
   const [loading, setLoading] = useState(false);
   const [showNotFound, setShowNotFound] = useState(false);
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const handleSearch = async (id?: string) => {
-    const searchId = id || invoiceInput;
+    const searchId = (id || invoiceInput).trim();
     if (!searchId) return;
 
     setLoading(true);
     setShowNotFound(false);
+    setSearchedInvoice(null);
 
-    // 1. Try local cache first
-    const found = invoices.find(inv => inv.invoiceNumber === searchId);
+    // 1. Try local cache first (matches number or Paystack tracking code)
+    const found = invoices.find(inv => inv.invoiceNumber === searchId || inv.paystackReference === searchId);
 
     if (found) {
       setSearchedInvoice(found);
       setLoading(false);
     } else {
-      // 2. Fetch directly from DB (useful for guests or deep links)
+      // 2. Fetch directly from DB (guests & deep links; matches number OR reference)
       const fresh = await fetchInvoiceByNumber(searchId);
       setSearchedInvoice(fresh);
       if (!fresh) setShowNotFound(true);
@@ -40,127 +44,191 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
     }
   };
 
+  // Deep links: /tracking?id=<invoice number or tracking code> auto-tracks
   useEffect(() => {
-    const id = searchParams.get('id');
+    const id = searchParams.get('id') || searchParams.get('ref');
     if (id) {
       setInvoiceInput(id);
       handleSearch(id);
     }
-  }, [searchParams, invoices.length]); // Only re-run if searchParams or invoices list changes
+  }, [searchParams, invoices.length]);
+
+  const statusIdx = searchedInvoice ? STATUS_SEQUENCE.indexOf(searchedInvoice.status) : -1;
+  const progress = searchedInvoice ? getOrderProgress(searchedInvoice.status) : 0;
+  const delivered = searchedInvoice?.status === OrderStatus.DELIVERED;
 
   return (
-    <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-16">
-          <h1 className="text-6xl font-bold mb-4 tracking-tight">Live Tracking</h1>
-          <p className="text-gray-500 text-lg">Enter your Invoice/Receipt number to track your global shipment.</p>
-        </div>
+    <div className="bg-brand-bg min-h-screen pt-36 pb-28 px-4 md:px-6">
+      <div className="max-w-3xl mx-auto">
+        {/* HEADER */}
+        <Reveal>
+          <div className="text-center mb-10">
+            <p className="eyebrow text-[#3D8593] mb-4">Live Order Tracking</p>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter mb-4 leading-[1.02]">
+              Where's my <span className="heading-accent italic font-light text-[#3D8593]">order?</span>
+            </h1>
+            <p className="text-gray-500 font-light">Enter your invoice number or tracking code — it's on your receipt.</p>
+          </div>
+        </Reveal>
 
-        <div className="max-w-md mx-auto mb-20">
-          <div className="relative group">
+        {/* SEARCH */}
+        <div className="max-w-md mx-auto mb-12">
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
+            className="relative"
+          >
             <input
               type="text"
-              placeholder="e.g. 4932"
-              className="w-full bg-white border-none rounded-3xl px-8 py-6 text-2xl font-bold tracking-[0.2em] text-center focus:ring-4 focus:ring-[#3D8593]/10 outline-none transition-all shadow-2xl"
+              placeholder="e.g. 4932 or T839201..."
+              className="w-full h-16 bg-white border border-gray-200 rounded-full pl-7 pr-20 text-lg font-bold tracking-wider focus:border-[#3D8593] outline-none transition-colors shadow-sm"
               value={invoiceInput}
               onChange={(e) => setInvoiceInput(e.target.value)}
+              aria-label="Invoice number or tracking code"
             />
             <button
-              onClick={() => handleSearch()}
+              type="submit"
               disabled={loading}
-              className="absolute right-3 top-3 bottom-3 bg-[#3D8593] text-white px-8 rounded-2xl hover:bg-[#FF9900] transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed group-hover:shadow-teal-100"
+              aria-label="Track order"
+              className="absolute right-2 top-2 bottom-2 w-12 bg-[#0f1a1c] text-white rounded-full hover:bg-[#3D8593] transition-colors active:scale-95 disabled:opacity-50 flex items-center justify-center"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+              {loading ? <CircleNotch size={20} className="animate-spin" /> : <MagnifyingGlass size={20} weight="bold" />}
             </button>
-          </div>
+          </form>
         </div>
 
+        {/* LOADING */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
-            <div className="relative">
-              <div className="w-20 h-20 border-4 border-teal-50 rounded-full animate-pulse"></div>
-              <Loader2 className="w-10 h-10 text-[#3D8593] animate-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-            </div>
-            <p className="mt-8 text-[10px] font-black uppercase tracking-[0.4em] text-[#3D8593] animate-pulse">Fetching Real-time Intelligence...</p>
+          <div className="flex flex-col items-center py-16 animate-in fade-in duration-500">
+            <CircleNotch size={36} className="text-[#3D8593] animate-spin mb-5" />
+            <p className="eyebrow text-gray-400">Locating your shipment…</p>
           </div>
         )}
 
+        {/* NOT FOUND */}
         {showNotFound && !loading && (
-          <div className="text-center py-20 animate-in fade-in slide-in-from-top-4 duration-500 bg-white rounded-[3.5rem] shadow-xl border border-neutral-100 p-12">
-            <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
-              <Package className="w-10 h-10 text-rose-500 opacity-20" />
+          <Reveal>
+            <div className="text-center py-14 px-8 bg-white rounded-[2rem] border border-gray-100 shadow-sm">
+              <Package size={44} weight="duotone" className="text-gray-300 mx-auto mb-5" />
+              <h3 className="text-xl font-bold mb-2">Order not found</h3>
+              <p className="text-gray-500 font-light max-w-sm mx-auto mb-8">
+                Nothing matches <strong className="text-gray-900">"{invoiceInput}"</strong>. Double-check your invoice number, or ask us directly.
+              </p>
+              <a
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi LegitGrinder! I'm trying to track my order: ${invoiceInput}`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-[#25D366] text-white px-8 py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest"
+              >
+                <WhatsappLogo size={16} weight="fill" /> Ask on WhatsApp
+              </a>
             </div>
-            <h3 className="text-3xl font-bold mb-4">Invoice Not Found</h3>
-            <p className="text-gray-500 max-w-sm mx-auto font-light leading-relaxed">
-              We couldn't locate any records for <strong>#{invoiceInput}</strong>. Please verify the number and try again.
-            </p>
-          </div>
+          </Reveal>
         )}
 
+        {/* RESULT */}
         {searchedInvoice && !loading && (
-          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-            <div className="bg-white rounded-[3.5rem] shadow-2xl border border-neutral-100 p-10 md:p-14 mb-10 overflow-hidden relative">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-8">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
+            {/* Order summary card */}
+            <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
+              <div className="bg-ink-hero text-white px-7 py-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <span className="text-[10px] font-black text-[#3D8593] bg-teal-50 px-4 py-1.5 rounded-full uppercase tracking-widest">Invoice Found</span>
-                  <h2 className="text-4xl font-bold mt-4">Invoice #{searchedInvoice.invoiceNumber}</h2>
-                  <div className="flex items-center text-gray-400 mt-3 space-x-2 text-sm">
-                    <Clock className="w-4 h-4" />
-                    <span>Last update: {searchedInvoice.lastUpdate}</span>
-                  </div>
+                  <p className="eyebrow text-[#FF9900] mb-1.5">Order Found</p>
+                  <h2 className="text-2xl font-bold tracking-tight">#{searchedInvoice.invoiceNumber}</h2>
                 </div>
-                <div className="bg-neutral-50 p-6 rounded-3xl min-w-[200px]">
-                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-2">Current Status</p>
-                  <p className="text-xl font-bold text-gray-900">{searchedInvoice.status}</p>
+                <div className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest ${delivered ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white'}`}>
+                  {delivered ? '✓ Delivered' : searchedInvoice.status}
                 </div>
               </div>
 
-              {isLoggedIn ? (
-                <div className="relative pt-10">
-                  <div className="absolute top-[6.5rem] left-0 right-0 h-1 bg-neutral-100 rounded-full"></div>
-                  <div
-                    className="absolute top-[6.5rem] left-0 h-1 bg-[#3D8593] rounded-full transition-all duration-1000 shadow-lg shadow-teal-100"
-                    style={{ width: `${getOrderProgress(searchedInvoice.status)}%` }}
-                  ></div>
+              <div className="px-7 py-5 grid sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                <div className="flex justify-between gap-4"><span className="text-gray-400 font-bold shrink-0">Item</span><span className="font-bold text-gray-900 text-right truncate" title={searchedInvoice.productName}>{searchedInvoice.productName}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400 font-bold">Last Update</span><span className="font-bold text-gray-900">{searchedInvoice.lastUpdate}</span></div>
+              </div>
 
-                  <div className="relative z-10 flex justify-between">
-                    {STATUS_SEQUENCE.map((status, i) => {
-                      const statusIdx = STATUS_SEQUENCE.indexOf(searchedInvoice.status);
-                      const isPast = i <= statusIdx;
-                      return (
-                        <div key={status} className="flex flex-col items-center group">
-                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-4 border-white shadow-xl transition-all ${isPast ? 'bg-[#3D8593] text-white scale-110' : 'bg-neutral-50 text-neutral-300'
-                            }`}>
-                            {i < statusIdx ? <CheckCircle2 className="w-6 h-6" /> : (i === 0 ? <Package className="w-6 h-6" /> : (i === statusIdx ? <Truck className="w-6 h-6 animate-pulse" /> : <Boxes className="w-6 h-6" />))}
-                          </div>
-                          <p className={`mt-6 text-[10px] font-black uppercase tracking-widest text-center max-w-[90px] ${isPast ? 'text-[#3D8593]' : 'text-neutral-300'
-                            }`}>
+              {/* Progress bar */}
+              <div className="px-7 pb-6">
+                <div className="flex justify-between items-baseline mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Journey Progress</span>
+                  <span className="text-sm font-black text-[#3D8593]">{progress}%</span>
+                </div>
+                <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#3D8593] to-[#FF9900] rounded-full transition-all duration-1000"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline (logged in) or lock (guest) */}
+            {isLoggedIn ? (
+              <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm px-7 py-6">
+                <p className="eyebrow text-gray-400 mb-5">Shipment Journey</p>
+                <ol className="relative">
+                  {STATUS_SEQUENCE.map((status, i) => {
+                    const isDone = i < statusIdx;
+                    const isCurrent = i === statusIdx;
+                    const isLast = i === STATUS_SEQUENCE.length - 1;
+                    return (
+                      <li key={status} className="relative flex gap-4 pb-5 last:pb-0">
+                        {/* Connector line */}
+                        {!isLast && (
+                          <span className={`absolute left-[15px] top-8 bottom-0 w-0.5 ${isDone ? 'bg-[#3D8593]' : 'bg-gray-100'}`} aria-hidden="true"></span>
+                        )}
+                        {/* Node */}
+                        <span className={`relative z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          isDone ? 'bg-[#3D8593] text-white'
+                          : isCurrent ? 'bg-[#FF9900] text-white shadow-lg shadow-orange-200'
+                          : 'bg-gray-100 text-gray-300'
+                        }`}>
+                          {isDone ? <CheckCircle size={16} weight="fill" />
+                            : isCurrent ? <Truck size={15} weight="fill" className="animate-pulse" />
+                            : <Clock size={14} />}
+                        </span>
+                        <div className="pt-1">
+                          <p className={`text-sm font-bold leading-none ${isCurrent ? 'text-[#FF9900]' : isDone ? 'text-gray-900' : 'text-gray-300'}`}>
                             {status}
                           </p>
+                          {isCurrent && !delivered && (
+                            <p className="text-[11px] text-gray-400 font-medium mt-1.5">Your order is here right now</p>
+                          )}
                         </div>
-                      );
-                    })}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            ) : (
+              <Reveal>
+                <div className="bg-white rounded-[2rem] border-2 border-dashed border-gray-200 px-8 py-10 text-center">
+                  <div className="w-14 h-14 bg-teal-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                    <Lock size={24} weight="duotone" className="text-[#3D8593]" />
                   </div>
+                  <h3 className="text-xl font-bold mb-2">Unlock the full journey</h3>
+                  <p className="text-gray-500 font-light max-w-sm mx-auto mb-7">
+                    You can see your current status above. Create a free account to unlock the step-by-step journey timeline and your order history.
+                  </p>
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center gap-2 bg-[#0f1a1c] text-white px-9 py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-[#3D8593] transition-colors"
+                  >
+                    Create Free Account <ArrowRight size={14} weight="bold" />
+                  </Link>
                 </div>
-              ) : (
-                <div className="mt-10 p-12 bg-neutral-50 rounded-[2.5rem] border-2 border-dashed border-neutral-200 text-center relative group">
-                  <div className="flex flex-col items-center max-w-sm mx-auto">
-                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl mb-6 group-hover:scale-110 transition-transform">
-                      <Lock className="w-8 h-8 text-[#3D8593]" />
-                    </div>
-                    <h3 className="text-2xl font-bold mb-4">Detailed tracking is locked</h3>
-                    <p className="text-gray-500 font-light leading-relaxed mb-8">
-                      Guests can only see text status updates. Sign up to unlock the visual progression bar, real-time map tracking, and historical logs.
-                    </p>
-                    <Link
-                      to="/login"
-                      className="btn-vibrant-teal px-10 py-4 rounded-full font-bold uppercase text-[10px] tracking-widest flex items-center gap-2"
-                    >
-                      Create Account <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                </div>
-              )}
+              </Reveal>
+            )}
+
+            {/* Help strip */}
+            <div className="flex items-center justify-between gap-4 bg-white rounded-2xl border border-gray-100 px-6 py-4">
+              <p className="text-xs text-gray-500 font-medium flex items-center gap-2">
+                <SealCheck size={16} weight="duotone" className="text-[#3D8593]" /> Question about this order?
+              </p>
+              <a
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi LegitGrinder! Quick question about my order #${searchedInvoice.invoiceNumber} (${searchedInvoice.productName})`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="shrink-0 inline-flex items-center gap-2 text-[#25D366] font-black uppercase text-[10px] tracking-widest hover:underline"
+              >
+                <WhatsappLogo size={16} weight="fill" /> WhatsApp Us
+              </a>
             </div>
           </div>
         )}

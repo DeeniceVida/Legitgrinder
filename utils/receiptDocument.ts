@@ -97,6 +97,16 @@ export function buildDocumentHtml(d: DocumentData): string {
             <div style="font-size:11px;color:#a86b12;line-height:1.5;">Order processing: orders are placed 1 business day after payment is confirmed — the time it takes for funds to settle.</div>
           </div>
 
+          <div style="margin-top:20px;border-top:2px solid #0f1a1c;padding-top:14px;">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Terms &amp; Conditions</div>
+            <div style="font-size:11px;color:#4a5556;line-height:1.7;">
+              • The total fee is all-inclusive to Nairobi CBD; doorstep/courier delivery to your home or work location is catered for by the client.<br/>
+              • Payment is accepted via M-Pesa, card or bank transfer (Paystack), or cash.<br/>
+              • Shipping duration: Air 2–3 weeks &nbsp;·&nbsp; Sea 30–45 days (from order placement).<br/>
+              • All items are verified for authenticity before dispatch — Authenticity Guaranteed.
+            </div>
+          </div>
+
           <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:56px;">
             <div style="font-size:11px;color:#9aa4a4;max-width:300px;line-height:1.6;">
               ${isReceipt ? 'Payment received with thanks. Keep this receipt for your records.' : 'Please pay using the link provided or contact us on WhatsApp. Thank you.'}

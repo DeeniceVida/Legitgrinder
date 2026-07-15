@@ -23,6 +23,7 @@ interface EmailPayload {
     balanceKES?: number;
     reference?: string;
     payUrl?: string;                    // for invoices with an outstanding balance
+    trackUrl?: string;                  // deep link that auto-tracks this order
     attachment?: { filename: string; content: string };  // base64 PDF (no data: prefix)
 }
 
@@ -106,6 +107,11 @@ function buildHtml(p: EmailPayload): string {
       ${(!fullyPaid && p.payUrl) ? `
       <div style="text-align:center;margin:28px 0 8px;">
         <a href="${esc(p.payUrl)}" style="display:inline-block;background:#0f1a1c;color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:14px 32px;border-radius:999px;">${isReceipt ? 'Pay Balance' : 'Pay Now'} — ${money(balance, cur)}</a>
+      </div>` : ''}
+
+      ${p.trackUrl ? `
+      <div style="text-align:center;margin:20px 0 4px;">
+        <a href="${esc(p.trackUrl)}" style="display:inline-block;border:2px solid #3D8593;color:#3D8593;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:12px 30px;border-radius:999px;">📦 Track Your Order</a>
       </div>` : ''}
 
       <div style="margin:24px 0 4px;background:#fff8ed;border:1px solid #fde4bf;border-radius:12px;padding:14px 18px;">

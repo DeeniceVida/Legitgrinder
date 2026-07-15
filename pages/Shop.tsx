@@ -158,7 +158,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     performSync().catch(console.error);
 
     // 3. ALWAYS Close the loop with Admin via WhatsApp (Include Tracking Code)
-    const trackingLink = `https://legitgrinder.com/track?ref=${trackingCode}`;
+    const trackingLink = `https://legitgrinder.com/tracking?id=${trackingCode}`;
     const whatsappMsg = encodeURIComponent(
       `✅ SUCCESSFUL PAYMENT\n\n` +
       `Tracking Code: ${trackingCode}\n` +
