@@ -10,6 +10,7 @@ import { Invoice } from '../types';
 interface MessageAgentPanelProps {
   invoice: Invoice | null;
   onClose: () => void;
+  initialIntent?: MessageIntent;
 }
 
 const INTENTS: { id: MessageIntent; label: string; Icon: React.ElementType }[] = [
@@ -20,8 +21,8 @@ const INTENTS: { id: MessageIntent; label: string; Icon: React.ElementType }[] =
   { id: 'custom', label: 'Custom…', Icon: ChatText }
 ];
 
-const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose }) => {
-  const [intent, setIntent] = useState<MessageIntent>('reminder');
+const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose, initialIntent }) => {
+  const [intent, setIntent] = useState<MessageIntent>(initialIntent || 'reminder');
   const [custom, setCustom] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);

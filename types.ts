@@ -22,6 +22,24 @@ export enum OrderStatus {
   DELIVERED = 'Delivered & Completed'
 }
 
+/** Where an order is sourced from — decides the tracking pipeline. */
+export type Origin = 'China' | 'US-UK';
+
+/**
+ * The hidden, admin-only tracking state. Richer than the client-facing
+ * OrderStatus. One shared pipeline for both origins (labels differ by origin).
+ * See utils/logistics.ts for the mapping to OrderStatus and to message intents.
+ */
+export enum InternalStatus {
+  ORDER_PLACED = 'order_placed',     // placed with supplier
+  INLAND = 'inland',                 // domestic leg to the forwarder (CN inland / US domestic)
+  AT_FORWARDER = 'at_forwarder',     // reached the forwarder warehouse (Guangzhou / Delaware)
+  INTERNATIONAL = 'international',    // China: in container at sea · US/UK: in transit to Kenya
+  ARRIVED_PORT = 'arrived_port',     // arrived Mombasa / JKIA — starts the grace period
+  READY = 'ready',                   // ready for collection or delivery
+  DELIVERED = 'delivered'
+}
+
 export enum ConsultationStatus {
   PENDING = 'Pending Review',
   DOABLE = 'Confirmed Doable',
@@ -110,6 +128,13 @@ export interface Invoice {
   createdAt?: string;
   paystackReference?: string;
   currency?: 'KES' | 'USD';
+  // Logistics / tracking (admin-only)
+  origin?: Origin;
+  inlandTracking?: string;      // domestic tracking number (CN inland / US domestic)
+  containerNumber?: string;     // China → Mombasa sea container (null for US/UK)
+  internalStatus?: InternalStatus;
+  estArrival?: string;          // estimated arrival date (esp. US/UK air)
+  mombasaArrivedAt?: string;    // when it arrived at port — drives the grace period
 }
 
 

@@ -28,8 +28,11 @@ import SafeImage from '../components/SafeImage';
 import BusinessCard from '../components/BusinessCard';
 import CatalogAgentPanel from '../components/CatalogAgentPanel';
 import MessageAgentPanel from '../components/MessageAgentPanel';
+import LogisticsPanel from '../components/LogisticsPanel';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 import { normalizeKenyanPhone } from '../utils/phone';
+import { computeAttention } from '../utils/logistics';
+import type { MessageIntent } from '../services/messageAgent';
 
 
 
@@ -109,6 +112,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [messagingInvoice, setMessagingInvoice] = useState<Invoice | null>(null);
+  const [messageIntent, setMessageIntent] = useState<MessageIntent | undefined>(undefined);
+  const [trackingInvoice, setTrackingInvoice] = useState<Invoice | null>(null);
 
   // Price Editing State
   const [priceEditUSD, setPriceEditUSD] = useState<string>('');
@@ -1418,6 +1423,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
+            {/* ACTION CENTER — the "watcher": orders needing attention right now */}
+            {(() => {
+              const attention = computeAttention(invoices);
+              if (attention.length === 0) return null;
+              return (
+                <div className="rounded-[2rem] border border-amber-200 bg-amber-50/60 p-6 md:p-7">
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <Activity className="w-5 h-5 text-amber-600" />
+                    <h3 className="text-[11px] font-black uppercase tracking-widest text-amber-700">Needs your attention · {attention.length}</h3>
+                  </div>
+                  <div className="space-y-2.5">
+                    {attention.map((a) => (
+                      <div key={a.invoice.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white rounded-2xl border border-amber-100 px-5 py-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-gray-900 truncate">{a.invoice.clientName} · {a.invoice.productName}</p>
+                          <p className="text-xs text-gray-500 font-medium mt-0.5">{a.message}</p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={() => setTrackingInvoice(a.invoice)}
+                            className="px-4 py-2.5 rounded-full bg-teal-50 text-[#3D8593] text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] hover:text-white transition-all flex items-center gap-1.5"
+                          >
+                            <Truck className="w-3.5 h-3.5" /> Tracking
+                          </button>
+                          {a.suggestedIntent && (
+                            <button
+                              onClick={() => { setMessageIntent(a.suggestedIntent!); setMessagingInvoice(a.invoice); }}
+                              className="px-4 py-2.5 rounded-full bg-[#25D366]/10 text-[#1eb955] text-[10px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-all flex items-center gap-1.5"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" /> Draft
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* ORDER CONTROL BAR — search / filter / sort / export */}
             <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm p-5 space-y-4">
               <div className="flex flex-col xl:flex-row gap-3">
@@ -1555,7 +1600,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           <button
-                            onClick={() => setMessagingInvoice(inv)}
+                            onClick={() => setTrackingInvoice(inv)}
+                            className="p-2 bg-teal-50 text-[#3D8593] rounded-2xl hover:bg-[#3D8593] hover:text-white transition-all"
+                            title="Update tracking / logistics"
+                          >
+                            <Truck className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => { setMessageIntent(undefined); setMessagingInvoice(inv); }}
                             className="p-2 bg-[#25D366]/10 text-[#1eb955] rounded-2xl hover:bg-[#25D366] hover:text-white transition-all"
                             title="Draft a WhatsApp message with AI"
                           >
@@ -2589,8 +2641,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* AI WhatsApp Message Agent */}
       <MessageAgentPanel
+        key={`${messagingInvoice?.id || 'none'}-${messageIntent || 'default'}`}
         invoice={messagingInvoice}
-        onClose={() => setMessagingInvoice(null)}
+        initialIntent={messageIntent}
+        onClose={() => { setMessagingInvoice(null); setMessageIntent(undefined); }}
+      />
+
+      {/* AI Logistics / Tracking Agent */}
+      <LogisticsPanel
+        key={trackingInvoice?.id || 'none'}
+        invoice={trackingInvoice}
+        allInvoices={invoices}
+        onClose={() => setTrackingInvoice(null)}
+        onUpdated={(updated) => {
+          const byId = new Map(updated.map(u => [u.id, u]));
+          onUpdateInvoices(invoices.map(inv => byId.get(inv.id) || inv));
+        }}
+        onDraftMessage={(inv, intent) => {
+          setTrackingInvoice(null);
+          setMessageIntent(intent);
+          setMessagingInvoice(inv);
+        }}
       />
 
       {/* Product Edit/Add Modal */}

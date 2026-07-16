@@ -378,11 +378,55 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             paystackReference: inv.paystack_reference,
             date: inv.created_at,
             createdAt: inv.created_at,
-            currency: inv.currency || 'KES'
+            currency: inv.currency || 'KES',
+            origin: inv.origin || undefined,
+            inlandTracking: inv.inland_tracking || undefined,
+            containerNumber: inv.container_number || undefined,
+            internalStatus: inv.internal_status || undefined,
+            estArrival: inv.est_arrival || undefined,
+            mombasaArrivedAt: inv.mombasa_arrived_at || undefined
         }));
     } catch (error) {
         console.error('Error fetching invoices:', error);
         return [];
+    }
+};
+
+/**
+ * Update the logistics/tracking fields on an order. Pass a container number to
+ * cascade port-arrival across every order sharing that container (China).
+ */
+export const updateOrderLogistics = async (
+    invoiceId: string,
+    fields: {
+        origin?: string;
+        inlandTracking?: string;
+        containerNumber?: string;
+        internalStatus?: string;
+        estArrival?: string | null;
+        mombasaArrivedAt?: string | null;
+        status?: string;   // client-facing OrderStatus (kept in sync)
+        progress?: number; // client-facing progress bar
+    }
+): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const payload: any = {};
+        if (fields.origin !== undefined) payload.origin = fields.origin;
+        if (fields.inlandTracking !== undefined) payload.inland_tracking = fields.inlandTracking;
+        if (fields.containerNumber !== undefined) payload.container_number = fields.containerNumber;
+        if (fields.internalStatus !== undefined) payload.internal_status = fields.internalStatus;
+        if (fields.estArrival !== undefined) payload.est_arrival = fields.estArrival;
+        if (fields.mombasaArrivedAt !== undefined) payload.mombasa_arrived_at = fields.mombasaArrivedAt;
+        if (fields.status !== undefined) payload.status = fields.status;
+        if (fields.progress !== undefined) payload.progress = fields.progress;
+        payload.last_update = new Date().toISOString();
+
+        const { error } = await supabase.from('invoices').update(payload).eq('id', invoiceId);
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating order logistics:', error);
+        return { success: false, error };
     }
 };
 
