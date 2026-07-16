@@ -27,6 +27,7 @@ import { fetchBanners, addBanner, updateBanner, deleteBanner } from '../services
 import SafeImage from '../components/SafeImage';
 import BusinessCard from '../components/BusinessCard';
 import CatalogAgentPanel from '../components/CatalogAgentPanel';
+import MessageAgentPanel from '../components/MessageAgentPanel';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 
 
@@ -106,6 +107,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Product Management State
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [messagingInvoice, setMessagingInvoice] = useState<Invoice | null>(null);
 
   // Price Editing State
   const [priceEditUSD, setPriceEditUSD] = useState<string>('');
@@ -1552,6 +1554,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           <button
+                            onClick={() => setMessagingInvoice(inv)}
+                            className="p-2 bg-[#25D366]/10 text-[#1eb955] rounded-2xl hover:bg-[#25D366] hover:text-white transition-all"
+                            title="Draft a WhatsApp message with AI"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => copyTrackingLink(inv.invoiceNumber)}
                             className="p-2 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all"
                             title="Copy Tracking Link"
@@ -2575,6 +2584,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onClose={() => setAiPanelOpen(false)}
         existingCategories={Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort()}
         onCreated={(newProduct) => onUpdateProducts([...products, newProduct])}
+      />
+
+      {/* AI WhatsApp Message Agent */}
+      <MessageAgentPanel
+        invoice={messagingInvoice}
+        onClose={() => setMessagingInvoice(null)}
       />
 
       {/* Product Edit/Add Modal */}
