@@ -23,16 +23,19 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
 }) => {
   // Inputs the admin provides
   const [note, setNote] = useState('');
+  const [availability, setAvailability] = useState<Availability>(Availability.LOCAL);
   const [priceKES, setPriceKES] = useState('');
   const [discountKES, setDiscountKES] = useState('');
   const [stockCount, setStockCount] = useState('');
   const [imagesText, setImagesText] = useState('');
   const [productLink, setProductLink] = useState('');
 
-  // Agent output (editable before saving)
+  const isLocal = availability === Availability.LOCAL;
+
+  // Agent output (editable before saving) — availability is the admin's own toggle, not here
   const [draft, setDraft] = useState<{
     name: string; description: string; category: string;
-    availability: Availability; shippingDuration: string; seoKeywords: string[];
+    shippingDuration: string; seoKeywords: string[];
   } | null>(null);
 
   const [generating, setGenerating] = useState(false);
@@ -53,7 +56,8 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
       priceKES: priceKES ? parseInt(priceKES) : undefined,
       imageUrls: parseImages(),
       productLink: productLink.trim() || undefined,
-      categories: existingCategories
+      categories: existingCategories,
+      availability: isLocal ? 'Available Locally' : 'Import on Order'
     });
     setGenerating(false);
     if (!res.success || !res.product) {
@@ -64,8 +68,6 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
       name: res.product.name,
       description: res.product.description,
       category: res.product.category,
-      availability: res.product.availability === 'Available Locally'
-        ? Availability.LOCAL : Availability.IMPORT,
       shippingDuration: res.product.shippingDuration,
       seoKeywords: res.product.seoKeywords || []
     });
@@ -80,11 +82,11 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
       priceKES: priceKES ? parseInt(priceKES) : 0,
       discountPriceKES: discountKES ? parseInt(discountKES) : undefined,
       imageUrls: parseImages(),
-      availability: draft.availability,
+      availability,
       shippingDuration: draft.shippingDuration,
       description: draft.description,
       category: draft.category,
-      stockCount: stockCount ? parseInt(stockCount) : 0,
+      stockCount: isLocal && stockCount ? parseInt(stockCount) : 0,
       variations: []
     };
     const result = await createProduct(productData);
@@ -111,8 +113,8 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
   };
 
   const resetAll = () => {
-    setNote(''); setPriceKES(''); setDiscountKES(''); setStockCount('');
-    setImagesText(''); setProductLink(''); setDraft(null); setError(null);
+    setNote(''); setAvailability(Availability.LOCAL); setPriceKES(''); setDiscountKES('');
+    setStockCount(''); setImagesText(''); setProductLink(''); setDraft(null); setError(null);
   };
 
   const imageCount = parseImages().length;
@@ -150,11 +152,40 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
           {!draft ? (
             /* ---------- INPUT STAGE ---------- */
             <>
+              {/* In stock vs import — the admin's explicit choice */}
               <div>
-                <label htmlFor="ai-note" className={labelBase}>Brief note about the product *</label>
+                <span className={labelBase}>Is this in stock, or imported on order? *</span>
+                <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Stock status">
+                  <button
+                    type="button" role="radio" aria-checked={isLocal}
+                    onClick={() => setAvailability(Availability.LOCAL)}
+                    className={`px-4 py-3.5 rounded-2xl text-left transition-all border ${isLocal
+                      ? 'border-[#3D8593] bg-teal-50'
+                      : 'border-gray-200 bg-white hover:border-[#3D8593]/40'}`}
+                  >
+                    <span className={`block text-sm font-black ${isLocal ? 'text-[#3D8593]' : 'text-gray-700'}`}>In Stock</span>
+                    <span className="block text-[10px] text-gray-400 font-medium mt-0.5">Held locally · ready now</span>
+                  </button>
+                  <button
+                    type="button" role="radio" aria-checked={!isLocal}
+                    onClick={() => setAvailability(Availability.IMPORT)}
+                    className={`px-4 py-3.5 rounded-2xl text-left transition-all border ${!isLocal
+                      ? 'border-[#FF9900] bg-orange-50'
+                      : 'border-gray-200 bg-white hover:border-[#FF9900]/40'}`}
+                  >
+                    <span className={`block text-sm font-black ${!isLocal ? 'text-[#FF9900]' : 'text-gray-700'}`}>Import on Order</span>
+                    <span className="block text-[10px] text-gray-400 font-medium mt-0.5">Sourced abroad when ordered</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="ai-note" className={labelBase}>
+                  Product details * <span className="text-gray-300">— paste the name + features, any format</span>
+                </label>
                 <textarea
-                  id="ai-note" rows={3}
-                  placeholder="e.g. Samsung 34-inch curved gaming monitor, 165Hz, from Amazon US. Great for gaming and work."
+                  id="ai-note" rows={4}
+                  placeholder="Paste everything: name, specs, features… e.g. Samsung 34&quot; curved gaming monitor, 165Hz, 1ms, HDMI+DP, from Amazon US"
                   className={`${inputBase} resize-none`}
                   value={note} onChange={e => setNote(e.target.value)}
                 />
@@ -174,11 +205,20 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="ai-stock" className={labelBase}>Stock count</label>
-                  <input id="ai-stock" type="number" inputMode="numeric" min="0" placeholder="0"
-                    className={inputBase} value={stockCount} onChange={e => setStockCount(e.target.value)} />
-                </div>
+                {/* Stock count only matters when the item is actually in stock */}
+                {isLocal ? (
+                  <div>
+                    <label htmlFor="ai-stock" className={labelBase}>Stock count</label>
+                    <input id="ai-stock" type="number" inputMode="numeric" min="0" placeholder="0"
+                      className={inputBase} value={stockCount} onChange={e => setStockCount(e.target.value)} />
+                  </div>
+                ) : (
+                  <div className="flex flex-col justify-end pb-1">
+                    <p className="text-[11px] text-gray-400 font-medium leading-snug">
+                      Stock count isn't needed for imports — it's sourced per order.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label htmlFor="ai-link" className={labelBase}>Source link <span className="text-gray-300">(optional)</span></label>
                   <input id="ai-link" type="url" placeholder="https://…"
@@ -244,8 +284,8 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
                 </div>
                 <div>
                   <label htmlFor="d-avail" className={labelBase}>Availability</label>
-                  <select id="d-avail" className={inputBase} value={draft.availability}
-                    onChange={e => setDraft({ ...draft, availability: e.target.value as Availability })}>
+                  <select id="d-avail" className={inputBase} value={availability}
+                    onChange={e => setAvailability(e.target.value as Availability)}>
                     <option value={Availability.IMPORT}>Import on Order</option>
                     <option value={Availability.LOCAL}>Available Locally</option>
                   </select>
@@ -273,8 +313,11 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
 
               {/* summary of pass-through fields */}
               <div className="flex flex-wrap gap-2 text-[11px] font-bold text-gray-500">
+                <span className={`px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 ${isLocal ? 'bg-teal-50 text-[#3D8593]' : 'bg-orange-50 text-[#FF9900]'}`}>
+                  {isLocal ? 'In Stock' : 'Import on Order'}
+                </span>
                 {priceKES && <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200">KES {parseInt(priceKES).toLocaleString()}</span>}
-                <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200 inline-flex items-center gap-1.5"><Package size={12} weight="fill" /> {stockCount || 0} in stock</span>
+                {isLocal && <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200 inline-flex items-center gap-1.5"><Package size={12} weight="fill" /> {stockCount || 0} in stock</span>}
                 <span className="px-3 py-1.5 rounded-full bg-white border border-gray-200 inline-flex items-center gap-1.5"><ImageSquare size={12} weight="fill" /> {imageCount} images</span>
               </div>
 

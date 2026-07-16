@@ -14,6 +14,7 @@ interface CatalogRequest {
   imageUrls?: string[];   // image links (passed through, not invented)
   productLink?: string;   // optional source/reference link
   categories?: string[];  // existing categories to choose from
+  availability?: string;  // admin's explicit choice: 'Available Locally' | 'Import on Order'
 }
 
 // The structured shape we force Claude to return.
@@ -38,14 +39,9 @@ const SAVE_PRODUCT_TOOL = {
         description:
           'The single best-fit category. Prefer one from the provided existing categories; only propose a new clean one if none fit.'
       },
-      availability: {
-        type: 'string',
-        enum: ['Available Locally', 'Import on Order'],
-        description: 'Whether the item is in stock locally or sourced on order.'
-      },
       shipping_duration: {
         type: 'string',
-        description: 'A short delivery estimate, e.g. "2-3 weeks" for imports or "1-2 days" if local.'
+        description: 'A short delivery estimate that matches the stock status given: for in-stock items say something like "1-2 days" or "Same-day CBD pickup"; for import items say "2-3 weeks" (air) or similar.'
       },
       seo_keywords: {
         type: 'array',
@@ -53,7 +49,7 @@ const SAVE_PRODUCT_TOOL = {
         description: '4-8 short search keywords a Kenyan buyer might type.'
       }
     },
-    required: ['name', 'description', 'category', 'availability', 'shipping_duration', 'seo_keywords']
+    required: ['name', 'description', 'category', 'shipping_duration', 'seo_keywords']
   }
 } as const;
 
@@ -78,10 +74,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const categories = Array.isArray(body.categories) ? body.categories.filter(Boolean) : [];
     const imageCount = Array.isArray(body.imageUrls) ? body.imageUrls.length : 0;
+    const isLocal = body.availability === 'Available Locally';
+    const stockLine = isLocal
+      ? 'Stock status: IN STOCK locally — held in Nairobi, ready for immediate M-Pesa purchase and CBD pickup/delivery. Write the description as available now.'
+      : 'Stock status: IMPORT ON ORDER — sourced from abroad (USA/China) once ordered, not held in stock. Write the description as an imported/sourced item that arrives after ordering; do not imply it is in stock.';
 
     const userMessage =
       `Create a shop listing from these details:\n\n` +
-      `Brief note from admin: ${note}\n` +
+      `Brief note / raw features from admin (extract the product name and key features from this): ${note}\n` +
+      stockLine + '\n' +
       (body.priceKES ? `Selling price (already set, do not change): KES ${body.priceKES.toLocaleString()}\n` : '') +
       (body.productLink ? `Reference link: ${body.productLink}\n` : '') +
       `Number of product images provided: ${imageCount}\n` +
@@ -125,12 +126,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const out = toolUse.input || {};
 
     // Map the agent's snake_case output to the shop's Product field names.
+    // Availability is the admin's explicit choice, not the agent's — echoed back for convenience.
     return json({
       product: {
         name: out.name || '',
         description: out.description || '',
         category: out.category || '',
-        availability: out.availability === 'Available Locally' ? 'Available Locally' : 'Import on Order',
+        availability: isLocal ? 'Available Locally' : 'Import on Order',
         shippingDuration: out.shipping_duration || '',
         seoKeywords: Array.isArray(out.seo_keywords) ? out.seo_keywords : []
       }

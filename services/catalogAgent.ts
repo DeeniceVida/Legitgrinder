@@ -7,6 +7,7 @@ export interface CatalogAgentInput {
   imageUrls?: string[];
   productLink?: string;
   categories?: string[];
+  availability?: 'Available Locally' | 'Import on Order';
 }
 
 export interface CatalogAgentResult {
