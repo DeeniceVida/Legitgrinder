@@ -137,6 +137,32 @@ export function computeAttention(invoices: Invoice[]): AttentionItem[] {
   return items;
 }
 
+/**
+ * Pull the actual tracking code out of a free-typed field that may include a
+ * carrier name, e.g. "SF Express SF1234567890" -> "SF1234567890". Picks the
+ * longest alphanumeric token that contains a digit.
+ */
+export function extractTrackingCode(raw?: string): string {
+  if (!raw) return '';
+  let best = '';
+  for (const t of raw.trim().split(/\s+/)) {
+    const clean = t.replace(/[^A-Za-z0-9]/g, '');
+    if (/\d/.test(clean) && clean.length >= best.length) best = clean;
+  }
+  return best || raw.replace(/[^A-Za-z0-9]/g, '');
+}
+
+/**
+ * A one-click link that opens 17TRACK with the number pre-filled. 17TRACK
+ * auto-detects the carrier from the number, so the typed company name is just a
+ * hint for you — the platform figures it out. This is a manual check (you read
+ * it, then set the stage), not an automatic status feed.
+ */
+export function trackingLookupUrl(raw?: string): string {
+  const code = extractTrackingCode(raw);
+  return code ? `https://t.17track.net/en#nums=${encodeURIComponent(code)}` : '';
+}
+
 /** Group China orders by their shared container number (for cascade updates). */
 export function groupByContainer(invoices: Invoice[]): Record<string, Invoice[]> {
   const map: Record<string, Invoice[]> = {};

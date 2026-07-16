@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import {
   X, Truck, ArrowClockwise, WarningCircle, CheckCircle, ArrowRight,
-  Boat, Package, MapPin, ChatCircleText, Stack
+  Boat, Package, MapPin, ChatCircleText, Stack, MagnifyingGlass, Copy, LinkSimple
 } from '@phosphor-icons/react';
 import { Invoice, Origin, InternalStatus, OrderStatus } from '../types';
 import { MessageIntent } from '../services/messageAgent';
 import { updateOrderLogistics } from '../services/supabaseData';
 import {
   PIPELINE, internalLabel, internalToClientStatus, internalToProgress,
-  internalToMessageIntent, orderInternalStatus, nextStatus, GRACE_DAYS
+  internalToMessageIntent, orderInternalStatus, nextStatus, GRACE_DAYS, trackingLookupUrl
 } from '../utils/logistics';
 
 interface LogisticsPanelProps {
@@ -35,6 +35,7 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
   const [cascade, setCascade] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   if (!invoice) return null;
 
@@ -47,6 +48,18 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
   const containerMates = containerNumber
     ? allInvoices.filter(i => i.id !== invoice.id && i.containerNumber === containerNumber)
     : [];
+
+  const origin_ = typeof window !== 'undefined' ? window.location.origin : 'https://legitgrinder.com';
+  const clientTrackingLink = `${origin_}/tracking?id=${invoice.invoiceNumber}`;
+  const inlandLookup = trackingLookupUrl(inlandTracking);
+  const containerLookup = trackingLookupUrl(containerNumber);
+
+  const copyTrackingLink = () => {
+    navigator.clipboard.writeText(clientTrackingLink).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 1800);
+    });
+  };
 
   const chooseStatus = (s: InternalStatus) => {
     setStatus(s);
@@ -195,6 +208,37 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
               </div>
             )}
           </div>
+
+          {/* One-click check on the tracking platform + client tracking link */}
+          {(inlandLookup || containerLookup) && (
+            <div className="flex flex-wrap gap-2">
+              {inlandLookup && (
+                <a href={inlandLookup} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-gray-200 text-[11px] font-black uppercase tracking-widest text-gray-600 hover:border-[#3D8593] hover:text-[#3D8593] transition-all">
+                  <MagnifyingGlass size={14} weight="bold" /> Check {isChina ? 'inland' : 'parcel'} on 17TRACK
+                </a>
+              )}
+              {containerLookup && (
+                <a href={containerLookup} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-gray-200 text-[11px] font-black uppercase tracking-widest text-gray-600 hover:border-[#3D8593] hover:text-[#3D8593] transition-all">
+                  <MagnifyingGlass size={14} weight="bold" /> Check container
+                </a>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={copyTrackingLink}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white border border-gray-200 hover:border-[#3D8593] transition-colors text-left"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <LinkSimple size={16} className="text-gray-400 shrink-0" />
+              <span className="text-xs font-medium text-gray-500 truncate">{clientTrackingLink}</span>
+            </span>
+            <span className="shrink-0 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#3D8593]">
+              {copiedLink ? <><CheckCircle size={13} weight="fill" className="text-emerald-500" /> Copied</> : <><Copy size={13} weight="bold" /> Copy for client</>}
+            </span>
+          </button>
 
           {isChina && containerMates.length > 0 && (
             <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-teal-50/60 border border-teal-100 cursor-pointer">

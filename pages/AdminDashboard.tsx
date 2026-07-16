@@ -1426,7 +1426,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* ACTION CENTER — the "watcher": orders needing attention right now */}
             {(() => {
               const attention = computeAttention(invoices);
-              if (attention.length === 0) return null;
+              if (attention.length === 0) return (
+                <div className="rounded-[2rem] border border-teal-100 bg-teal-50/40 px-6 py-5 flex items-center gap-3">
+                  <Activity className="w-5 h-5 text-[#3D8593]" />
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-[#3D8593]">Action Center · All clear</p>
+                    <p className="text-xs text-gray-500 font-medium mt-0.5">Nothing needs you right now. Orders past their port grace window or ready-with-a-balance will appear here.</p>
+                  </div>
+                </div>
+              );
               return (
                 <div className="rounded-[2rem] border border-amber-200 bg-amber-50/60 p-6 md:p-7">
                   <div className="flex items-center gap-2.5 mb-4">
@@ -1612,13 +1620,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             title="Draft a WhatsApp message with AI"
                           >
                             <MessageCircle className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => copyTrackingLink(inv.invoiceNumber)}
-                            className="p-2 bg-indigo-50 text-indigo-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all"
-                            title="Copy Tracking Link"
-                          >
-                            <ExternalLink className="w-4 h-4" />
                           </button>
                           {!inv.isPaid && (
                             <button
