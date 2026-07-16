@@ -29,6 +29,7 @@ import BusinessCard from '../components/BusinessCard';
 import CatalogAgentPanel from '../components/CatalogAgentPanel';
 import MessageAgentPanel from '../components/MessageAgentPanel';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
+import { normalizeKenyanPhone } from '../utils/phone';
 
 
 
@@ -2238,7 +2239,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             `Please confirm if this works for you and complete the $15 (approx. KES 2,025) commitment fee to lock your slot.\n\n` +
                             `Once confirmed, the date will be locked in our master calendar.`
                           );
-                          window.open(`https://wa.me/${c.whatsapp.replace(/\+/g, '')}?text=${message}`, '_blank');
+                          window.open(`https://wa.me/${normalizeKenyanPhone(c.whatsapp)}?text=${message}`, '_blank');
                         }}
                         className="px-6 py-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all shadow-sm flex items-center gap-2 border border-emerald-100"
                       >

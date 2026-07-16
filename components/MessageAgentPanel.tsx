@@ -4,6 +4,7 @@ import {
   Copy, CheckCircle, BellRinging, Package, PaperPlaneTilt, HandHeart, ChatText
 } from '@phosphor-icons/react';
 import { draftClientMessage, MessageIntent } from '../services/messageAgent';
+import { normalizeKenyanPhone } from '../utils/phone';
 import { Invoice } from '../types';
 
 interface MessageAgentPanelProps {
@@ -34,7 +35,7 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose 
   const balance = Math.max((invoice.totalKES || 0) - paidSoFar, 0);
   const payLink = `${origin}/pay/${invoice.invoiceNumber}`;
   const trackingLink = `${origin}/tracking?id=${invoice.invoiceNumber}`;
-  const waNumber = (invoice.clientWhatsapp || '').replace(/[^\d]/g, '');
+  const waNumber = normalizeKenyanPhone(invoice.clientWhatsapp);
 
   const handleGenerate = async () => {
     setError(null);
