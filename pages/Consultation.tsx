@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, MessageSquare, ShieldCheck, User, Mail, Phone, MessageCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  CalendarBlank, Clock, ChatCircleText, ShieldCheck, User, EnvelopeSimple,
+  WhatsappLogo, ArrowRight, CheckCircle, WarningCircle, Phone
+} from '@phosphor-icons/react';
 import { submitConsultation } from '../services/supabaseData';
+import { Reveal } from '../components/Motion';
+
+const inputBase =
+  'w-full bg-white border border-gray-200 rounded-2xl pl-12 pr-6 py-4 text-sm font-medium text-gray-900 placeholder:text-gray-300 focus:border-[#3D8593] outline-none transition-colors shadow-sm';
+const labelBase = 'block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2.5';
 
 const Consultation: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -38,7 +47,6 @@ const Consultation: React.FC = () => {
         throw result.error;
       }
 
-      // Success - show confirmation
       setIsSubmitted(true);
     } catch (err: any) {
       console.error('Error submitting consultation:', err);
@@ -50,161 +58,135 @@ const Consultation: React.FC = () => {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen pt-48 pb-32 px-6 flex items-center justify-center bg-mesh">
-        <div className="glass max-w-lg w-full p-12 rounded-[3.5rem] text-center shadow-2xl border-teal-100 animate-in zoom-in-95 duration-700">
-          <div className="w-20 h-20 bg-teal-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8">
-            <ShieldCheck className="w-10 h-10 text-[#3D8593]" />
+      <div className="bg-brand-bg min-h-screen pt-36 pb-28 px-4 md:px-6 flex items-center justify-center">
+        <Reveal className="w-full max-w-lg">
+          <div className="bg-white border border-gray-100 rounded-[2rem] shadow-xl shadow-teal-900/5 text-center px-8 py-16">
+            <CheckCircle size={64} weight="duotone" className="text-[#3D8593] mx-auto mb-7" />
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tighter mb-4">
+              Request <span className="heading-accent italic font-light text-[#3D8593]">received.</span>
+            </h2>
+            <p className="text-gray-500 font-light leading-relaxed mb-10">
+              I'm checking whether your project is doable. You'll get a WhatsApp message shortly with confirmation
+              and payment details for the <span className="text-[#3D8593] font-bold">$15 session fee</span> — credited back when you place an order.
+            </p>
+            <Link
+              to="/"
+              className="inline-block px-9 py-4 bg-[#0f1a1c] text-white rounded-full font-black uppercase text-[11px] tracking-widest hover:bg-[#3D8593] transition-colors"
+            >
+              Back to Home
+            </Link>
           </div>
-          <h2 className="text-4xl font-bold mb-6 text-gray-900">Request Received!</h2>
-          <p className="text-gray-500 font-light mb-10 leading-relaxed">
-            Our sourcing team is checking if your project is doable. You will receive a WhatsApp notification shortly with confirmation and payment details for the <span className="text-[#3D8593] font-bold">$15 session fee</span>.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="btn-vibrant-teal w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest"
-          >
-            Back to Home
-          </button>
-        </div>
+        </Reveal>
       </div>
     );
   }
 
   return (
-    <div className="bg-mesh min-h-screen pt-48 pb-32 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-2 gap-20 items-start">
-          <div className="animate-in fade-in slide-in-from-left-8 duration-1000">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-orange-50 border border-orange-100 rounded-full mb-8">
-              <Sparkles className="w-3.5 h-3.5 text-[#FF9900]" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#FF9900]">Expert Strategy Session</span>
-            </div>
-            <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tighter text-gray-900 leading-[0.95]">
-              Unlock Your <br />
-              <span className="text-[#3D8593] italic font-light heading-accent">Import Potential.</span>
+    <div className="bg-brand-bg min-h-screen pt-36 pb-28 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+        {/* LEFT — pitch */}
+        <Reveal>
+          <div className="lg:pt-6">
+            <p className="eyebrow text-[#3D8593] mb-4">1-on-1 Strategy Session</p>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter mb-6 leading-[1.02]">
+              Unlock your <span className="heading-accent italic font-light text-[#3D8593]">import potential.</span>
             </h1>
-            <p className="text-xl md:text-2xl max-w-lg mb-12 text-gray-500 font-light leading-relaxed">
-              Book a 1-on-1 session to discuss your sourcing needs, verify suppliers, and build a precision import strategy.
+            <p className="text-gray-500 font-light text-lg leading-relaxed mb-10 max-w-lg">
+              Book a private session to talk through your sourcing needs, verify suppliers, and build a
+              precision import strategy tailored to your budget.
             </p>
 
-            <div className="space-y-6">
-              <div className="flex gap-6 items-center">
-                <div className="w-14 h-14 bg-teal-50 rounded-2xl flex items-center justify-center">
-                  <span className="text-xl font-black text-[#3D8593]">$15</span>
+            <div className="space-y-4">
+              <div className="flex gap-5 items-center p-5 rounded-2xl bg-white border border-gray-100">
+                <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center shrink-0">
+                  <span className="text-lg font-black text-[#3D8593]">$15</span>
                 </div>
                 <div>
                   <p className="font-bold text-gray-900">Consultation Fee</p>
-                  <p className="text-sm text-gray-500">Credited back if you place an order.</p>
+                  <p className="text-sm text-gray-500 font-light">Credited back when you place an order.</p>
                 </div>
               </div>
-              <div className="flex gap-6 items-center">
-                <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center">
-                  <Phone className="w-7 h-7 text-[#FF9900]" />
+              <div className="flex gap-5 items-center p-5 rounded-2xl bg-white border border-gray-100">
+                <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0">
+                  <Phone size={26} weight="duotone" className="text-[#FF9900]" />
                 </div>
                 <div>
                   <p className="font-bold text-gray-900">30-Minute Deep Dive</p>
-                  <p className="text-sm text-gray-500">Normal phone call or WhatsApp audio.</p>
+                  <p className="text-sm text-gray-500 font-light">Regular phone call or WhatsApp audio.</p>
                 </div>
               </div>
             </div>
           </div>
+        </Reveal>
 
-          <div className="glass p-10 md:p-14 rounded-[3.5rem] border-white shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
+        {/* RIGHT — form */}
+        <Reveal delay={130}>
+          <div className="bg-white border border-gray-100 rounded-[2rem] shadow-xl shadow-teal-900/5 p-7 md:p-10">
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Full Name</label>
+              <div className="grid md:grid-cols-2 gap-5">
+                <div>
+                  <label htmlFor="c-name" className={labelBase}>Full Name</label>
                   <div className="relative">
-                    <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input
-                      required
-                      className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
-                      placeholder="Jane Doe"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    />
+                    <User size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                    <input id="c-name" required className={inputBase} placeholder="Jane Wanjiku"
+                      value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Email</label>
+                <div>
+                  <label htmlFor="c-email" className={labelBase}>Email</label>
                   <div className="relative">
-                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input
-                      required
-                      type="email"
-                      className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
-                      placeholder="jane@example.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
+                    <EnvelopeSimple size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                    <input id="c-email" required type="email" className={inputBase} placeholder="jane@example.com"
+                      value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
                   </div>
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">WhatsApp Number</label>
+              <div className="grid md:grid-cols-2 gap-5">
+                <div>
+                  <label htmlFor="c-whatsapp" className={labelBase}>WhatsApp Number</label>
                   <div className="relative">
-                    <MessageCircle className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input
-                      required
-                      className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
-                      placeholder="+254..."
-                      value={formData.whatsapp}
-                      onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    />
+                    <WhatsappLogo size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                    <input id="c-whatsapp" required type="tel" className={inputBase} placeholder="+254…"
+                      value={formData.whatsapp} onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Preferred Date</label>
+                <div>
+                  <label htmlFor="c-date" className={labelBase}>Preferred Date</label>
                   <div className="relative">
-                    <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                    <input
-                      required
-                      type="date"
-                      className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
-                      value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    />
+                    <CalendarBlank size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                    <input id="c-date" required type="date" className={inputBase}
+                      value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} />
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Preferred Time</label>
+              <div>
+                <label htmlFor="c-time" className={labelBase}>Preferred Time</label>
                 <div className="relative">
-                  <Clock className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-teal-300" />
-                  <input
-                    required
-                    type="time"
-                    className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-4 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  />
+                  <Clock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
+                  <input id="c-time" required type="time" className={inputBase}
+                    value={formData.time} onChange={(e) => setFormData({ ...formData, time: e.target.value })} />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">What would you like to discuss?</label>
+              <div>
+                <label htmlFor="c-topic" className={labelBase}>What would you like to discuss?</label>
                 <div className="relative">
-                  <MessageSquare className="absolute left-5 top-6 w-4 h-4 text-teal-300" />
-                  <textarea
-                    required
-                    rows={4}
-                    className="w-full bg-teal-50/30 border-none rounded-2xl pl-12 pr-6 py-5 focus:ring-2 focus:ring-[#3D8593]/20 outline-none transition-all resize-none"
-                    placeholder="Tell us about the products you want to import..."
-                    value={formData.topic}
-                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                  />
+                  <ChatCircleText size={17} className="absolute left-4 top-5 text-gray-300 pointer-events-none" />
+                  <textarea id="c-topic" required rows={4}
+                    className="w-full bg-white border border-gray-200 rounded-2xl pl-12 pr-6 py-4 text-sm font-medium text-gray-900 placeholder:text-gray-300 focus:border-[#3D8593] outline-none transition-colors shadow-sm resize-none"
+                    placeholder="Tell me about the products you want to import…"
+                    value={formData.topic} onChange={(e) => setFormData({ ...formData, topic: e.target.value })} />
                 </div>
               </div>
 
               {error && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 flex items-start gap-4">
-                  <ShieldCheck className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 flex items-start gap-3" role="alert">
+                  <WarningCircle size={20} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-bold text-red-900 mb-1">Submission Failed</p>
-                    <p className="text-xs text-red-600">{error}</p>
+                    <p className="text-sm font-bold text-rose-900 mb-0.5">Submission failed</p>
+                    <p className="text-xs text-rose-600">{error}</p>
                   </div>
                 </div>
               )}
@@ -212,13 +194,17 @@ const Consultation: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn-vibrant-orange w-full py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-vibrant-orange shine w-full py-4 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Submitting...' : 'Request Session'} <ArrowRight className="w-4 h-4" />
+                {isSubmitting ? 'Submitting…' : (<>Request Session <ArrowRight size={15} weight="bold" /></>)}
               </button>
+
+              <p className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                <ShieldCheck size={14} weight="fill" className="text-emerald-500" /> Your details stay private
+              </p>
             </form>
           </div>
-        </div>
+        </Reveal>
       </div>
     </div>
   );

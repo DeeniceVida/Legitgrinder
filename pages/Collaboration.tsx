@@ -1,125 +1,125 @@
-
 import React from 'react';
-import { Instagram, Music2, Mail, ArrowUpRight, Handshake, Users, Briefcase, Sparkles } from 'lucide-react';
+import {
+  InstagramLogo, TiktokLogo, EnvelopeSimple, ArrowUpRight,
+  UsersThree, Briefcase, ArrowRight
+} from '@phosphor-icons/react';
+import { Reveal } from '../components/Motion';
+
+const CONTACT_EMAIL = 'mungaimports@gmail.com';
+
+const socialCards = [
+  {
+    href: 'https://instagram.com/legitgrinder.imports',
+    Icon: InstagramLogo,
+    name: 'Instagram',
+    handle: '@legitgrinder.imports',
+    desc: 'Daily drops, new arrivals and sourcing insights for our community.',
+  },
+  {
+    href: 'https://tiktok.com/@legitgrinderimports',
+    Icon: TiktokLogo,
+    name: 'TikTok',
+    handle: '@legitgrinderimports',
+    desc: 'Watch our unboxing and sourcing process live, in action.',
+  },
+];
+
+const partnerTypes = [
+  {
+    Icon: UsersThree,
+    title: 'Influencers & Creators',
+    desc: 'Showcase our premium imports to your audience. Competitive affiliate commissions plus exclusive products for content creation.',
+  },
+  {
+    Icon: Briefcase,
+    title: 'Business & Wholesale',
+    desc: 'Scale your local business with direct global sourcing. We handle the heavy lifting — from supplier warehouse to your Nairobi collection point.',
+  },
+];
 
 const Collaboration: React.FC = () => {
   return (
-    <div className="animate-in fade-in duration-1000">
-      {/* Hero */}
-      <section className="py-24 md:py-32 px-6">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-50 rounded-full border border-neutral-100 mb-8">
-            <Sparkles className="w-4 h-4 text-neutral-400" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Partner with the best</span>
+    <div className="bg-brand-bg min-h-screen pt-36 pb-28 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto">
+        {/* HEADER */}
+        <Reveal>
+          <div className="mb-14 max-w-3xl">
+            <p className="eyebrow text-[#3D8593] mb-4">Partnerships</p>
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter mb-6 leading-[1.02]">
+              Let's scale <span className="heading-accent italic font-light text-[#3D8593]">together.</span>
+            </h1>
+            <p className="text-gray-500 font-light text-lg leading-relaxed">
+              Whether you're a content creator showcasing global tech or a business looking for a reliable
+              sourcing partner — there's a way for us to grow together.
+            </p>
           </div>
-          <h1 className="text-6xl md:text-8xl font-medium mb-8 tracking-tight-custom text-neutral-900 leading-[1.05]">
-            Let's scale <br/>
-            <span className="text-neutral-400 italic font-light heading-accent">Together.</span>
-          </h1>
-          <p className="text-xl md:text-2xl max-w-2xl mx-auto mb-16 text-neutral-500 font-light leading-relaxed">
-            Whether you are a content creator looking to showcase global tech or a business looking for a reliable sourcing partner.
-          </p>
+        </Reveal>
+
+        {/* SOCIAL CARDS */}
+        <div className="grid md:grid-cols-2 gap-5 mb-20">
+          {socialCards.map(({ href, Icon, name, handle, desc }, i) => (
+            <Reveal key={name} delay={i * 130}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative block h-full overflow-hidden rounded-[2rem] bg-white border border-gray-100 p-9 md:p-10 hover:border-[#3D8593]/30 hover:shadow-2xl hover:shadow-teal-900/10 transition-all duration-500"
+              >
+                <Icon size={180} weight="fill" className="absolute -top-6 -right-6 text-gray-50 group-hover:text-teal-50 transition-colors duration-500" aria-hidden="true" />
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-2xl bg-teal-50 text-[#3D8593] flex items-center justify-center mb-7">
+                    <Icon size={28} weight="duotone" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 tracking-tight mb-2">{name}</h3>
+                  <p className="text-gray-500 font-light leading-relaxed mb-7 max-w-xs">{desc}</p>
+                  <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#3D8593] group-hover:gap-3 transition-all">
+                    {handle} <ArrowUpRight size={14} weight="bold" />
+                  </span>
+                </div>
+              </a>
+            </Reveal>
+          ))}
         </div>
-      </section>
 
-      {/* Social Cards */}
-      <section className="pb-32 px-6">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-10">
-          <a 
-            href="https://instagram.com/legitgrinder.imports" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="group relative bg-neutral-50 rounded-[3.5rem] p-12 overflow-hidden transition-all hover:bg-white hover:shadow-2xl hover:shadow-neutral-200"
-          >
-            <div className="relative z-10">
-              <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform">
-                <Instagram className="w-8 h-8 text-neutral-900" />
-              </div>
-              <h3 className="text-3xl font-medium mb-4 tracking-tight-custom">Instagram</h3>
-              <p className="text-neutral-500 font-light mb-8 max-w-xs leading-relaxed">Join 200k+ followers for daily drops and sourcing insights.</p>
-              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-neutral-900 border-b-2 border-neutral-900 pb-1">
-                @legitgrinder.imports <ArrowUpRight className="w-3 h-3" />
-              </span>
-            </div>
-            <div className="absolute top-10 right-10 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Instagram className="w-48 h-48" />
-            </div>
-          </a>
-
-          <a 
-            href="https://tiktok.com/@legitgrinderimports" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="group relative bg-neutral-50 rounded-[3.5rem] p-12 overflow-hidden transition-all hover:bg-white hover:shadow-2xl hover:shadow-neutral-200"
-          >
-            <div className="relative z-10">
-              <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mb-8 shadow-sm group-hover:scale-110 transition-transform">
-                <Music2 className="w-8 h-8 text-neutral-900" />
-              </div>
-              <h3 className="text-3xl font-medium mb-4 tracking-tight-custom">TikTok</h3>
-              <p className="text-neutral-500 font-light mb-8 max-w-xs leading-relaxed">Watch our unboxing and sourcing process live in action.</p>
-              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-neutral-900 border-b-2 border-neutral-900 pb-1">
-                @legitgrinderimports <ArrowUpRight className="w-3 h-3" />
-              </span>
-            </div>
-            <div className="absolute top-10 right-10 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Music2 className="w-48 h-48" />
-            </div>
-          </a>
-        </div>
-      </section>
-
-      {/* Collaboration Types */}
-      <section className="py-32 bg-neutral-900 text-white rounded-[4rem] mx-6 mb-32 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-neutral-800/20 to-transparent"></div>
-        <div className="max-w-7xl mx-auto px-12 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-24">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-medium mb-12 tracking-tight-custom">How we work.</h2>
-              <div className="space-y-16">
-                <div className="flex gap-8">
-                  <div className="shrink-0 w-14 h-14 rounded-2xl bg-neutral-800 flex items-center justify-center">
-                    <Users className="w-6 h-6 text-neutral-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-medium mb-3">Influencers & Creators</h4>
-                    <p className="text-neutral-400 font-light leading-relaxed">
-                      Showcase our premium imports to your audience. We offer competitive affiliate commissions and provide exclusive products for content creation.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-8">
-                  <div className="shrink-0 w-14 h-14 rounded-2xl bg-neutral-800 flex items-center justify-center">
-                    <Briefcase className="w-6 h-6 text-neutral-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-medium mb-3">Business & Wholesale</h4>
-                    <p className="text-neutral-400 font-light leading-relaxed">
-                      Scale your local business with direct global sourcing. We handle the heavy lifting - from agent warehouse to Nairobi collection point.
-                    </p>
-                  </div>
+        {/* HOW WE WORK + CONTACT */}
+        <Reveal>
+          <div className="relative overflow-hidden rounded-[2rem] bg-[#0f1a1c] text-white p-8 md:p-14">
+            <div className="absolute top-0 right-0 w-72 h-72 bg-[#3D8593]/10 rounded-full -mr-24 -mt-24 blur-3xl" aria-hidden="true"></div>
+            <div className="relative grid lg:grid-cols-2 gap-12 lg:gap-20">
+              <div>
+                <p className="eyebrow text-[#FF9900] mb-5">How we work</p>
+                <div className="space-y-9">
+                  {partnerTypes.map(({ Icon, title, desc }) => (
+                    <div key={title} className="flex gap-5">
+                      <div className="shrink-0 w-13 h-13 md:w-14 md:h-14 rounded-2xl bg-white/10 flex items-center justify-center text-[#7fc2ce]">
+                        <Icon size={26} weight="duotone" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-bold mb-2">{title}</h4>
+                        <p className="text-white/55 font-light leading-relaxed">{desc}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-            
-            <div className="flex flex-col justify-center">
-              <div className="bg-white/5 border border-white/10 p-12 rounded-[3rem] backdrop-blur-xl">
-                <div className="mb-10">
-                  <Mail className="w-12 h-12 text-neutral-500 mb-6" />
-                  <h3 className="text-3xl font-medium mb-4 tracking-tight-custom">Direct Inquiries</h3>
-                  <p className="text-neutral-400 font-light">Send us your proposal or bulk request and our team will get back to you within 24 hours.</p>
-                </div>
-                <a 
-                  href="mailto:mungaimports@gamil.com" 
-                  className="inline-block bg-white text-black px-10 py-5 rounded-full font-bold text-xs uppercase tracking-widest hover:bg-neutral-200 transition-all shadow-xl shadow-black/50"
+
+              <div className="flex flex-col justify-center rounded-[1.5rem] bg-white/5 border border-white/10 p-8 md:p-10 backdrop-blur-sm">
+                <EnvelopeSimple size={40} weight="duotone" className="text-[#7fc2ce] mb-6" />
+                <h3 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">Direct inquiries</h3>
+                <p className="text-white/55 font-light leading-relaxed mb-8">
+                  Send your proposal or bulk request and I'll get back to you within 24 hours.
+                </p>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}`}
+                  className="btn-vibrant-orange shine inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full font-black uppercase text-[11px] tracking-widest w-fit"
                 >
-                  mungaimports@gamil.com
+                  {CONTACT_EMAIL} <ArrowRight size={15} weight="bold" />
                 </a>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </Reveal>
+      </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Lock, Unlock, ArrowRight, Download, BookOpen, Search, ShoppingBag } from 'lucide-react';
+import { LockSimple, LockSimpleOpen, DownloadSimple, BookOpen, MagnifyingGlass } from '@phosphor-icons/react';
 import { EBook, OrderStatus } from '../types';
 import { fetchEBooks, fetchUserPurchasedBooks, createInvoice, verifyPaystackPayment, recordBookPurchase } from '../services/supabaseData';
 import { supabase } from '../lib/supabase';
@@ -93,7 +93,7 @@ const Books: React.FC = () => {
                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">You have reached the end of this digital copy.</p>
                         {readingBook.pdfUrl && (
                             <a href={readingBook.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-[#3D8593] hover:underline">
-                                <Download className="w-4 h-4" /> Download PDF
+                                <DownloadSimple size={16} weight="bold" /> Download PDF
                             </a>
                         )}
                     </div>
@@ -103,22 +103,21 @@ const Books: React.FC = () => {
     }
 
     return (
-        <div className="bg-[#FBFBFA] min-h-screen pt-32 pb-32">
-            <div className="max-w-7xl mx-auto px-6">
-                <header className="mb-12 md:mb-20">
-                    <h1 className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 mb-2 md:mb-4 text-center md:text-left">The Knowledge Hub</h1>
-                    <h2 className="text-3xl md:text-7xl font-bold text-gray-900 tracking-tighter leading-tight mb-6 md:mb-8 text-center md:text-left">Importation <span className="text-[#3D8593]">Masterclass</span>.</h2>
+        <div className="bg-brand-bg min-h-screen pt-36 pb-28">
+            <div className="max-w-7xl mx-auto px-4 md:px-6">
+                <header className="mb-12 md:mb-16">
+                    <p className="eyebrow text-[#3D8593] mb-4">The Knowledge Hub</p>
+                    <h2 className="text-4xl md:text-6xl font-bold text-gray-900 tracking-tighter leading-[1.02] mb-6">Importation <span className="heading-accent italic font-light text-[#3D8593]">Masterclass.</span></h2>
 
-                    <div className="relative max-w-2xl group mx-auto md:mx-0">
-                        <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-                            <Search className="w-5 h-5 text-gray-400" />
-                        </div>
+                    <div className="relative max-w-xl group">
+                        <MagnifyingGlass size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                         <input
-                            type="text"
-                            placeholder="Search ebooks..."
+                            type="search"
+                            placeholder="Search ebooks…"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full h-14 md:h-16 bg-white border border-neutral-100 rounded-2xl pl-16 pr-6 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[#3D8593]/5 transition-all shadow-sm"
+                            aria-label="Search ebooks"
+                            className="w-full h-14 bg-white border border-gray-200 rounded-full pl-12 pr-6 text-sm font-medium focus:border-[#3D8593] outline-none transition-colors shadow-sm"
                         />
                     </div>
                 </header>
@@ -137,9 +136,9 @@ const Books: React.FC = () => {
                                         <SafeImage src={book.coverImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                                         <div className="absolute top-3 right-3 md:top-6 md:right-6">
                                             {isPurchased ? (
-                                                <div className="w-8 h-8 md:w-10 md:h-10 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg"><Unlock className="w-3 h-3 md:w-4 md:h-4" /></div>
+                                                <div className="w-8 h-8 md:w-10 md:h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg"><LockSimpleOpen size={16} weight="bold" /></div>
                                             ) : (
-                                                <div className="w-8 h-8 md:w-10 md:h-10 bg-black/50 backdrop-blur-md text-white rounded-full flex items-center justify-center shadow-lg"><Lock className="w-3 h-3 md:w-4 md:h-4" /></div>
+                                                <div className="w-8 h-8 md:w-10 md:h-10 bg-black/50 backdrop-blur-md text-white rounded-full flex items-center justify-center shadow-lg"><LockSimple size={16} weight="bold" /></div>
                                             )}
                                         </div>
                                     </div>
