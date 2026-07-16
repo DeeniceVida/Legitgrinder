@@ -26,6 +26,7 @@ import {
 import { fetchBanners, addBanner, updateBanner, deleteBanner } from '../services/adBanners';
 import SafeImage from '../components/SafeImage';
 import BusinessCard from '../components/BusinessCard';
+import CatalogAgentPanel from '../components/CatalogAgentPanel';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 
 
@@ -104,6 +105,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Product Management State
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
 
   // Price Editing State
   const [priceEditUSD, setPriceEditUSD] = useState<string>('');
@@ -961,6 +963,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="flex-1 md:flex-none bg-rose-50 text-rose-600 px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest border border-rose-100 shadow-xl hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" /> Purge Legacy Models
+                </button>
+                <button
+                  onClick={() => setAiPanelOpen(true)}
+                  className="flex-1 md:flex-none bg-[#0f1a1c] text-white px-10 py-4 rounded-full font-black text-[10px] uppercase tracking-widest shadow-2xl flex items-center justify-center gap-2 hover:bg-[#3D8593] transition-colors"
+                >
+                  <Star className="w-4 h-4" /> AI Add Product
                 </button>
                 <button
                   onClick={() => setEditingProduct('new')}
@@ -2560,6 +2568,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
       </main >
+
+      {/* AI Catalog Agent */}
+      <CatalogAgentPanel
+        isOpen={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+        existingCategories={Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort()}
+        onCreated={(newProduct) => onUpdateProducts([...products, newProduct])}
+      />
 
       {/* Product Edit/Add Modal */}
       {
