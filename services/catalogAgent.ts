@@ -16,6 +16,8 @@ export interface CatalogAgentResult {
   category: string;
   availability: 'Available Locally' | 'Import on Order';
   shippingDuration: string;
+  variationType: 'Design' | 'Color' | 'Size' | 'Bundle' | 'Capacity';
+  variations: string[];
   seoKeywords: string[];
 }
 

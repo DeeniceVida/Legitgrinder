@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import {
   Sparkle, X, ArrowClockwise, ImageSquare, Tag, WarningCircle,
-  CheckCircle, PencilSimple, Package
+  CheckCircle, PencilSimple, Package, Plus, TrashSimple, Swatches
 } from '@phosphor-icons/react';
 import { generateProductListing } from '../services/catalogAgent';
 import { createProduct } from '../services/supabaseData';
-import { Product, Availability } from '../types';
+import { Product, ProductVariation, Availability } from '../types';
+
+type VariationRow = { name: string; addOn: string; imageUrl: string };
+type VariationType = ProductVariation['type'];
 
 interface CatalogAgentPanelProps {
   isOpen: boolean;
@@ -37,6 +40,10 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
     name: string; description: string; category: string;
     shippingDuration: string; seoKeywords: string[];
   } | null>(null);
+
+  // Designs / variations (edited in the preview stage)
+  const [variationType, setVariationType] = useState<VariationType>('Design');
+  const [variations, setVariations] = useState<VariationRow[]>([]);
 
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,12 +78,38 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
       shippingDuration: res.product.shippingDuration,
       seoKeywords: res.product.seoKeywords || []
     });
+
+    // Pre-fill designs the agent detected in the note; admin can edit/add/remove.
+    const images = parseImages();
+    const suggested = res.product.variations || [];
+    if (suggested.length) {
+      setVariationType((res.product.variationType as VariationType) || 'Design');
+      setVariations(
+        suggested.map((name, i) => ({ name, addOn: '', imageUrl: images[i] || '' }))
+      );
+    }
   };
+
+  const addVariationRow = () =>
+    setVariations([...variations, { name: '', addOn: '', imageUrl: '' }]);
+  const updateVariationRow = (i: number, patch: Partial<VariationRow>) =>
+    setVariations(variations.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+  const removeVariationRow = (i: number) =>
+    setVariations(variations.filter((_, idx) => idx !== i));
 
   const handleSave = async () => {
     if (!draft) return;
     setError(null);
     setSaving(true);
+    const builtVariations: ProductVariation[] = variations
+      .filter(v => v.name.trim())
+      .map(v => ({
+        type: variationType,
+        name: v.name.trim(),
+        priceKES: v.addOn ? parseInt(v.addOn) : 0,
+        imageUrl: v.imageUrl || undefined
+      }));
+
     const productData: Partial<Product> = {
       name: draft.name,
       priceKES: priceKES ? parseInt(priceKES) : 0,
@@ -87,7 +120,7 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
       description: draft.description,
       category: draft.category,
       stockCount: isLocal && stockCount ? parseInt(stockCount) : 0,
-      variations: []
+      variations: builtVariations
     };
     const result = await createProduct(productData);
     setSaving(false);
@@ -98,7 +131,7 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
         priceKES: productData.priceKES || 0,
         discountPriceKES: productData.discountPriceKES,
         imageUrls: productData.imageUrls || [],
-        variations: [],
+        variations: builtVariations,
         availability: productData.availability || Availability.IMPORT,
         shippingDuration: productData.shippingDuration || '',
         description: productData.description || '',
@@ -115,6 +148,7 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
   const resetAll = () => {
     setNote(''); setAvailability(Availability.LOCAL); setPriceKES(''); setDiscountKES('');
     setStockCount(''); setImagesText(''); setProductLink(''); setDraft(null); setError(null);
+    setVariationType('Design'); setVariations([]);
   };
 
   const imageCount = parseImages().length;
@@ -310,6 +344,84 @@ const CatalogAgentPanel: React.FC<CatalogAgentPanelProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Designs / variations */}
+              <div className="rounded-2xl border border-gray-100 bg-white p-5">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <span className="flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-gray-500">
+                    <Swatches size={15} weight="duotone" className="text-[#3D8593]" /> Designs &amp; Variations
+                  </span>
+                  <select
+                    aria-label="Variation type"
+                    className="bg-brand-bg border border-gray-200 rounded-full px-3 py-1.5 text-[11px] font-bold text-gray-600 outline-none focus:border-[#3D8593]"
+                    value={variationType}
+                    onChange={e => setVariationType(e.target.value as VariationType)}
+                  >
+                    {(['Design', 'Color', 'Size', 'Bundle', 'Capacity'] as VariationType[]).map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {variations.length === 0 ? (
+                  <p className="text-[12px] text-gray-400 font-medium mb-3">
+                    No variations — the item has one version. Add designs if buyers choose between options.
+                  </p>
+                ) : (
+                  <div className="space-y-2.5 mb-3">
+                    {variations.map((v, i) => (
+                      <div key={i} className="flex flex-wrap items-center gap-2">
+                        <input
+                          placeholder={`${variationType} name (e.g. Floral)`}
+                          className="flex-1 min-w-[8rem] bg-brand-bg border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-medium outline-none focus:border-[#3D8593]"
+                          value={v.name}
+                          onChange={e => updateVariationRow(i, { name: e.target.value })}
+                        />
+                        <div className="relative w-28">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-300">+KES</span>
+                          <input
+                            type="number" inputMode="numeric" min="0" placeholder="0"
+                            title="Extra cost for this option (hidden from customer as a +)"
+                            className="w-full bg-brand-bg border border-gray-200 rounded-xl pl-11 pr-2 py-2.5 text-sm font-medium outline-none focus:border-[#3D8593]"
+                            value={v.addOn}
+                            onChange={e => updateVariationRow(i, { addOn: e.target.value })}
+                          />
+                        </div>
+                        <select
+                          aria-label={`Image for ${v.name || 'variation'}`}
+                          className="w-32 bg-brand-bg border border-gray-200 rounded-xl px-2.5 py-2.5 text-xs font-medium text-gray-600 outline-none focus:border-[#3D8593]"
+                          value={v.imageUrl}
+                          onChange={e => updateVariationRow(i, { imageUrl: e.target.value })}
+                        >
+                          <option value="">No image</option>
+                          {parseImages().map((url, idx) => (
+                            <option key={url} value={url}>Image {idx + 1}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button" onClick={() => removeVariationRow(i)}
+                          aria-label="Remove variation"
+                          className="w-9 h-9 shrink-0 rounded-xl bg-rose-50 text-rose-400 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors"
+                        >
+                          <TrashSimple size={15} weight="bold" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button" onClick={addVariationRow}
+                  className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#3D8593] hover:gap-3 transition-all"
+                >
+                  <Plus size={14} weight="bold" /> Add {variationType.toLowerCase()}
+                </button>
+                {variations.some(v => v.addOn && parseInt(v.addOn) > 0) && (
+                  <p className="mt-3 text-[11px] text-gray-400 font-medium">
+                    +KES add-ons are folded into that option's price — customers see the final amount, never a "+".
+                  </p>
+                )}
+              </div>
 
               {/* summary of pass-through fields */}
               <div className="flex flex-wrap gap-2 text-[11px] font-bold text-gray-500">

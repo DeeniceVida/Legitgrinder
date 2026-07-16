@@ -43,19 +43,31 @@ const SAVE_PRODUCT_TOOL = {
         type: 'string',
         description: 'A short delivery estimate that matches the stock status given: for in-stock items say something like "1-2 days" or "Same-day CBD pickup"; for import items say "2-3 weeks" (air) or similar.'
       },
+      variation_type: {
+        type: 'string',
+        enum: ['Design', 'Color', 'Size', 'Bundle', 'Capacity'],
+        description: 'If the note describes the item coming in multiple options, the kind of option it is. Omit if there are none.'
+      },
+      variations: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Names of the individual options/designs the note mentions (e.g. ["Floral", "Striped", "Plain"] or ["Red", "Blue"]). Empty array if the note does not mention any variants.'
+      },
       seo_keywords: {
         type: 'array',
         items: { type: 'string' },
         description: '4-8 short search keywords a Kenyan buyer might type.'
       }
     },
-    required: ['name', 'description', 'category', 'shipping_duration', 'seo_keywords']
+    required: ['name', 'description', 'category', 'shipping_duration', 'variations', 'seo_keywords']
   }
 } as const;
 
 const SYSTEM_PROMPT = `You are the catalog copywriter for LegitGrinder Imports, a premium Kenyan import & sourcing business (phones, tech, tools, home goods) that ships from the USA and China to Nairobi CBD.
 
-Write listings that are accurate, benefit-led, and optimised for search — the tone is premium but plain-spoken, aimed at Kenyan buyers. Use Kenyan English where natural. Never invent specs, prices, or claims you were not given; if the note is thin, keep the description honest and general rather than fabricating details. Prices are set by the admin — do not mention or change them. Always call the save_product tool with your result.`;
+Write listings that are accurate, benefit-led, and optimised for search — the tone is premium but plain-spoken, aimed at Kenyan buyers. Use Kenyan English where natural. Never invent specs, prices, or claims you were not given; if the note is thin, keep the description honest and general rather than fabricating details. Prices are set by the admin — do not mention or change them.
+
+If the note says the item comes in several designs, colors, sizes, or variants, list each option's name in "variations" and set "variation_type" accordingly — but only pull out variants the note actually states; do not invent them. If none are mentioned, return an empty "variations" array. Always call the save_product tool with your result.`;
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
@@ -134,6 +146,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         category: out.category || '',
         availability: isLocal ? 'Available Locally' : 'Import on Order',
         shippingDuration: out.shipping_duration || '',
+        variationType: out.variation_type || 'Design',
+        variations: Array.isArray(out.variations) ? out.variations.filter((v: any) => typeof v === 'string') : [],
         seoKeywords: Array.isArray(out.seo_keywords) ? out.seo_keywords : []
       }
     });
