@@ -153,15 +153,19 @@ export function extractTrackingCode(raw?: string): string {
 }
 
 /**
- * A one-click link that opens 17TRACK with the number pre-filled. 17TRACK
- * auto-detects the carrier from the number, so the typed company name is just a
- * hint for you — the platform figures it out. This is a manual check (you read
- * it, then set the stage), not an automatic status feed.
+ * A one-click link that opens 17TRACK with a PARCEL number pre-filled. 17TRACK
+ * auto-detects the courier from the number, so the typed company name is just a
+ * hint for you. Use this for parcel/courier legs (inland China, US/UK domestic),
+ * NOT for ocean containers. This is a manual check (you read it, then set the
+ * stage), not an automatic status feed.
  */
 export function trackingLookupUrl(raw?: string): string {
   const code = extractTrackingCode(raw);
   return code ? `https://t.17track.net/en#nums=${encodeURIComponent(code)}` : '';
 }
+
+/** Ocean-container tracker (by container number). 17TRACK does not do containers. */
+export const CONTAINER_TRACKING_URL = 'https://www.track-trace.com/container';
 
 /** Group China orders by their shared container number (for cascade updates). */
 export function groupByContainer(invoices: Invoice[]): Record<string, Invoice[]> {

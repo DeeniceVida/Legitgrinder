@@ -8,7 +8,8 @@ import { MessageIntent } from '../services/messageAgent';
 import { updateOrderLogistics } from '../services/supabaseData';
 import {
   PIPELINE, internalLabel, internalToClientStatus, internalToProgress,
-  internalToMessageIntent, orderInternalStatus, nextStatus, GRACE_DAYS, trackingLookupUrl
+  internalToMessageIntent, orderInternalStatus, nextStatus, GRACE_DAYS,
+  trackingLookupUrl, CONTAINER_TRACKING_URL
 } from '../utils/logistics';
 
 interface LogisticsPanelProps {
@@ -52,7 +53,7 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
   const origin_ = typeof window !== 'undefined' ? window.location.origin : 'https://legitgrinder.com';
   const clientTrackingLink = `${origin_}/tracking?id=${invoice.invoiceNumber}`;
   const inlandLookup = trackingLookupUrl(inlandTracking);
-  const containerLookup = trackingLookupUrl(containerNumber);
+  const containerLookup = containerNumber.trim() ? CONTAINER_TRACKING_URL : '';
 
   const copyTrackingLink = () => {
     navigator.clipboard.writeText(clientTrackingLink).then(() => {
@@ -220,8 +221,9 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
               )}
               {containerLookup && (
                 <a href={containerLookup} target="_blank" rel="noopener noreferrer"
+                  title={`Opens track-trace.com — paste container ${containerNumber.trim()}`}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-gray-200 text-[11px] font-black uppercase tracking-widest text-gray-600 hover:border-[#3D8593] hover:text-[#3D8593] transition-all">
-                  <MagnifyingGlass size={14} weight="bold" /> Check container
+                  <MagnifyingGlass size={14} weight="bold" /> Check container on track-trace
                 </a>
               )}
             </div>
