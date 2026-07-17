@@ -70,3 +70,57 @@ export const recordGroupOrder = async (args: {
 export const markGroupJoined = async (orderCode: string): Promise<void> => {
   await supabase.rpc('mark_group_order_joined', { p_order_code: orderCode }).then(undefined, () => {});
 };
+
+// ── Admin (signed-in) ──────────────────────────────────────────────────────
+
+const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'campaign';
+
+/** Admin: list all campaigns, newest first. */
+export const fetchGroupCampaigns = async (): Promise<GroupCampaign[]> => {
+  const { data, error } = await supabase
+    .from('group_campaigns').select('*').order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data.map((d: any) => ({
+    id: d.id, slug: d.slug, title: d.title,
+    description: d.description || undefined, imageUrl: d.image_url || undefined,
+    unitPriceKES: Number(d.unit_price_kes) || 0, minDepositKES: Number(d.min_deposit_kes) || 0,
+    whatsappGroupLink: d.whatsapp_group_link || undefined, status: d.status || 'open'
+  }));
+};
+
+/** Admin: all reservations (optionally for one campaign), newest first. */
+export const fetchGroupOrders = async (campaignId?: string): Promise<GroupOrder[]> => {
+  let q = supabase.from('group_orders').select('*').order('created_at', { ascending: false });
+  if (campaignId) q = q.eq('campaign_id', campaignId);
+  const { data, error } = await q;
+  if (error || !data) return [];
+  return data.map((d: any) => ({
+    id: d.id, campaignId: d.campaign_id, orderCode: d.order_code,
+    clientName: d.client_name || undefined, clientWhatsapp: d.client_whatsapp || undefined,
+    clientEmail: d.client_email || undefined, units: d.units || 1,
+    totalKES: Number(d.total_kes) || 0, amountPaidKES: Number(d.amount_paid_kes) || 0,
+    joinedGroup: !!d.joined_group, createdAt: d.created_at
+  }));
+};
+
+/** Admin: create a campaign. Auto-slugs from the title if no slug is given. */
+export const createGroupCampaign = async (c: {
+  title: string; description?: string; imageUrl?: string;
+  unitPriceKES: number; minDepositKES: number; slug?: string; whatsappGroupLink?: string;
+}): Promise<{ success: boolean; slug?: string; error?: string }> => {
+  const slug = (c.slug && slugify(c.slug)) || `${slugify(c.title)}-${Math.random().toString(36).slice(2, 5)}`;
+  const { error } = await supabase.from('group_campaigns').insert({
+    slug, title: c.title, description: c.description || null, image_url: c.imageUrl || null,
+    unit_price_kes: c.unitPriceKES, min_deposit_kes: c.minDepositKES,
+    whatsapp_group_link: c.whatsappGroupLink || null, status: 'open'
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true, slug };
+};
+
+/** Admin: open / close a campaign. */
+export const setGroupCampaignStatus = async (id: string, status: 'open' | 'closed') => {
+  const { error } = await supabase.from('group_campaigns').update({ status }).eq('id', id);
+  return { success: !error, error: error?.message };
+};

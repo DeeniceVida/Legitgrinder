@@ -29,6 +29,7 @@ import BusinessCard from '../components/BusinessCard';
 import CatalogAgentPanel from '../components/CatalogAgentPanel';
 import MessageAgentPanel from '../components/MessageAgentPanel';
 import LogisticsPanel from '../components/LogisticsPanel';
+import GroupBuysTab from '../components/GroupBuysTab';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 import { normalizeKenyanPhone } from '../utils/phone';
 import { computeAttention } from '../utils/logistics';
@@ -216,6 +217,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'clients', name: 'Clients', group: 'Main', icon: <Users className="w-4 h-4" /> },
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: newPaidOrderCount || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Phone Price Sync', group: 'Operations', icon: <RefreshCcw className="w-4 h-4" /> },
@@ -2630,6 +2632,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <BusinessCard />
           </div>
         )}
+        {activeTab === 'groupbuys' && <GroupBuysTab />}
       </main >
 
       {/* AI Catalog Agent */}
