@@ -44,10 +44,12 @@ import {
   Client, Invoice, PricelistItem, Consultation, ConsultationStatus, EBook
 } from './types';
 
-import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
 
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -350,7 +352,8 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </footer>
-      <WhatsAppWidget />
+      {/* Hidden on the admin dashboard — the Manager lives there instead */}
+      {!isAdminRoute && <WhatsAppWidget />}
     </div>
   );
 };

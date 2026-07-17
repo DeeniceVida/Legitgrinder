@@ -31,6 +31,7 @@ import MessageAgentPanel from '../components/MessageAgentPanel';
 import LogisticsPanel from '../components/LogisticsPanel';
 import GroupBuysTab from '../components/GroupBuysTab';
 import SupervisorPanel from '../components/SupervisorPanel';
+import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 import { normalizeKenyanPhone } from '../utils/phone';
@@ -228,12 +229,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const newPaidOrderCount = invoices.filter(inv => inv.isPaid && inv.status === OrderStatus.RECEIVED_BY_AGENT).length;
+  // Time-sensitive items (grace elapsed / ready with balance) — badges the Orders tab + Manager button
+  const attentionCount = computeAttention(invoices).length;
 
   // Leads and Ad Banners tabs removed 2026-07 (unused per owner)
   const tabs = [
     { id: 'overview', name: 'Dashboard', group: 'Main', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'clients', name: 'Clients', group: 'Main', icon: <Users className="w-4 h-4" /> },
-    { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: newPaidOrderCount || undefined, icon: <FileText className="w-4 h-4" /> },
+    { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
@@ -2675,8 +2678,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onClick={() => setSupervisorOpen(true)}
           className="fixed bottom-6 right-6 z-[90] inline-flex items-center gap-2.5 pl-5 pr-6 py-4 rounded-full bg-[#0f1a1c] text-white shadow-2xl shadow-teal-900/30 hover:bg-[#3D8593] transition-colors"
         >
-          <Star className="w-5 h-5 text-[#FF9900]" />
+          <UserGear size={20} weight="duotone" className="text-[#7fc2ce]" />
           <span className="text-[11px] font-black uppercase tracking-widest">Manager</span>
+          {attentionCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1.5 rounded-full bg-[#FF9900] text-white text-[11px] font-black flex items-center justify-center border-2 border-white">
+              {attentionCount}
+            </span>
+          )}
         </button>
       )}
       <SupervisorPanel
