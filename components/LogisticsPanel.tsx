@@ -3,7 +3,7 @@ import {
   X, Truck, ArrowClockwise, WarningCircle, CheckCircle, ArrowRight,
   Boat, Package, MapPin, ChatCircleText, Stack, MagnifyingGlass, Copy, LinkSimple
 } from '@phosphor-icons/react';
-import { Invoice, Origin, InternalStatus, OrderStatus } from '../types';
+import { Invoice, SourceOrigin, InternalStatus, OrderStatus } from '../types';
 import { MessageIntent } from '../services/messageAgent';
 import { updateOrderLogistics } from '../services/supabaseData';
 import {
@@ -27,7 +27,7 @@ const labelBase = 'block text-[10px] font-black uppercase tracking-widest text-g
 const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
   invoice, allInvoices, onClose, onUpdated, onDraftMessage
 }) => {
-  const [origin, setOrigin] = useState<Origin>(invoice?.origin || 'China');
+  const [origin, setOrigin] = useState<SourceOrigin>(invoice?.origin || 'China');
   const [inlandTracking, setInlandTracking] = useState(invoice?.inlandTracking || '');
   const [containerNumber, setContainerNumber] = useState(invoice?.containerNumber || '');
   const [estArrival, setEstArrival] = useState(invoice?.estArrival ? invoice.estArrival.slice(0, 10) : '');

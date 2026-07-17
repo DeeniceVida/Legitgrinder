@@ -1,4 +1,4 @@
-import { InternalStatus, OrderStatus, Origin, Invoice } from '../types';
+import { InternalStatus, OrderStatus, SourceOrigin, Invoice } from '../types';
 import { MessageIntent } from '../services/messageAgent';
 
 /**
@@ -22,7 +22,7 @@ export const PIPELINE: InternalStatus[] = [
 ];
 
 /** Human labels for each internal step, tuned per origin. */
-export function internalLabel(status: InternalStatus, origin?: Origin): string {
+export function internalLabel(status: InternalStatus, origin?: SourceOrigin): string {
   const cn = origin !== 'US-UK';
   switch (status) {
     case InternalStatus.ORDER_PLACED: return 'Order placed with supplier';

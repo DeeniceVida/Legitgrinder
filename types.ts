@@ -23,7 +23,7 @@ export enum OrderStatus {
 }
 
 /** Where an order is sourced from — decides the tracking pipeline. */
-export type Origin = 'China' | 'US-UK';
+export type SourceOrigin = 'China' | 'US-UK';
 
 /**
  * The hidden, admin-only tracking state. Richer than the client-facing
@@ -129,7 +129,7 @@ export interface Invoice {
   paystackReference?: string;
   currency?: 'KES' | 'USD';
   // Logistics / tracking (admin-only)
-  origin?: Origin;
+  origin?: SourceOrigin;
   inlandTracking?: string;      // domestic tracking number (CN inland / US domestic)
   containerNumber?: string;     // China → Mombasa sea container (null for US/UK)
   internalStatus?: InternalStatus;

@@ -30,6 +30,8 @@ import CatalogAgentPanel from '../components/CatalogAgentPanel';
 import MessageAgentPanel from '../components/MessageAgentPanel';
 import LogisticsPanel from '../components/LogisticsPanel';
 import GroupBuysTab from '../components/GroupBuysTab';
+import SupervisorPanel from '../components/SupervisorPanel';
+import type { SupervisorAction } from '../services/supervisor';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 import { normalizeKenyanPhone } from '../utils/phone';
 import { computeAttention } from '../utils/logistics';
@@ -100,7 +102,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'groupbuys' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -115,6 +117,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [messagingInvoice, setMessagingInvoice] = useState<Invoice | null>(null);
   const [messageIntent, setMessageIntent] = useState<MessageIntent | undefined>(undefined);
   const [trackingInvoice, setTrackingInvoice] = useState<Invoice | null>(null);
+  const [supervisorOpen, setSupervisorOpen] = useState(false);
+
+  const handleSupervisorAction = (action: SupervisorAction) => {
+    if (action.type === 'open_catalog') {
+      setActiveTab('products'); setAiPanelOpen(true);
+    } else if (action.type === 'open_group_buys') {
+      setActiveTab('groupbuys');
+    } else if (action.type === 'draft_message' && action.invoice_number) {
+      const inv = invoices.find(i => i.invoiceNumber === action.invoice_number);
+      if (inv) { setActiveTab('invoices'); setMessageIntent(action.intent as MessageIntent); setMessagingInvoice(inv); }
+    } else if (action.type === 'open_tracking' && action.invoice_number) {
+      const inv = invoices.find(i => i.invoiceNumber === action.invoice_number);
+      if (inv) { setActiveTab('invoices'); setTrackingInvoice(inv); }
+    }
+    setSupervisorOpen(false);
+  };
 
   // Price Editing State
   const [priceEditUSD, setPriceEditUSD] = useState<string>('');
@@ -2649,6 +2667,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         invoice={messagingInvoice}
         initialIntent={messageIntent}
         onClose={() => { setMessagingInvoice(null); setMessageIntent(undefined); }}
+      />
+
+      {/* The Manager (Supervisor) — floating launcher + chat */}
+      {!supervisorOpen && (
+        <button
+          onClick={() => setSupervisorOpen(true)}
+          className="fixed bottom-6 right-6 z-[90] inline-flex items-center gap-2.5 pl-5 pr-6 py-4 rounded-full bg-[#0f1a1c] text-white shadow-2xl shadow-teal-900/30 hover:bg-[#3D8593] transition-colors"
+        >
+          <Star className="w-5 h-5 text-[#FF9900]" />
+          <span className="text-[11px] font-black uppercase tracking-widest">Manager</span>
+        </button>
+      )}
+      <SupervisorPanel
+        isOpen={supervisorOpen}
+        onClose={() => setSupervisorOpen(false)}
+        invoices={invoices}
+        products={products}
+        onAction={handleSupervisorAction}
       />
 
       {/* AI Logistics / Tracking Agent */}
