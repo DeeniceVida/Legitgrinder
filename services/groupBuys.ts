@@ -10,6 +10,7 @@ export interface GroupCampaign {
   minDepositKES: number;   // minimum deposit PER UNIT
   whatsappGroupLink?: string;
   status: string;
+  closesAt?: string;       // ISO deadline — after this, no more payments
 }
 
 export interface GroupOrder {
@@ -43,7 +44,8 @@ export const fetchGroupCampaign = async (slug: string): Promise<GroupCampaign | 
     unitPriceKES: Number(data.unit_price_kes) || 0,
     minDepositKES: Number(data.min_deposit_kes) || 0,
     whatsappGroupLink: data.whatsapp_group_link || undefined,
-    status: data.status || 'open'
+    status: data.status || 'open',
+    closesAt: data.closes_at || undefined
   };
 };
 
@@ -85,7 +87,8 @@ export const fetchGroupCampaigns = async (): Promise<GroupCampaign[]> => {
     id: d.id, slug: d.slug, title: d.title,
     description: d.description || undefined, imageUrl: d.image_url || undefined,
     unitPriceKES: Number(d.unit_price_kes) || 0, minDepositKES: Number(d.min_deposit_kes) || 0,
-    whatsappGroupLink: d.whatsapp_group_link || undefined, status: d.status || 'open'
+    whatsappGroupLink: d.whatsapp_group_link || undefined, status: d.status || 'open',
+    closesAt: d.closes_at || undefined
   }));
 };
 
@@ -107,16 +110,36 @@ export const fetchGroupOrders = async (campaignId?: string): Promise<GroupOrder[
 /** Admin: create a campaign. Auto-slugs from the title if no slug is given. */
 export const createGroupCampaign = async (c: {
   title: string; description?: string; imageUrl?: string;
-  unitPriceKES: number; minDepositKES: number; slug?: string; whatsappGroupLink?: string;
+  unitPriceKES: number; minDepositKES: number; slug?: string;
+  whatsappGroupLink?: string; closesAt?: string | null;
 }): Promise<{ success: boolean; slug?: string; error?: string }> => {
   const slug = (c.slug && slugify(c.slug)) || `${slugify(c.title)}-${Math.random().toString(36).slice(2, 5)}`;
   const { error } = await supabase.from('group_campaigns').insert({
     slug, title: c.title, description: c.description || null, image_url: c.imageUrl || null,
     unit_price_kes: c.unitPriceKES, min_deposit_kes: c.minDepositKES,
-    whatsapp_group_link: c.whatsappGroupLink || null, status: 'open'
+    whatsapp_group_link: c.whatsappGroupLink || null, status: 'open',
+    closes_at: c.closesAt || null
   });
   if (error) return { success: false, error: error.message };
   return { success: true, slug };
+};
+
+/** Admin: edit an existing campaign's editable fields. */
+export const updateGroupCampaign = async (id: string, c: {
+  title?: string; description?: string; imageUrl?: string;
+  unitPriceKES?: number; minDepositKES?: number;
+  whatsappGroupLink?: string; closesAt?: string | null;
+}): Promise<{ success: boolean; error?: string }> => {
+  const payload: any = {};
+  if (c.title !== undefined) payload.title = c.title;
+  if (c.description !== undefined) payload.description = c.description || null;
+  if (c.imageUrl !== undefined) payload.image_url = c.imageUrl || null;
+  if (c.unitPriceKES !== undefined) payload.unit_price_kes = c.unitPriceKES;
+  if (c.minDepositKES !== undefined) payload.min_deposit_kes = c.minDepositKES;
+  if (c.whatsappGroupLink !== undefined) payload.whatsapp_group_link = c.whatsappGroupLink || null;
+  if (c.closesAt !== undefined) payload.closes_at = c.closesAt || null;
+  const { error } = await supabase.from('group_campaigns').update(payload).eq('id', id);
+  return { success: !error, error: error?.message };
 };
 
 /** Admin: open / close a campaign. */

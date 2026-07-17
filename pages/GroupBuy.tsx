@@ -26,6 +26,12 @@ const GroupBuy: React.FC = () => {
   const [paid, setPaid] = useState(false);
   const [orderCode, setOrderCode] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+
+  const isClosed = !!campaign && (
+    campaign.status !== 'open' ||
+    (!!campaign.closesAt && new Date(campaign.closesAt).getTime() < Date.now())
+  );
 
   useEffect(() => {
     (async () => {
@@ -130,7 +136,7 @@ const GroupBuy: React.FC = () => {
               {copied ? <><CheckCircle size={15} weight="fill" className="text-emerald-500" /> Copied — paste it in the group</> : <><Copy size={15} weight="bold" /> Copy confirmation message</>}
             </button>
           </div>
-        ) : campaign.status !== 'open' ? (
+        ) : isClosed ? (
           <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl p-10 text-center">
             <UsersThree size={40} weight="duotone" className="text-gray-300 mx-auto mb-4" />
             <h1 className="text-xl font-bold text-gray-900 mb-2">This group buy is closed</h1>
@@ -149,10 +155,19 @@ const GroupBuy: React.FC = () => {
               )}
               {campaign.description && <p className="text-sm text-gray-500 font-light leading-relaxed mb-6">{campaign.description}</p>}
 
-              <div className="flex justify-between items-baseline mb-5">
+              <div className="flex justify-between items-baseline mb-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Price per unit · all-inclusive</span>
                 <span className="text-xl font-black text-gray-900">KES {unitPrice.toLocaleString()}</span>
               </div>
+
+              {campaign.closesAt && (
+                <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 mb-5">
+                  <span className="text-amber-500">⏳</span>
+                  <p className="text-[11px] font-bold text-amber-700">
+                    Reservations close {new Date(campaign.closesAt).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              )}
 
               {/* Units */}
               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">How many units?</label>
@@ -189,7 +204,23 @@ const GroupBuy: React.FC = () => {
                 <input type="number" min={minDeposit} max={total} value={deposit} onChange={e => setDeposit(e.target.value)} placeholder={String(minDeposit)}
                   className="w-full h-12 bg-neutral-50 border border-neutral-200 rounded-xl pl-14 pr-4 text-sm font-bold outline-none focus:border-[#3D8593] transition-colors" />
               </div>
-              <p className="text-[11px] font-medium text-gray-500 mb-5">Balance after this: <strong className="text-[#FF9900]">KES {balanceAfter.toLocaleString()}</strong> — payable when your order arrives.</p>
+              <p className="text-[11px] font-medium text-gray-500 mb-4">Balance after this: <strong className="text-[#FF9900]">KES {balanceAfter.toLocaleString()}</strong> — payable when your order arrives.</p>
+
+              {/* Terms — always accessible before paying */}
+              <div className="mb-5 rounded-2xl border border-gray-100 overflow-hidden">
+                <button type="button" onClick={() => setShowTerms(s => !s)} className="w-full flex items-center justify-between px-4 py-3 bg-brand-bg text-left">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-gray-500">How this group buy works</span>
+                  <span className="text-gray-400 text-xs">{showTerms ? '▲' : '▼'}</span>
+                </button>
+                {showTerms && (
+                  <ul className="px-5 py-4 space-y-2 text-[12px] text-gray-500 font-medium leading-relaxed list-disc list-inside">
+                    <li>Your order is placed <strong className="text-gray-700">once the group closes</strong> — not when you pay. Everyone's items are ordered together as a batch.</li>
+                    <li>Delivery: <strong className="text-gray-700">air 2–3 weeks</strong>, <strong className="text-gray-700">sea 30–45 days</strong> after the group closes.</li>
+                    <li>Your <strong className="text-gray-700">balance is paid before collection</strong> — once you're notified the item has arrived and is ready to collect.</li>
+                    <li>Please <strong className="text-gray-700">pay only through this link</strong> unless we tell you otherwise.</li>
+                  </ul>
+                )}
+              </div>
 
               {canPay ? (
                 <PaystackButton

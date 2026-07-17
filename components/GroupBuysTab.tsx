@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   UsersThree, Plus, LinkSimple, Copy, CheckCircle, CircleNotch, MagnifyingGlass,
-  WhatsappLogo, LockSimple, LockSimpleOpen, CurrencyDollar, Package, ArrowLeft
+  WhatsappLogo, LockSimple, LockSimpleOpen, CurrencyDollar, Package, ArrowLeft,
+  PencilSimple, Clock
 } from '@phosphor-icons/react';
 import {
   GroupCampaign, GroupOrder, fetchGroupCampaigns, fetchGroupOrders,
-  createGroupCampaign, setGroupCampaignStatus
+  createGroupCampaign, updateGroupCampaign, setGroupCampaignStatus
 } from '../services/groupBuys';
 import { normalizeKenyanPhone } from '../utils/phone';
 
@@ -21,9 +22,20 @@ const GroupBuysTab: React.FC = () => {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', imageUrl: '', unitPrice: '', minDeposit: '', slug: '', groupLink: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const blankForm = { title: '', description: '', imageUrl: '', unitPrice: '', minDeposit: '', slug: '', groupLink: '', closesAt: '' };
+  const [form, setForm] = useState(blankForm);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // datetime-local <-> ISO helpers
+  const toLocalInput = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const off = d.getTimezoneOffset();
+    return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -41,23 +53,37 @@ const GroupBuysTab: React.FC = () => {
     };
   };
 
-  const handleCreate = async () => {
+  const openNew = () => { setEditingId(null); setForm(blankForm); setFormError(null); setShowForm(true); };
+  const openEdit = (c: GroupCampaign) => {
+    setEditingId(c.id);
+    setForm({
+      title: c.title, description: c.description || '', imageUrl: c.imageUrl || '',
+      unitPrice: String(c.unitPriceKES), minDeposit: String(c.minDepositKES),
+      slug: c.slug, groupLink: c.whatsappGroupLink || '', closesAt: toLocalInput(c.closesAt)
+    });
+    setFormError(null); setShowForm(true);
+  };
+
+  const handleSubmit = async () => {
     setFormError(null);
     if (!form.title.trim() || !form.unitPrice) { setFormError('Give it a title and a unit price.'); return; }
     setCreating(true);
-    const res = await createGroupCampaign({
+    const closesAt = form.closesAt ? new Date(form.closesAt).toISOString() : null;
+    const common = {
       title: form.title.trim(),
       description: form.description.trim() || undefined,
       imageUrl: form.imageUrl.trim() || undefined,
       unitPriceKES: parseInt(form.unitPrice) || 0,
       minDepositKES: parseInt(form.minDeposit) || Math.round((parseInt(form.unitPrice) || 0) / 2),
-      slug: form.slug.trim() || undefined,
-      groupLink: form.groupLink.trim() || undefined
-    });
+      whatsappGroupLink: form.groupLink.trim() || undefined,
+      closesAt
+    };
+    const res = editingId
+      ? await updateGroupCampaign(editingId, common)
+      : await createGroupCampaign({ ...common, slug: form.slug.trim() || undefined });
     setCreating(false);
-    if (!res.success) { setFormError(res.error || 'Could not create campaign.'); return; }
-    setForm({ title: '', description: '', imageUrl: '', unitPrice: '', minDeposit: '', slug: '', groupLink: '' });
-    setShowForm(false);
+    if (!res.success) { setFormError(res.error || 'Could not save campaign.'); return; }
+    setForm(blankForm); setShowForm(false); setEditingId(null);
     load();
   };
 
@@ -169,7 +195,7 @@ const GroupBuysTab: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex justify-between items-center px-1">
         <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Group <span className="text-[#3D8593]">Buys</span></h2>
-        <button onClick={() => setShowForm(v => !v)} className="px-8 py-3 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-2 shadow-xl">
+        <button onClick={openNew} className="px-8 py-3 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all flex items-center gap-2 shadow-xl">
           <Plus size={15} weight="bold" /> New Campaign
         </button>
       </div>
@@ -179,18 +205,22 @@ const GroupBuysTab: React.FC = () => {
           {formError && <p className="text-sm text-rose-600 font-medium">{formError}</p>}
           <div className="grid md:grid-cols-2 gap-4">
             <div><label className={label}>Item title *</label><input className={input} placeholder="e.g. Monitor (Group Buy)" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-            <div><label className={label}>Link code <span className="text-gray-300">(optional)</span></label><input className={input} placeholder="auto from title" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} /></div>
+            {!editingId && <div><label className={label}>Link code <span className="text-gray-300">(optional)</span></label><input className={input} placeholder="auto from title" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} /></div>}
           </div>
           <div><label className={label}>Description</label><textarea rows={2} className={`${input} resize-none`} placeholder="Short pitch shown on the page" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
           <div className="grid md:grid-cols-2 gap-4">
             <div><label className={label}>Price per unit (KES) *</label><input type="number" className={input} placeholder="7000" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: e.target.value })} /></div>
             <div><label className={label}>Min deposit per unit (KES)</label><input type="number" className={input} placeholder="half of price" value={form.minDeposit} onChange={e => setForm({ ...form, minDeposit: e.target.value })} /></div>
           </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div><label className={label}>WhatsApp group link</label><input className={input} placeholder="https://chat.whatsapp.com/…" value={form.groupLink} onChange={e => setForm({ ...form, groupLink: e.target.value })} /></div>
+            <div><label className={label}>Closes at <span className="text-gray-300">(deadline)</span></label><input type="datetime-local" className={input} value={form.closesAt} onChange={e => setForm({ ...form, closesAt: e.target.value })} /></div>
+          </div>
           <div><label className={label}>Image URL <span className="text-gray-300">(optional)</span></label><input className={input} placeholder="https://…" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} /></div>
           <div className="flex justify-end gap-3">
-            <button onClick={() => setShowForm(false)} className="px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest text-gray-400 border border-gray-200 hover:bg-neutral-50">Cancel</button>
-            <button onClick={handleCreate} disabled={creating} className="btn-vibrant-teal px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-40">
-              {creating ? <><CircleNotch size={15} className="animate-spin" /> Creating…</> : <><Plus size={15} weight="bold" /> Create campaign</>}
+            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest text-gray-400 border border-gray-200 hover:bg-neutral-50">Cancel</button>
+            <button onClick={handleSubmit} disabled={creating} className="btn-vibrant-teal px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-40">
+              {creating ? <><CircleNotch size={15} className="animate-spin" /> Saving…</> : <><CheckCircle size={15} weight="fill" /> {editingId ? 'Save changes' : 'Create campaign'}</>}
             </button>
           </div>
         </div>
@@ -214,15 +244,27 @@ const GroupBuysTab: React.FC = () => {
                     <h3 className="font-black text-gray-900 truncate">{c.title}</h3>
                     <p className="text-[11px] text-gray-400 font-bold">KES {c.unitPriceKES.toLocaleString()}/unit · min {c.minDepositKES.toLocaleString()}</p>
                   </div>
-                  <button onClick={() => toggleStatus(c)} title={open ? 'Close campaign' : 'Reopen'}
-                    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${open ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                    {open ? <LockSimpleOpen size={12} weight="fill" /> : <LockSimple size={12} weight="fill" />} {c.status}
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button onClick={() => openEdit(c)} title="Edit campaign" className="p-1.5 rounded-full bg-gray-100 text-gray-400 hover:bg-[#3D8593] hover:text-white transition-all">
+                      <PencilSimple size={13} weight="bold" />
+                    </button>
+                    <button onClick={() => toggleStatus(c)} title={open ? 'Close campaign' : 'Reopen'}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${open ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                      {open ? <LockSimpleOpen size={12} weight="fill" /> : <LockSimple size={12} weight="fill" />} {c.status}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex gap-4 text-[11px] font-bold text-gray-500 mb-4">
+                <div className="flex flex-wrap gap-4 text-[11px] font-bold text-gray-500 mb-4">
                   <span className="inline-flex items-center gap-1.5"><Package size={13} weight="duotone" /> {s.count} orders</span>
                   <span className="inline-flex items-center gap-1.5"><CurrencyDollar size={13} weight="duotone" /> {s.collected.toLocaleString()} in</span>
+                  {c.closesAt && (
+                    <span className={`inline-flex items-center gap-1.5 ${new Date(c.closesAt).getTime() < Date.now() ? 'text-rose-500' : ''}`}>
+                      <Clock size={13} weight="duotone" />
+                      {new Date(c.closesAt).getTime() < Date.now() ? 'Closed ' : 'Closes '}
+                      {new Date(c.closesAt).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
