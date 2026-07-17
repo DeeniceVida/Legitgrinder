@@ -5,7 +5,7 @@ import {
   SealCheck, WhatsappLogo, ShieldCheck, CircleNotch, UsersThree,
   Minus, Plus, Copy, CheckCircle, Package
 } from '@phosphor-icons/react';
-import { WHATSAPP_NUMBER } from '../constants';
+import { WHATSAPP_NUMBER, WHATSAPP_GROUP_LINK } from '../constants';
 import { verifyPaystackPayment } from '../services/supabaseData';
 import { fetchGroupCampaign, recordGroupOrder, markGroupJoined, GroupCampaign } from '../services/groupBuys';
 import { normalizeKenyanPhone } from '../utils/phone';
@@ -74,7 +74,11 @@ const GroupBuy: React.FC = () => {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${adminMsg}`, '_blank');
   };
 
-  const confirmationText = `Hi! I've paid my deposit for ${campaign?.title}. Order ${orderCode}, ${units} unit${units > 1 ? 's' : ''}. ✅`;
+  // Leads with the item name so the admin can tell orders apart in the one shared group.
+  const confirmationText = `✅ Deposit paid — ${campaign?.title}\nOrder ${orderCode} · ${units} unit${units > 1 ? 's' : ''} · ${name}`;
+
+  // Every campaign points to the one community group unless it sets its own link.
+  const groupLink = campaign?.whatsappGroupLink || WHATSAPP_GROUP_LINK;
 
   const copyConfirmation = () => {
     navigator.clipboard.writeText(confirmationText).then(() => {
@@ -85,7 +89,7 @@ const GroupBuy: React.FC = () => {
 
   const joinGroup = () => {
     if (orderCode) markGroupJoined(orderCode);
-    if (campaign?.whatsappGroupLink) window.open(campaign.whatsappGroupLink, '_blank');
+    if (groupLink) window.open(groupLink, '_blank');
   };
 
   return (
@@ -117,7 +121,7 @@ const GroupBuy: React.FC = () => {
             </div>
 
             <p className="text-sm text-gray-600 font-medium mb-3">Last step — join the group and paste your confirmation so we lock in your order:</p>
-            {campaign.whatsappGroupLink && (
+            {groupLink && (
               <button onClick={joinGroup} className="w-full h-14 bg-[#25D366] text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-[#1eb955] transition-colors mb-3">
                 <UsersThree size={18} weight="fill" /> Join the WhatsApp group
               </button>
