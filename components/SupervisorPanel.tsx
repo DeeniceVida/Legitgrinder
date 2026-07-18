@@ -61,6 +61,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
   };
   const scrollRef = useRef<HTMLDivElement>(null);
   const recRef = useRef<any>(null);
+  const langRef = useRef('en-KE'); // Kenyan English; falls back to en-US if unsupported
   const loadingRef = useRef(false);
   const messagesRef = useRef<Msg[]>([]);
   messagesRef.current = messages;
@@ -114,6 +115,11 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
       const bal = Math.max((i.totalKES || 0) - (i.amountPaidKES || 0), 0);
       lines.push(`- IG-${i.invoiceNumber} | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | balance KES ${bal.toLocaleString()} | ${i.origin || 'origin?'}`);
     });
+    if (products.length) {
+      lines.push('SHOP STOCK (first 15):');
+      products.slice(0, 15).forEach(p =>
+        lines.push(`- ${p.name} | KES ${(p.priceKES || 0).toLocaleString()} | ${p.availability} | stock ${p.stockCount ?? 0}`));
+    }
     if (campaigns.length) {
       lines.push('GROUP BUYS:');
       campaigns.forEach(c => {
@@ -150,7 +156,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
     if (listening) { recRef.current?.stop(); return; }
 
     const rec = new SR();
-    rec.lang = 'en-US';
+    rec.lang = langRef.current;  // en-KE (Kenyan English) → much better accent pickup
     rec.interimResults = true;   // show words as you speak
     rec.continuous = false;
     let finalText = '';
@@ -169,6 +175,11 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
       errored = true;
       setListening(false);
       const code = e?.error || 'unknown';
+      if (code === 'language-not-supported' && langRef.current !== 'en-US') {
+        langRef.current = 'en-US'; // this device lacks en-KE — fall back quietly
+        setMessages(m => [...m, { role: 'assistant', content: '🎤 Switched to standard English voice recognition — tap the mic again.' }]);
+        return;
+      }
       const hint =
         code === 'not-allowed' || code === 'service-not-allowed'
           ? '🎤 The microphone is blocked. Click the lock icon in the address bar → Site settings → allow Microphone, then try again.'

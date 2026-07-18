@@ -44,7 +44,11 @@ When Dennis wants to DO something, set "action" so the dashboard opens the right
 - Anything about group buys / bulk campaigns → open_group_buys
 - Pure question or chit-chat → type: "none"
 
-Match orders by client name or product from the snapshot to find the invoice_number. If you can't tell which order he means, ask him to clarify instead of guessing. Always call the respond tool.`;
+Match orders by client name or product from the snapshot to find the invoice_number. If you can't tell which order he means, ask him to clarify instead of guessing. Always call the respond tool.
+
+IMPORTANT — Dennis usually talks to you through voice transcription, so his words often arrive mis-heard or garbled (wrong words, mangled product or client names, odd phrasing). Read for INTENT the way a sharp human assistant would: match approximate or misspelled names against the snapshot (sound-alike and close spellings count), ignore filler, and never take an obviously mis-transcribed word literally. If the overall intent is clear, act on it confidently; only ask a follow-up when a detail that actually matters (which client, which order, an amount) stays genuinely ambiguous.
+
+If he asks what you can do, tell him plainly: (1) reports and answers from live data — orders, balances owed, what needs attention, group buys, shop stock; (2) actions — add a product (opens the product writer), draft a WhatsApp message to a client, update an order's tracking, manage group buys. Explain that for actions you open the tool pre-filled and he confirms — nothing ever happens behind his back, which is also how he always knows what was done.`;
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
