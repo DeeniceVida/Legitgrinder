@@ -2693,6 +2693,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         invoices={invoices}
         products={products}
         onAction={handleSupervisorAction}
+        onOrderCreated={(inv) => onUpdateInvoices([inv, ...invoices])}
+        onProductCreated={(p) => onUpdateProducts([...products, p])}
+        onInvoiceUpdated={(inv) => onUpdateInvoices(invoices.map(x => x.id === inv.id ? inv : x))}
       />
 
       {/* AI Logistics / Tracking Agent */}

@@ -1,14 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   X, PaperPlaneTilt, Microphone, MicrophoneSlash, UserGear, ArrowClockwise,
-  Storefront, ChatCircleText, Truck, UsersThree, ArrowRight, SpeakerHigh, SpeakerSlash
+  Storefront, ChatCircleText, Truck, UsersThree, ArrowRight, SpeakerHigh, SpeakerSlash,
+  CheckCircle
 } from '@phosphor-icons/react';
-import { Invoice, Product } from '../types';
+import { Invoice, Product, Availability, OrderStatus, InternalStatus, PaymentStatus } from '../types';
 import { askSupervisor, SupervisorAction } from '../services/supervisor';
-import { computeAttention, orderInternalStatus } from '../utils/logistics';
-import { fetchGroupCampaigns, fetchGroupOrders, GroupCampaign, GroupOrder } from '../services/groupBuys';
+import {
+  computeAttention, orderInternalStatus, internalToClientStatus, internalToProgress,
+  internalLabel, PIPELINE
+} from '../utils/logistics';
+import {
+  fetchGroupCampaigns, fetchGroupOrders, createGroupCampaign, GroupCampaign, GroupOrder
+} from '../services/groupBuys';
+import { createManualInvoice, createProduct, updateOrderLogistics } from '../services/supabaseData';
+import { normalizeKenyanPhone } from '../utils/phone';
 
-interface Msg { role: 'user' | 'assistant'; content: string; action?: SupervisorAction }
+interface Msg { role: 'user' | 'assistant'; content: string; action?: SupervisorAction; executed?: boolean }
 
 interface SupervisorPanelProps {
   isOpen: boolean;
@@ -16,6 +24,9 @@ interface SupervisorPanelProps {
   invoices: Invoice[];
   products: Product[];
   onAction: (action: SupervisorAction) => void;
+  onOrderCreated: (inv: Invoice) => void;
+  onProductCreated: (p: Product) => void;
+  onInvoiceUpdated: (inv: Invoice) => void;
 }
 
 const ACTION_META: Record<string, { label: string; Icon: React.ElementType }> = {
@@ -25,7 +36,17 @@ const ACTION_META: Record<string, { label: string; Icon: React.ElementType }> = 
   open_group_buys: { label: 'Open Group Buys', Icon: UsersThree }
 };
 
-const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invoices, products, onAction }) => {
+// Actions the Manager prepares fully and the panel executes after ONE confirm.
+const EXEC_LABELS: Record<string, string> = {
+  create_order: 'New order — ready to create',
+  create_product: 'New listing — ready to publish',
+  update_tracking: 'Tracking update — ready to apply',
+  create_group_buy: 'Group buy — ready to launch'
+};
+
+const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
+  isOpen, onClose, invoices, products, onAction, onOrderCreated, onProductCreated, onInvoiceUpdated
+}) => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,6 +90,171 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
 
   const [campaigns, setCampaigns] = useState<GroupCampaign[]>([]);
   const [gorders, setGorders] = useState<GroupOrder[]>([]);
+  const [executingIndex, setExecutingIndex] = useState<number | null>(null);
+
+  const markExecuted = (i: number) =>
+    setMessages(ms => ms.map((m, idx) => (idx === i ? { ...m, executed: true } : m)));
+
+  const finishOk = (i: number, text: string) => {
+    markExecuted(i);
+    setMessages(ms => [...ms, { role: 'assistant', content: text }]);
+    speakText(text);
+    setExecutingIndex(null);
+  };
+
+  const finishErr = (i: number, text: string) => {
+    // Leave the card active so he can retry after fixing the issue.
+    setMessages(ms => [...ms, { role: 'assistant', content: `❌ ${text}` }]);
+    setExecutingIndex(null);
+  };
+
+  // Execute a prepared action after Dennis confirms. All writes reuse the same
+  // authenticated service functions the dashboard's own forms use.
+  const executeAction = async (i: number, action: SupervisorAction) => {
+    if (executingIndex !== null) return;
+    const p = action.payload || {};
+    setExecutingIndex(i);
+    try {
+      switch (action.type) {
+        case 'create_order': {
+          const invoiceNumber = `${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 89)}`;
+          const total = Number(p.total_kes) || 0;
+          const clientWhatsapp = p.client_whatsapp ? normalizeKenyanPhone(p.client_whatsapp) : undefined;
+          const r = await createManualInvoice({
+            invoiceNumber,
+            clientName: p.client_name || 'Client',
+            clientWhatsapp,
+            productName: p.product_name || 'Item',
+            quantity: Number(p.quantity) || 1,
+            totalKES: total,
+            isPaid: !!p.is_paid
+          });
+          if (!r.success || !r.id) throw new Error(r.error?.message || 'could not save the order');
+          const inv: Invoice = {
+            id: r.id,
+            invoiceNumber,
+            clientName: p.client_name || 'Client',
+            clientWhatsapp,
+            productName: p.product_name || 'Item',
+            quantity: Number(p.quantity) || 1,
+            status: OrderStatus.RECEIVED_BY_AGENT,
+            progress: 10,
+            lastUpdate: 'Just now',
+            isPaid: !!p.is_paid,
+            paymentStatus: p.is_paid ? PaymentStatus.PAID : PaymentStatus.UNPAID,
+            totalKES: total,
+            amountPaidKES: p.is_paid ? total : 0,
+            createdAt: new Date().toISOString(),
+            currency: 'KES'
+          };
+          onOrderCreated(inv);
+          finishOk(i,
+            `✅ Done — order IG-${invoiceNumber} created: ${inv.productName} for ${inv.clientName}, KES ${total.toLocaleString()}${inv.isPaid ? ' (paid)' : ''}.` +
+            (!inv.isPaid ? `\nPay link: ${window.location.origin}/pay/${invoiceNumber}` : ''));
+          break;
+        }
+        case 'create_product': {
+          const isLocal = p.availability === 'Available Locally';
+          const productData = {
+            name: p.name || 'New product',
+            priceKES: Number(p.price_kes) || 0,
+            imageUrls: [] as string[],
+            description: p.description || '',
+            category: p.category || 'General',
+            availability: isLocal ? Availability.LOCAL : Availability.IMPORT,
+            stockCount: isLocal ? Number(p.stock_count) || 0 : 0,
+            shippingDuration: p.shipping_duration || (isLocal ? '1-2 days' : '2-3 weeks'),
+            variations: [] as Product['variations']
+          };
+          const r = await createProduct(productData);
+          if (!r.success || !r.id) throw new Error(r.error?.message || 'could not save the product');
+          onProductCreated({ id: r.id, ...productData });
+          finishOk(i, `✅ Done — "${productData.name}" is live in the shop at KES ${productData.priceKES.toLocaleString()} (${productData.availability}). No images yet — add them from Stock when ready.`);
+          break;
+        }
+        case 'update_tracking': {
+          const num = (action.invoice_number || '').trim();
+          const inv = invoices.find(x => x.invoiceNumber === num);
+          if (!inv) throw new Error(`I can't find order IG-${num || '?'} — check the number`);
+          const st = (p.internal_status || '') as InternalStatus;
+          if (!PIPELINE.includes(st)) throw new Error(`"${p.internal_status || '?'}" isn't a tracking stage I know`);
+          const clientStatus = internalToClientStatus(st);
+          const progress = internalToProgress(st);
+          const arrived = st === InternalStatus.ARRIVED_PORT && !inv.mombasaArrivedAt ? new Date().toISOString() : undefined;
+          const r = await updateOrderLogistics(inv.id, {
+            internalStatus: st,
+            status: clientStatus as unknown as string,
+            progress,
+            ...(arrived ? { mombasaArrivedAt: arrived } : {})
+          });
+          if (!r.success) throw new Error(r.error?.message || 'could not update tracking');
+          onInvoiceUpdated({ ...inv, internalStatus: st, status: clientStatus, progress, mombasaArrivedAt: arrived || inv.mombasaArrivedAt });
+          finishOk(i, `✅ Done — IG-${num} moved to "${internalLabel(st, inv.origin)}". ${inv.clientName.split(' ')[0]} now sees "${clientStatus}" on their tracker.`);
+          break;
+        }
+        case 'create_group_buy': {
+          const unitPrice = Number(p.unit_price_kes) || 0;
+          const minDeposit = Number(p.min_deposit_kes) || Math.round(unitPrice / 2);
+          const r = await createGroupCampaign({
+            title: p.title || 'Group Buy',
+            description: p.description || undefined,
+            unitPriceKES: unitPrice,
+            minDepositKES: minDeposit,
+            closesAt: p.closes_at || null
+          });
+          if (!r.success || !r.slug) throw new Error(r.error || 'could not create the campaign');
+          finishOk(i,
+            `✅ Done — group buy "${p.title}" is live:\n${window.location.origin}/group/${r.slug}\n` +
+            `KES ${unitPrice.toLocaleString()}/unit, min deposit KES ${minDeposit.toLocaleString()}. Copy that link and post it.`);
+          break;
+        }
+      }
+    } catch (err: any) {
+      finishErr(i, `Couldn't do it: ${err.message || 'unknown error'}. Nothing was changed — try again or do it manually.`);
+    }
+  };
+
+  // Rows shown on the confirm card so Dennis sees exactly what will happen.
+  const summarize = (a: SupervisorAction): [string, string][] => {
+    const p = a.payload || {};
+    switch (a.type) {
+      case 'create_order':
+        return ([
+          ['Client', p.client_name || '—'],
+          ...(p.client_whatsapp ? [['WhatsApp', p.client_whatsapp]] : []),
+          ['Item', `${p.product_name || '—'}${(Number(p.quantity) || 1) > 1 ? ` × ${p.quantity}` : ''}`],
+          ['Total', `KES ${(Number(p.total_kes) || 0).toLocaleString()}`],
+          ['Payment', p.is_paid ? 'Already paid' : 'Unpaid — pay link comes after creation']
+        ] as [string, string][]);
+      case 'create_product':
+        return ([
+          ['Title', p.name || '—'],
+          ['Category', p.category || '—'],
+          ['Price', `KES ${(Number(p.price_kes) || 0).toLocaleString()}`],
+          ['Availability', p.availability || 'Import on Order'],
+          ...(p.availability === 'Available Locally' ? [['Stock', String(p.stock_count ?? 0)]] : []),
+          ['Delivery', p.shipping_duration || '—']
+        ] as [string, string][]);
+      case 'update_tracking': {
+        const st = (p.internal_status || '') as InternalStatus;
+        const inv = invoices.find(x => x.invoiceNumber === a.invoice_number);
+        return [
+          ['Order', `IG-${a.invoice_number || '—'}${inv ? ` (${inv.clientName})` : ''}`],
+          ['New stage', internalLabel(st, inv?.origin)],
+          ['Client sees', internalToClientStatus(st)]
+        ];
+      }
+      case 'create_group_buy':
+        return ([
+          ['Item', p.title || '—'],
+          ['Price/unit', `KES ${(Number(p.unit_price_kes) || 0).toLocaleString()}`],
+          ['Min deposit', `KES ${(Number(p.min_deposit_kes) || Math.round((Number(p.unit_price_kes) || 0) / 2)).toLocaleString()}`],
+          ...(p.closes_at ? [['Closes', new Date(p.closes_at).toLocaleString('en-KE')]] : [])
+        ] as [string, string][]);
+      default:
+        return [];
+    }
+  };
 
   // Opening brief: greet with what actually needs attention (a mini report).
   useEffect(() => {
@@ -83,7 +269,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
           att.slice(0, 5).map(a => `• ${a.invoice.clientName} (IG-${a.invoice.invoiceNumber}) — ${a.message}`).join('\n') +
           (att.length > 5 ? `\n…and ${att.length - 5} more in the Action Center.` : '') +
           `\n\nAsk me for details or tell me what to do.`
-        : "Hey Dennis 👋 All clear right now — nothing urgent on the orders. Ask me for a report, or tell me what to do: \"remind Jane about her balance\", \"add a product\", \"how's the monitor group buy?\"";
+        : "Hey Dennis 👋 All clear right now — nothing urgent on the orders. Tell me what to do and I'll handle it: \"create an order for Jane, iPhone 15, 95k\", \"list a canvas bag at 7,000 bob, in stock, 5 pieces\", \"mark order 214 as ready\", \"launch a group buy\" — or just ask for a report.";
       return [{ role: 'assistant', content: greeting }];
     });
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -116,9 +302,9 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
       lines.push(`- IG-${i.invoiceNumber} | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | balance KES ${bal.toLocaleString()} | ${i.origin || 'origin?'}`);
     });
     if (products.length) {
-      lines.push('SHOP STOCK (first 15):');
-      products.slice(0, 15).forEach(p =>
-        lines.push(`- ${p.name} | KES ${(p.priceKES || 0).toLocaleString()} | ${p.availability} | stock ${p.stockCount ?? 0}`));
+      lines.push(`SHOP STOCK (${Math.min(products.length, 40)} of ${products.length}):`);
+      products.slice(0, 40).forEach(p =>
+        lines.push(`- ${p.name} | ${p.category || 'uncategorised'} | KES ${(p.priceKES || 0).toLocaleString()} | ${p.availability} | stock ${p.stockCount ?? 0}`));
     }
     if (campaigns.length) {
       lines.push('GROUP BUYS:');
@@ -242,7 +428,47 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
               <div className={`px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${m.role === 'user' ? 'bg-[#3D8593] text-white rounded-2xl rounded-br-md' : 'bg-white text-gray-700 border border-gray-100 rounded-2xl rounded-bl-md shadow-sm'}`}>
                 {m.content}
               </div>
-              {m.action && m.action.type !== 'none' && ACTION_META[m.action.type] && (
+              {m.action && m.action.type !== 'none' && EXEC_LABELS[m.action.type] && (
+                <div className="w-full min-w-[16rem] bg-white border border-[#3D8593]/25 rounded-2xl p-4 space-y-2 shadow-sm">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#3D8593]">{EXEC_LABELS[m.action.type]}</p>
+                  {summarize(m.action).map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-3 text-xs">
+                      <span className="text-gray-400 font-bold shrink-0">{k}</span>
+                      <span className="font-bold text-gray-800 text-right">{v}</span>
+                    </div>
+                  ))}
+                  {m.action.type === 'create_product' && m.action.payload?.description && (
+                    <p className="text-[11px] text-gray-500 leading-relaxed max-h-24 overflow-y-auto border-t border-gray-50 pt-2 whitespace-pre-line">
+                      {m.action.payload.description}
+                    </p>
+                  )}
+                  {m.executed ? (
+                    <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 pt-1">
+                      <CheckCircle size={14} weight="fill" /> Handled
+                    </p>
+                  ) : (
+                    <div className="flex gap-2 pt-1.5">
+                      <button
+                        onClick={() => executeAction(i, m.action!)}
+                        disabled={executingIndex !== null}
+                        className="flex-1 py-2.5 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
+                      >
+                        {executingIndex === i
+                          ? (<><ArrowClockwise size={13} weight="bold" className="animate-spin" /> Doing it…</>)
+                          : (<><CheckCircle size={13} weight="fill" /> Confirm — do it</>)}
+                      </button>
+                      <button
+                        onClick={() => { markExecuted(i); setMessages(ms => [...ms, { role: 'assistant', content: 'Okay, cancelled — nothing was changed.' }]); }}
+                        disabled={executingIndex !== null}
+                        className="px-4 py-2.5 rounded-full border border-gray-200 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors disabled:opacity-40"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {m.action && m.action.type !== 'none' && !EXEC_LABELS[m.action.type] && ACTION_META[m.action.type] && (
                 <button
                   onClick={() => onAction(m.action!)}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors"
