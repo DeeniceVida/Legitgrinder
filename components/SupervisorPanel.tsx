@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   X, PaperPlaneTilt, Microphone, MicrophoneSlash, UserGear, ArrowClockwise,
-  Storefront, ChatCircleText, Truck, UsersThree, ArrowRight
+  Storefront, ChatCircleText, Truck, UsersThree, ArrowRight, SpeakerHigh, SpeakerSlash
 } from '@phosphor-icons/react';
 import { Invoice, Product } from '../types';
 import { askSupervisor, SupervisorAction } from '../services/supervisor';
@@ -30,6 +30,35 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(() => localStorage.getItem('mgr_voice') !== 'off');
+  const voiceOnRef = useRef(voiceOn);
+  voiceOnRef.current = voiceOn;
+
+  const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  // Read a reply aloud (browser speech engine — free, no API cost).
+  const speakText = (text: string) => {
+    if (!canSpeak || !voiceOnRef.current) return;
+    const clean = text
+      .replace(/\p{Extended_Pictographic}/gu, '') // drop emoji
+      .replace(/IG-(\d+)/g, 'order $1')           // "IG-214" reads as "order 214"
+      .replace(/KES/g, 'K E S')
+      .replace(/[•·|]/g, ', ');
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(clean);
+    u.lang = 'en-US';
+    u.rate = 1.02;
+    window.speechSynthesis.speak(u);
+  };
+
+  const toggleSpeaker = () => {
+    setVoiceOn(v => {
+      const next = !v;
+      localStorage.setItem('mgr_voice', next ? 'on' : 'off');
+      if (!next) window.speechSynthesis?.cancel();
+      return next;
+    });
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const recRef = useRef<any>(null);
   const loadingRef = useRef(false);
@@ -61,6 +90,12 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Stop talking when the panel closes or unmounts.
+  useEffect(() => {
+    if (!isOpen) window.speechSynthesis?.cancel();
+    return () => window.speechSynthesis?.cancel();
+  }, [isOpen]);
 
   const SR = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
 
@@ -104,6 +139,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
       return;
     }
     setMessages(m => [...m, { role: 'assistant', content: res.data!.reply, action: res.data!.action }]);
+    speakText(res.data.reply);
   };
 
   const toggleVoice = () => {
@@ -171,7 +207,19 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({ isOpen, onClose, invo
               <span className="text-[10px] text-white/50 font-bold uppercase tracking-widest">Operations</span>
             </div>
           </div>
-          <button onClick={onClose} aria-label="Close" className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"><X size={18} weight="bold" /></button>
+          <div className="flex items-center gap-1.5">
+            {canSpeak && (
+              <button
+                onClick={toggleSpeaker}
+                title={voiceOn ? 'Mute the Manager' : 'Let the Manager talk back'}
+                aria-label={voiceOn ? 'Mute replies' : 'Speak replies aloud'}
+                className={`p-2 rounded-xl transition-colors ${voiceOn ? 'bg-[#3D8593]/40 text-[#7fc2ce]' : 'bg-white/10 text-white/40 hover:bg-white/20'}`}
+              >
+                {voiceOn ? <SpeakerHigh size={18} weight="fill" /> : <SpeakerSlash size={18} weight="fill" />}
+              </button>
+            )}
+            <button onClick={onClose} aria-label="Close" className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"><X size={18} weight="bold" /></button>
+          </div>
         </div>
       </div>
 
