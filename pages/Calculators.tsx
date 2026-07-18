@@ -11,6 +11,15 @@ import { Reveal } from '../components/Motion';
 
 const QUEST_STEPS = ['The Product', 'Shipping', 'Your Details'];
 
+// Device presets drive the shipping weight; "Other" lets the client estimate it.
+type DeviceType = 'phone' | 'ipad' | 'laptop' | 'custom';
+const DEVICE_OPTIONS: { id: DeviceType; label: string; kg: number | null }[] = [
+  { id: 'phone', label: 'Phone', kg: 1 },
+  { id: 'ipad', label: 'iPad / Tablet', kg: 2 },
+  { id: 'laptop', label: 'Laptop', kg: 3.5 },
+  { id: 'custom', label: 'Other', kg: null }
+];
+
 const inputBase =
   'w-full bg-white border border-gray-200 rounded-2xl px-5 py-4 text-sm font-medium text-gray-900 placeholder:text-gray-300 focus:border-[#3D8593] outline-none transition-colors shadow-sm';
 
@@ -22,7 +31,14 @@ const Calculators: React.FC = () => {
   // US Tech States
   const [phonePriceUSD, setPhonePriceUSD] = useState<string>('');
   const [phoneUrl, setPhoneUrl] = useState<string>('');
+  const [deviceType, setDeviceType] = useState<DeviceType>('phone');
+  const [customWeight, setCustomWeight] = useState<string>('');
   const [usPhoneResult, setUsPhoneResult] = useState<CalculationResult | null>(null);
+
+  const shipWeightKg = deviceType === 'custom'
+    ? (parseFloat(customWeight) || 0)
+    : (DEVICE_OPTIONS.find(d => d.id === deviceType)?.kg || 1);
+  const deviceLabel = DEVICE_OPTIONS.find(d => d.id === deviceType)?.label || 'Item';
 
   // Sourcing request states
   const [questStep, setQuestStep] = useState(1);
@@ -42,14 +58,15 @@ const Calculators: React.FC = () => {
   });
 
   useEffect(() => {
-    if (!phonePriceUSD || isNaN(Number(phonePriceUSD))) {
+    if (!phonePriceUSD || isNaN(Number(phonePriceUSD)) || shipWeightKg <= 0) {
       setUsPhoneResult(null);
       return;
     }
 
     const price = Number(phonePriceUSD);
     const buyingPriceKES = price * KES_PER_USD;
-    const shippingFeeUSD = FEE_STRUCTURE.SHIPPING_FLAT_USD + (price * FEE_STRUCTURE.SHIPPING_PERCENT);
+    // Shipping base scales with weight: $20/kg — phone 1 kg, iPad 2 kg, laptop 3.5 kg, or the client's own estimate.
+    const shippingFeeUSD = FEE_STRUCTURE.SHIPPING_FLAT_USD * shipWeightKg + (price * FEE_STRUCTURE.SHIPPING_PERCENT);
     const shippingFeeKES = shippingFeeUSD * KES_PER_USD;
 
     let serviceFeeUSD = FEE_STRUCTURE.SERVICE_FEE_FIXED_USD;
@@ -73,7 +90,7 @@ const Calculators: React.FC = () => {
       specialDiscountKES,
       totalKES: buyingPriceKES + shippingFeeKES + serviceFeeKES + applePickupFeeKES - specialDiscountKES
     });
-  }, [phonePriceUSD, phoneUrl]);
+  }, [phonePriceUSD, phoneUrl, shipWeightKg]);
 
   const handleShareWhatsApp = (type: string, res: CalculationResult) => {
     const appleFeeText = res.applePickupFeeKES ? `\nApple Store Pick Up Fee: KES ${res.applePickupFeeKES.toLocaleString()}` : '';
@@ -81,6 +98,7 @@ const Calculators: React.FC = () => {
     const text = encodeURIComponent(
       `Hi LegitGrinder, I'd like to place an order for ${type}.\n\n` +
       `Product Link: ${phoneUrl || 'Not provided'}\n` +
+      `Item: ${deviceLabel} (est. ${shipWeightKg} kg)\n` +
       `Total: KES ${res.totalKES.toLocaleString()}${appleFeeText}${discountText}`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
@@ -241,6 +259,42 @@ const Calculators: React.FC = () => {
                     </div>
                   </div>
                   <div>
+                    <span className={labelBase}>What device is it?</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" role="radiogroup" aria-label="Device type">
+                      {DEVICE_OPTIONS.map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={deviceType === d.id}
+                          onClick={() => setDeviceType(d.id)}
+                          className={`px-3 py-3 rounded-2xl text-center transition-all border ${deviceType === d.id
+                            ? 'border-[#3D8593] bg-teal-50'
+                            : 'border-gray-200 bg-white hover:border-[#3D8593]/40'}`}
+                        >
+                          <span className={`block text-[12px] font-black ${deviceType === d.id ? 'text-[#3D8593]' : 'text-gray-700'}`}>{d.label}</span>
+                          <span className="block text-[10px] text-gray-400 font-medium mt-0.5">{d.kg ? `≈ ${d.kg} kg` : 'your estimate'}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {deviceType === 'custom' && (
+                      <div className="relative mt-3">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.1"
+                          min="0"
+                          placeholder="Estimated weight"
+                          aria-label="Estimated weight in kilograms"
+                          className={`${inputBase} pr-12`}
+                          value={customWeight}
+                          onChange={(e) => setCustomWeight(e.target.value)}
+                        />
+                        <span className="absolute right-5 top-1/2 -translate-y-1/2 text-[11px] font-black uppercase tracking-widest text-gray-300" aria-hidden="true">kg</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
                     <label htmlFor="calc-price" className={labelBase}>Listing Price (USD)</label>
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 text-3xl font-black text-gray-200" aria-hidden="true">$</span>
@@ -276,7 +330,7 @@ const Calculators: React.FC = () => {
                     <dl className="space-y-1 mb-8">
                       {[
                         { label: 'Buying Price', value: usPhoneResult.buyingPriceKES },
-                        { label: 'Shipping & Handling', value: usPhoneResult.shippingFeeKES },
+                        { label: `Shipping & Handling · ${shipWeightKg} kg`, value: usPhoneResult.shippingFeeKES },
                         { label: 'Service Fee', value: usPhoneResult.serviceFeeKES },
                       ].map((row) => (
                         <div key={row.label} className="flex justify-between items-center py-3 border-b border-white/10">
@@ -315,7 +369,9 @@ const Calculators: React.FC = () => {
                     <DeviceMobile size={52} weight="duotone" className="text-[#3D8593] mb-6" />
                     <p className="font-bold text-white/70 mb-1.5">Your quote appears here</p>
                     <p className="text-sm text-white/40 font-light max-w-[16rem]">
-                      Enter the USD listing price and I'll break down every shilling.
+                      {deviceType === 'custom' && shipWeightKg <= 0
+                        ? 'Enter the price and your estimated weight, and I\'ll break down every shilling.'
+                        : 'Enter the USD listing price and I\'ll break down every shilling.'}
                     </p>
                   </div>
                 )}
