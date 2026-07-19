@@ -475,11 +475,23 @@ export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoi
     try {
         // Match by invoice number OR Paystack reference, so tracking codes from
         // shop checkouts (which are Paystack refs) resolve too.
-        const needle = invoiceNumber.trim();
+        // Forgiving input: receipts/emails display numbers as "IG-482917", so
+        // people paste that — strip display prefixes (IG-/LG-, leading #),
+        // trailing punctuation, and match case-insensitively. NOTE: "INV-" is
+        // NOT stripped — some real invoice numbers start with it.
+        const raw = invoiceNumber.trim().replace(/[%_]/g, '').replace(/[.,\s]+$/, '');
+        const candidates = new Set<string>([raw]);
+        const noHash = raw.replace(/^#/, '');
+        candidates.add(noHash);
+        candidates.add(noHash.replace(/^(IG|LG)-/i, ''));
+        const ors = [...candidates]
+            .filter(Boolean)
+            .flatMap(c => [`invoice_number.ilike.${c}`, `paystack_reference.ilike.${c}`])
+            .join(',');
         const { data: rows, error } = await supabase
             .from('invoices')
             .select('*')
-            .or(`invoice_number.eq.${needle},paystack_reference.eq.${needle}`)
+            .or(ors)
             .limit(1);
         const data = rows?.[0] || null;
 

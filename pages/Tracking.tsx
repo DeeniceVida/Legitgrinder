@@ -29,8 +29,16 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
     setShowNotFound(false);
     setSearchedInvoice(null);
 
-    // 1. Try local cache first (matches number or Paystack tracking code)
-    const found = invoices.find(inv => inv.invoiceNumber === searchId || inv.paystackReference === searchId);
+    // 1. Try local cache first (matches number or Paystack tracking code).
+    // Forgiving: receipts show "IG-482917", so ignore that display prefix,
+    // a leading #, case, and stray trailing punctuation.
+    const norm = (s?: string) => (s || '').trim().toLowerCase().replace(/[.,\s]+$/, '');
+    const bare = (s?: string) => norm(s).replace(/^#/, '').replace(/^(ig|lg)-/, '');
+    const found = invoices.find(inv =>
+      bare(inv.invoiceNumber) === bare(searchId) ||
+      norm(inv.paystackReference) === norm(searchId) ||
+      norm(inv.paystackReference) === bare(searchId)
+    );
 
     if (found) {
       setSearchedInvoice(found);
@@ -79,7 +87,7 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
           >
             <input
               type="text"
-              placeholder="e.g. 4932 or T839201..."
+              placeholder="e.g. IG-4932 or T839201..."
               className="w-full h-16 bg-white border border-gray-200 rounded-full pl-7 pr-20 text-lg font-bold tracking-wider focus:border-[#3D8593] outline-none transition-colors shadow-sm"
               value={invoiceInput}
               onChange={(e) => setInvoiceInput(e.target.value)}
