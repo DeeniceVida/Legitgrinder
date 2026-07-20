@@ -43,7 +43,7 @@ const feeParts = [
     Icon: HandCoins,
     title: 'Service Fee',
     lead: 'Our sourcing fee',
-    desc: 'From KES 3,000. For items above KES 100,000 it becomes 4% of the buying price — or 5% for business goods and work machines.'
+    desc: 'From KES 3,000 — or KES 3,500 for business goods and work machines. Above KES 100,000 it becomes 4% of the buying price, or 5% for business goods.'
   },
 ];
 
