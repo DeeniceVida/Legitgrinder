@@ -18,6 +18,7 @@ import AboutUs from './pages/AboutUs';
 import ResetPassword from './pages/ResetPassword';
 import PayInvoice from './pages/PayInvoice';
 import GroupBuy from './pages/GroupBuy';
+import HowItWorks from './pages/HowItWorks';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import SafeImage from './components/SafeImage';
 import ValentineTheme from './components/ValentineTheme';
@@ -216,6 +217,7 @@ const AppContent: React.FC = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/pay/:invoiceNumber" element={<PayInvoice />} />
           <Route path="/group/:slug" element={<GroupBuy />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
           <Route
             path="/admin"
             element={
@@ -303,6 +305,7 @@ const AppContent: React.FC = () => {
               <div className="lg:col-span-2">
                 <h4 className="eyebrow text-white/40 mb-7">Solutions</h4>
                 <ul className="space-y-3.5 text-white/60 font-light">
+                  <li><Link to="/how-it-works" className="hover:text-[#FF9900] transition-colors">How It Works</Link></li>
                   <li><Link to="/shop" className="hover:text-[#FF9900] transition-colors">Shop</Link></li>
                   <li><Link to="/pricelist" className="hover:text-[#FF9900] transition-colors">Market Prices</Link></li>
                   <li><Link to="/calculators" className="hover:text-[#FF9900] transition-colors">Calculators</Link></li>
