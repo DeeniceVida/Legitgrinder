@@ -163,6 +163,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceFilterPayment, setInvoiceFilterPayment] = useState<'all' | PaymentStatus>('all');
   const [invoiceFilterMonth, setInvoiceFilterMonth] = useState<string>('all'); // 'all' | 'YYYY-MM'
+  const [invoiceFilterDelivery, setInvoiceFilterDelivery] = useState<'all' | 'delivered' | 'undelivered'>('all');
   const [invoiceSort, setInvoiceSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
 
   const invoiceMonths = useMemo(() => {
@@ -182,6 +183,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         || inv.productName?.toLowerCase().includes(q)
         || inv.paystackReference?.toLowerCase().includes(q))) return false;
       if (invoiceFilterPayment !== 'all' && inv.paymentStatus !== invoiceFilterPayment) return false;
+      if (invoiceFilterDelivery !== 'all') {
+        const isDelivered = inv.status === OrderStatus.DELIVERED;
+        if (invoiceFilterDelivery === 'delivered' ? !isDelivered : isDelivered) return false;
+      }
       if (invoiceFilterMonth !== 'all') {
         const d = inv.createdAt || inv.date;
         if (!d || new Date(d).toISOString().slice(0, 7) !== invoiceFilterMonth) return false;
@@ -195,7 +200,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       invoiceSort === 'highest' ? (b.totalKES || 0) - (a.totalKES || 0) :
       (a.totalKES || 0) - (b.totalKES || 0)
     );
-  }, [invoices, invoiceSearch, invoiceFilterPayment, invoiceFilterMonth, invoiceSort]);
+  }, [invoices, invoiceSearch, invoiceFilterPayment, invoiceFilterDelivery, invoiceFilterMonth, invoiceSort]);
 
   const invoiceSummary = useMemo(() => ({
     count: filteredInvoices.length,
@@ -1517,6 +1522,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {Object.values(PaymentStatus).map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <select
+                    value={invoiceFilterDelivery}
+                    onChange={(e) => setInvoiceFilterDelivery(e.target.value as any)}
+                    className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
+                  >
+                    <option value="all">Delivered &amp; Pending</option>
+                    <option value="undelivered">Not Delivered Yet</option>
+                    <option value="delivered">Delivered &amp; Completed</option>
+                  </select>
+                  <select
                     value={invoiceFilterMonth}
                     onChange={(e) => setInvoiceFilterMonth(e.target.value)}
                     className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
@@ -1561,9 +1575,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span className="text-[#FF9900] text-sm mr-1">{invoiceSummary.inTransit}</span> Not Yet Delivered
                 </p>
-                {(invoiceSearch || invoiceFilterPayment !== 'all' || invoiceFilterMonth !== 'all') && (
+                {(invoiceSearch || invoiceFilterPayment !== 'all' || invoiceFilterDelivery !== 'all' || invoiceFilterMonth !== 'all') && (
                   <button
-                    onClick={() => { setInvoiceSearch(''); setInvoiceFilterPayment('all'); setInvoiceFilterMonth('all'); }}
+                    onClick={() => { setInvoiceSearch(''); setInvoiceFilterPayment('all'); setInvoiceFilterDelivery('all'); setInvoiceFilterMonth('all'); }}
                     className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline ml-auto"
                   >
                     Clear Filters
