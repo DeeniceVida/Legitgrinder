@@ -12,6 +12,7 @@ interface MessageAgentPanelProps {
   invoice: Invoice | null;
   onClose: () => void;
   initialIntent?: MessageIntent;
+  onReviewRequested?: (invoice: Invoice) => void;
 }
 
 const INTENTS: { id: MessageIntent; label: string; Icon: React.ElementType }[] = [
@@ -23,7 +24,7 @@ const INTENTS: { id: MessageIntent; label: string; Icon: React.ElementType }[] =
   { id: 'custom', label: 'Custom…', Icon: ChatText }
 ];
 
-const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose, initialIntent }) => {
+const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose, initialIntent, onReviewRequested }) => {
   const [intent, setIntent] = useState<MessageIntent>(initialIntent || 'reminder');
   const [custom, setCustom] = useState('');
   const [message, setMessage] = useState('');
@@ -85,6 +86,9 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
     const text = encodeURIComponent(message);
     const url = waNumber ? `https://wa.me/${waNumber}?text=${text}` : `https://wa.me/?text=${text}`;
     window.open(url, '_blank');
+    // Sending a review request marks the order as "review requested" so it drops
+    // off the To-review list. Only for the review intent.
+    if (intent === 'review' && invoice) onReviewRequested?.(invoice);
   };
 
   const copyMessage = () => {

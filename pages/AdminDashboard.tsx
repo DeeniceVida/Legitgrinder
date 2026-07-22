@@ -17,7 +17,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
@@ -163,7 +163,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceFilterPayment, setInvoiceFilterPayment] = useState<'all' | PaymentStatus>('all');
   const [invoiceFilterMonth, setInvoiceFilterMonth] = useState<string>('all'); // 'all' | 'YYYY-MM'
-  const [invoiceFilterDelivery, setInvoiceFilterDelivery] = useState<'all' | 'delivered' | 'undelivered'>('all');
+  const [invoiceFilterDelivery, setInvoiceFilterDelivery] = useState<'all' | 'delivered' | 'undelivered' | 'toreview'>('all');
   const [invoiceSort, setInvoiceSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
 
   const invoiceMonths = useMemo(() => {
@@ -185,7 +185,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (invoiceFilterPayment !== 'all' && inv.paymentStatus !== invoiceFilterPayment) return false;
       if (invoiceFilterDelivery !== 'all') {
         const isDelivered = inv.status === OrderStatus.DELIVERED;
-        if (invoiceFilterDelivery === 'delivered' ? !isDelivered : isDelivered) return false;
+        if (invoiceFilterDelivery === 'delivered' && !isDelivered) return false;
+        if (invoiceFilterDelivery === 'undelivered' && isDelivered) return false;
+        // "To review" = delivered but the review request hasn't been sent yet.
+        if (invoiceFilterDelivery === 'toreview' && (!isDelivered || inv.reviewRequestedAt)) return false;
       }
       if (invoiceFilterMonth !== 'all') {
         const d = inv.createdAt || inv.date;
@@ -208,6 +211,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     unpaid: filteredInvoices.filter(i => i.paymentStatus === PaymentStatus.UNPAID).length,
     inTransit: filteredInvoices.filter(i => i.status !== OrderStatus.DELIVERED).length,
   }), [filteredInvoices]);
+
+  // Delivered orders that still need a review request (across ALL orders, not
+  // just the filtered view) — powers the "To review" pill badge.
+  const toReviewCount = useMemo(
+    () => invoices.filter(i => i.status === OrderStatus.DELIVERED && !i.reviewRequestedAt).length,
+    [invoices]
+  );
 
   /** Export the CURRENTLY FILTERED orders with full detail (one sheet) */
   const handleExportOrders = () => {
@@ -1513,24 +1523,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {/* Delivered / Not-delivered quick toggle — prominent segmented control */}
+                  {/* Delivered / Not-delivered / To-review quick toggle */}
                   <div className="flex h-12 items-center gap-1 bg-neutral-50 border border-neutral-100 rounded-full p-1">
                     {([
                       ['all', 'All'],
                       ['undelivered', 'Not Delivered'],
                       ['delivered', 'Delivered'],
+                      ['toreview', 'To Review'],
                     ] as const).map(([val, label]) => (
                       <button
                         key={val}
                         type="button"
                         onClick={() => setInvoiceFilterDelivery(val)}
-                        className={`h-full px-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                        className={`relative h-full px-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
                           invoiceFilterDelivery === val
                             ? 'bg-[#3D8593] text-white shadow-sm'
                             : 'text-gray-400 hover:text-gray-600'
                         }`}
                       >
                         {label}
+                        {val === 'toreview' && toReviewCount > 0 && (
+                          <span className={`ml-1.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] ${
+                            invoiceFilterDelivery === val ? 'bg-white/25 text-white' : 'bg-amber-400 text-white'
+                          }`}>
+                            {toReviewCount}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -2705,6 +2723,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         invoice={messagingInvoice}
         initialIntent={messageIntent}
         onClose={() => { setMessagingInvoice(null); setMessageIntent(undefined); }}
+        onReviewRequested={(inv) => {
+          markReviewRequested(inv.id);
+          const stamped = new Date().toISOString();
+          onUpdateInvoices(invoices.map(x => x.id === inv.id ? { ...x, reviewRequestedAt: stamped } : x));
+        }}
       />
 
       {/* The Manager (Supervisor) — floating launcher + chat */}

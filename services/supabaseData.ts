@@ -384,7 +384,8 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             containerNumber: inv.container_number || undefined,
             internalStatus: inv.internal_status || undefined,
             estArrival: inv.est_arrival || undefined,
-            mombasaArrivedAt: inv.mombasa_arrived_at || undefined
+            mombasaArrivedAt: inv.mombasa_arrived_at || undefined,
+            reviewRequestedAt: inv.review_requested_at || undefined
         }));
     } catch (error) {
         console.error('Error fetching invoices:', error);
@@ -528,6 +529,22 @@ export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoi
     } catch (error) {
         console.error('Error tracking order:', error);
         return null;
+    }
+};
+
+// Mark that the review request was sent for a delivered order, so it drops out
+// of the "To review" list. Admin-only (RLS). Optimistic — failures are non-fatal.
+export const markReviewRequested = async (id: string): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const { error } = await supabase
+            .from('invoices')
+            .update({ review_requested_at: new Date().toISOString() })
+            .eq('id', id);
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error marking review requested:', error);
+        return { success: false, error };
     }
 };
 

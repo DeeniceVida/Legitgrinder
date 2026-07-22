@@ -44,6 +44,13 @@ CREATE TRIGGER trg_assign_order_number
   FOR EACH ROW EXECUTE FUNCTION public.assign_order_number();
 
 
+-- ── 1b. REVIEW TRACKING ─────────────────────────────────────────────────────
+-- Remembers when the admin sent a delivered client the review request, so the
+-- dashboard can show a "To review" list (delivered orders not yet asked).
+ALTER TABLE public.invoices
+  ADD COLUMN IF NOT EXISTS review_requested_at timestamptz;
+
+
 -- ── 2. LOCK DOWN THE INVOICES TABLE ─────────────────────────────────────────
 -- Today the anonymous (public) key can read EVERY invoice — names, phone
 -- numbers, amounts. We drop all existing policies and recreate a strict set.
