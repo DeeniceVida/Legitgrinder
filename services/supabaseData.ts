@@ -475,18 +475,22 @@ export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoi
     try {
         // Match by invoice number OR Paystack reference, so tracking codes from
         // shop checkouts (which are Paystack refs) resolve too.
-        // Forgiving input: receipts/emails display numbers as "IG-482917", so
-        // people paste that — strip display prefixes (IG-/LG-, leading #),
-        // trailing punctuation, and match case-insensitively. NOTE: "INV-" is
-        // NOT stripped — some real invoice numbers start with it.
+        // Forgiving input: receipts/emails display numbers as "IG-482917" and
+        // real numbers are stored as "INV-642269-2936", but customers routinely
+        // paste just the bare middle ("642269-2936"). So we strip display
+        // prefixes (IG-/LG-/INV-, leading #) and trailing punctuation, and — for
+        // the invoice_number column — also do a leading-wildcard (ends-with)
+        // match so a bare code still resolves to its "INV-…" record.
         const raw = invoiceNumber.trim().replace(/[%_]/g, '').replace(/[.,\s]+$/, '');
-        const candidates = new Set<string>([raw]);
         const noHash = raw.replace(/^#/, '');
-        candidates.add(noHash);
-        candidates.add(noHash.replace(/^(IG|LG)-/i, ''));
+        const stripped = noHash.replace(/^(IG|LG|INV)-/i, '');
+        const candidates = new Set<string>([raw, noHash, stripped].filter(Boolean));
         const ors = [...candidates]
-            .filter(Boolean)
-            .flatMap(c => [`invoice_number.ilike.${c}`, `paystack_reference.ilike.${c}`])
+            .flatMap(c => [
+                `invoice_number.ilike.${c}`,     // exact (case-insensitive)
+                `invoice_number.ilike.%${c}`,    // ends-with: "INV-<c>" when user typed bare "<c>"
+                `paystack_reference.ilike.${c}`, // Paystack / logistics tracking code
+            ])
             .join(',');
         const { data: rows, error } = await supabase
             .from('invoices')

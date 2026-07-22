@@ -356,21 +356,56 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
     const delivered = invoices.filter(i => i.status === OrderStatus.DELIVERED).length;
     const lines: string[] = [];
     lines.push(`Orders: ${invoices.length} total — ${delivered} delivered, ${invoices.length - delivered} still in progress. Unpaid: ${unpaid.length} (KES ${outstanding.toLocaleString()} outstanding). Products in shop: ${products.length}.`);
-    lines.push(`Note: dates below are when each order was created — use them for "recent"/"this month" questions. You do NOT have website traffic/analytics.`);
+    lines.push(`Note: order dates are when each order was created — time-window figures below are measured by that date. You do NOT have website traffic/analytics or payment-received dates.`);
+
+    // --- BUSINESS SUMMARY: precomputed period totals so the Manager can answer
+    // "what did we do this week / this month" precisely, without eyeballing rows. ---
+    const now = Date.now();
+    const DAY = 86_400_000;
+    const daysAgo = (iso?: string) => {
+      if (!iso) return Infinity;
+      const t = new Date(iso).getTime();
+      return isNaN(t) ? Infinity : (now - t) / DAY;
+    };
+    const thisMonthKey = new Date().toISOString().slice(0, 7);
+    const monthOf = (iso?: string) => {
+      if (!iso) return '';
+      const t = new Date(iso).getTime();
+      return isNaN(t) ? '' : new Date(t).toISOString().slice(0, 7);
+    };
+    const agg = (list: Invoice[]) => ({
+      n: list.length,
+      booked: list.reduce((s, i) => s + (i.totalKES || 0), 0),
+      collected: list.reduce((s, i) => s + (i.amountPaidKES || 0), 0),
+      margin: list.reduce((s, i) => s + (i.serviceFeeKES || 0), 0),
+    });
+    const last7 = agg(invoices.filter(i => daysAgo(i.createdAt) <= 7));
+    const prev7 = agg(invoices.filter(i => { const d = daysAgo(i.createdAt); return d > 7 && d <= 14; }));
+    const last30 = agg(invoices.filter(i => daysAgo(i.createdAt) <= 30));
+    const thisMonth = agg(invoices.filter(i => monthOf(i.createdAt) === thisMonthKey));
+    const money = (n: number) => `KES ${Math.round(n).toLocaleString()}`;
+    lines.push(`BUSINESS SUMMARY (by order-created date):`);
+    lines.push(`- Last 7 days: ${last7.n} new orders, ${money(last7.booked)} booked, ${money(last7.collected)} collected, ~${money(last7.margin)} service-fee margin.`);
+    lines.push(`- Previous 7 days (for week-on-week compare): ${prev7.n} orders, ${money(prev7.booked)} booked, ${money(prev7.collected)} collected.`);
+    lines.push(`- This calendar month (${thisMonthKey}): ${thisMonth.n} orders, ${money(thisMonth.booked)} booked, ${money(thisMonth.collected)} collected, ~${money(thisMonth.margin)} margin.`);
+    lines.push(`- Last 30 days: ${last30.n} orders, ${money(last30.booked)} booked, ${money(last30.collected)} collected.`);
+    lines.push(`- All time: ${invoices.length} orders, ${delivered} delivered, ${invoices.length - delivered} in progress, ${money(outstanding)} still outstanding across ${unpaid.length} unpaid orders.`);
+
     if (attention.length) {
       lines.push(`NEEDS ATTENTION (${attention.length}):`);
       attention.forEach(a => lines.push(`- ${a.invoice.clientName} (ref "${a.invoice.invoiceNumber}"): ${a.message}`));
     }
-    // ALL orders (compact) so the Manager can act on any of them, not just recent.
+    // ALL orders (compact) so the Manager can act on and report over any of them.
     lines.push(`ALL ORDERS (copy the ref in quotes EXACTLY when acting on one):`);
     invoices.forEach(i => {
       const bal = Math.max((i.totalKES || 0) - (i.amountPaidKES || 0), 0);
       const d = i.createdAt ? new Date(i.createdAt).toLocaleDateString('en-KE') : '';
-      lines.push(`- ref "${i.invoiceNumber}" | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | bal KES ${bal.toLocaleString()} | ${i.origin || 'origin?'}${d ? ` | ${d}` : ''}`);
+      lines.push(`- ref "${i.invoiceNumber}" | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | ${i.paymentStatus} | total KES ${(i.totalKES || 0).toLocaleString()} | bal KES ${bal.toLocaleString()} | ${i.origin || 'origin?'}${d ? ` | ${d}` : ''}`);
     });
     if (products.length) {
-      lines.push(`SHOP STOCK (${Math.min(products.length, 40)} of ${products.length}):`);
-      products.slice(0, 40).forEach(p =>
+      // Full shop stock — the Manager has complete visibility, nothing withheld.
+      lines.push(`SHOP STOCK (all ${products.length}):`);
+      products.forEach(p =>
         lines.push(`- ${p.name} | ${p.category || 'uncategorised'} | KES ${(p.priceKES || 0).toLocaleString()} | ${p.availability} | stock ${p.stockCount ?? 0}`));
     }
     if (campaigns.length) {

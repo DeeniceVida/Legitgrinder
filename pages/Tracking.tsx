@@ -33,7 +33,7 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
     // Forgiving: receipts show "IG-482917", so ignore that display prefix,
     // a leading #, case, and stray trailing punctuation.
     const norm = (s?: string) => (s || '').trim().toLowerCase().replace(/[.,\s]+$/, '');
-    const bare = (s?: string) => norm(s).replace(/^#/, '').replace(/^(ig|lg)-/, '');
+    const bare = (s?: string) => norm(s).replace(/^#/, '').replace(/^(ig|lg|inv)-/, '');
     const found = invoices.find(inv =>
       bare(inv.invoiceNumber) === bare(searchId) ||
       norm(inv.paystackReference) === norm(searchId) ||

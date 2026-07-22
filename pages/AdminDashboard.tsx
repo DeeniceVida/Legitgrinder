@@ -1513,6 +1513,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
                 <div className="flex flex-wrap gap-3">
+                  {/* Delivered / Not-delivered quick toggle — prominent segmented control */}
+                  <div className="flex h-12 items-center gap-1 bg-neutral-50 border border-neutral-100 rounded-full p-1">
+                    {([
+                      ['all', 'All'],
+                      ['undelivered', 'Not Delivered'],
+                      ['delivered', 'Delivered'],
+                    ] as const).map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setInvoiceFilterDelivery(val)}
+                        className={`h-full px-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                          invoiceFilterDelivery === val
+                            ? 'bg-[#3D8593] text-white shadow-sm'
+                            : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <select
                     value={invoiceFilterPayment}
                     onChange={(e) => setInvoiceFilterPayment(e.target.value as any)}
@@ -1520,15 +1541,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   >
                     <option value="all">All Payments</option>
                     {Object.values(PaymentStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <select
-                    value={invoiceFilterDelivery}
-                    onChange={(e) => setInvoiceFilterDelivery(e.target.value as any)}
-                    className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
-                  >
-                    <option value="all">Delivered &amp; Pending</option>
-                    <option value="undelivered">Not Delivered Yet</option>
-                    <option value="delivered">Delivered &amp; Completed</option>
                   </select>
                   <select
                     value={invoiceFilterMonth}
