@@ -1,6 +1,6 @@
 // Client helper for the WhatsApp message agent. Talks to /api/message-agent.
 
-export type MessageIntent = 'reminder' | 'ready' | 'shipped' | 'thanks' | 'custom';
+export type MessageIntent = 'reminder' | 'ready' | 'shipped' | 'thanks' | 'review' | 'custom';
 
 export interface MessageAgentInput {
   intent: MessageIntent;
@@ -13,6 +13,7 @@ export interface MessageAgentInput {
   status?: string;
   payLink?: string;
   trackingLink?: string;
+  reviewLink?: string;
   custom?: string;
 }
 

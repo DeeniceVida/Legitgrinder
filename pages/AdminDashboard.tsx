@@ -1670,6 +1670,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           >
                             <MessageCircle className="w-4 h-4" />
                           </button>
+                          {inv.status === OrderStatus.DELIVERED && (
+                            <button
+                              onClick={() => { setMessageIntent('review'); setMessagingInvoice(inv); }}
+                              className="p-2 bg-amber-50 text-amber-500 rounded-2xl hover:bg-amber-400 hover:text-white transition-all"
+                              title="Request a review — AI writes the WhatsApp message with your Google review link"
+                            >
+                              <Star className="w-4 h-4" />
+                            </button>
+                          )}
                           {!inv.isPaid && (
                             <button
                               onClick={() => {

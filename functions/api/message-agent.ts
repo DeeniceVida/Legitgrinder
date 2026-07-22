@@ -9,7 +9,7 @@ interface Env {
 }
 
 interface MessageRequest {
-  intent?: 'reminder' | 'ready' | 'shipped' | 'thanks' | 'custom';
+  intent?: 'reminder' | 'ready' | 'shipped' | 'thanks' | 'review' | 'custom';
   clientName?: string;
   productName?: string;
   invoiceNumber?: string;
@@ -19,6 +19,7 @@ interface MessageRequest {
   status?: string;        // current order status
   payLink?: string;       // /pay/:invoiceNumber (only when a balance is due)
   trackingLink?: string;  // /tracking?id=:invoiceNumber
+  reviewLink?: string;    // Google review link (intent = 'review')
   custom?: string;        // free-text instruction when intent = 'custom'
 }
 
@@ -27,6 +28,7 @@ const INTENT_BRIEF: Record<string, string> = {
   ready: 'Great news: the order has arrived and is ready. Tell them it is ready for CBD pickup or delivery, and how to proceed. If a balance is still due, mention it and include the pay link so they clear it before collecting.',
   shipped: 'An update that the order has shipped / is on its way, with the tracking link so they can follow it. Reassure them about the delivery window.',
   thanks: 'A warm thank-you confirming their order/payment was received, with a short note on what happens next.',
+  review: 'The order has been delivered. Warmly thank the client and ask them to leave an honest review of their experience with LegitGrinder. Kindly ask them to snap a few PHOTOS and a short VIDEO of the product and include those in their review, and to share their genuine, honest thoughts — it really helps other Kenyan buyers trust us. Include the review link on its own line. Be appreciative and light, never demanding, and do NOT offer any incentive or ask for a specific star rating.',
   custom: 'Follow the specific instruction the admin gives below.'
 };
 
@@ -49,7 +51,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     lines.push(`Intent: ${INTENT_BRIEF[intent] || INTENT_BRIEF.custom}`);
     lines.push(`Client first name: ${firstName}`);
     if (b.productName) lines.push(`Order: ${b.productName}`);
-    if (b.invoiceNumber) lines.push(`Invoice: IG-${b.invoiceNumber}`);
+    if (b.invoiceNumber) lines.push(`Invoice: ${b.invoiceNumber}`);
     if (b.status) lines.push(`Current status: ${b.status}`);
     if (typeof b.totalKES === 'number') lines.push(`Order total: KES ${b.totalKES.toLocaleString()}`);
     if (typeof b.balanceKES === 'number' && b.balanceKES > 0) {
@@ -60,6 +62,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
     if (b.trackingLink && (intent === 'shipped' || intent === 'ready')) {
       lines.push(`Tracking link (include this): ${b.trackingLink}`);
+    }
+    if (intent === 'review' && b.reviewLink) {
+      lines.push(`Review link (include this on its own line): ${b.reviewLink}`);
     }
     if (intent === 'custom' && b.custom) lines.push(`Admin instruction: ${b.custom}`);
 

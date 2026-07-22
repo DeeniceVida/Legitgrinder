@@ -4,6 +4,10 @@ import { ShippingMode, Origin, OrderStatus } from './types';
 export const KES_PER_USD = 135;
 export const WHATSAPP_NUMBER = '254791873538';
 
+// Google review link (g.page short link) clients are sent after delivery, so
+// they can rate LegitGrinder and upload photos/videos of their order.
+export const GOOGLE_REVIEW_LINK = 'https://g.page/r/CUnB09wJQMO6EBM/review';
+
 // The ONE community WhatsApp group every group-buy campaign sends clients to,
 // so people don't join a new group per campaign. Paste your real invite link
 // here (looks like https://chat.whatsapp.com/XXXXXXXXXXXXXXX). A campaign can

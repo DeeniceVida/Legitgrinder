@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X, ArrowClockwise, WhatsappLogo, WarningCircle, PencilSimple,
-  Copy, CheckCircle, BellRinging, Package, PaperPlaneTilt, HandHeart, ChatText
+  Copy, CheckCircle, BellRinging, Package, PaperPlaneTilt, HandHeart, ChatText, Star
 } from '@phosphor-icons/react';
 import { draftClientMessage, MessageIntent } from '../services/messageAgent';
 import { normalizeKenyanPhone } from '../utils/phone';
+import { GOOGLE_REVIEW_LINK } from '../constants';
 import { Invoice } from '../types';
 
 interface MessageAgentPanelProps {
@@ -18,6 +19,7 @@ const INTENTS: { id: MessageIntent; label: string; Icon: React.ElementType }[] =
   { id: 'ready', label: 'Ready for pickup', Icon: Package },
   { id: 'shipped', label: 'Shipped / on the way', Icon: PaperPlaneTilt },
   { id: 'thanks', label: 'Thank you', Icon: HandHeart },
+  { id: 'review', label: 'Request review', Icon: Star },
   { id: 'custom', label: 'Custom…', Icon: ChatText }
 ];
 
@@ -28,6 +30,17 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // When opened straight into "Request review" (the delivered-order button),
+  // generate the draft immediately so it's a true one-click action.
+  const generateRef = useRef<() => void>(() => {});
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (invoice && initialIntent === 'review' && !autoRan.current) {
+      autoRan.current = true;
+      generateRef.current();
+    }
+  }, [invoice, initialIntent]);
 
   if (!invoice) return null;
 
@@ -56,6 +69,7 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
       status: invoice.status,
       payLink: balance > 0 ? payLink : undefined,
       trackingLink,
+      reviewLink: intent === 'review' ? GOOGLE_REVIEW_LINK : undefined,
       custom: custom.trim() || undefined
     });
     setLoading(false);
@@ -65,6 +79,7 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
     }
     setMessage(res.message);
   };
+  generateRef.current = handleGenerate;
 
   const openWhatsApp = () => {
     const text = encodeURIComponent(message);
