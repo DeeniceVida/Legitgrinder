@@ -16,7 +16,7 @@ import {
 import { createManualInvoice, createProduct, updateOrderLogistics } from '../services/supabaseData';
 import { normalizeKenyanPhone } from '../utils/phone';
 
-interface Msg { role: 'user' | 'assistant'; content: string; action?: SupervisorAction; executed?: boolean }
+interface Msg { role: 'user' | 'assistant'; content: string; actions?: SupervisorAction[]; done?: boolean[] }
 
 interface SupervisorPanelProps {
   isOpen: boolean;
@@ -90,30 +90,93 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
 
   const [campaigns, setCampaigns] = useState<GroupCampaign[]>([]);
   const [gorders, setGorders] = useState<GroupOrder[]>([]);
-  const [executingIndex, setExecutingIndex] = useState<number | null>(null);
+  const [executingKey, setExecutingKey] = useState<string | null>(null);
 
-  const markExecuted = (i: number) =>
-    setMessages(ms => ms.map((m, idx) => (idx === i ? { ...m, executed: true } : m)));
+  const markDone = (mi: number, ai: number) =>
+    setMessages(ms => ms.map((m, idx) => {
+      if (idx !== mi || !m.actions) return m;
+      const done = [...(m.done || m.actions.map(() => false))];
+      done[ai] = true;
+      return { ...m, done };
+    }));
 
-  const finishOk = (i: number, text: string) => {
-    markExecuted(i);
+  const finishOk = (mi: number, ai: number, text: string) => {
+    markDone(mi, ai);
     setMessages(ms => [...ms, { role: 'assistant', content: text }]);
     speakText(text);
-    setExecutingIndex(null);
+    setExecutingKey(null);
   };
 
-  const finishErr = (i: number, text: string) => {
-    // Leave the card active so he can retry after fixing the issue.
+  /**
+   * Self-correction: when a prepared action fails, hand the Manager the reason
+   * plus the exact refs and let it re-prepare a fixed action by itself.
+   */
+  const selfCorrect = async (failure: string) => {
+    const refs = invoices.slice(0, 20)
+      .map(i => `"${i.invoiceNumber}" = ${i.clientName} / ${i.productName}`)
+      .join('; ');
+    const note =
+      `[SYSTEM] Your last action failed: ${failure}\n` +
+      `The exact order refs available right now are: ${refs}\n` +
+      `Re-prepare the corrected action now, copying the ref EXACTLY as shown. ` +
+      `If you genuinely cannot tell which order was meant, ask me instead.`;
+    const base = [...messagesRef.current, { role: 'user' as const, content: note }];
+    setLoading(true);
+    const res = await askSupervisor(base.map(m => ({ role: m.role, content: m.content })), buildSnapshot());
+    setLoading(false);
+    if (res.success && res.data) {
+      setMessages(ms => [...ms, { role: 'assistant', content: res.data!.reply, actions: res.data!.actions }]);
+      speakText(res.data.reply);
+    }
+  };
+
+  const finishErr = async (text: string) => {
     setMessages(ms => [...ms, { role: 'assistant', content: `❌ ${text}` }]);
-    setExecutingIndex(null);
+    setExecutingKey(null);
+    await selfCorrect(text); // try to fix itself instead of dead-ending
+  };
+
+  /**
+   * Find an order from whatever the Manager gave us. Order numbers are stored in
+   * mixed formats (e.g. "INV-760197-7525") while chat/receipts show "IG-…", so an
+   * exact string match is far too brittle — this normalises both sides and falls
+   * back to the client name.
+   */
+  const resolveInvoice = (num?: string, hintName?: string, hintProduct?: string): Invoice | null => {
+    const norm = (s?: string) => (s || '').trim().toLowerCase().replace(/[\s.,]+$/, '');
+    const bare = (s?: string) => norm(s).replace(/^#/, '').replace(/^(ig|lg|inv)-/, '');
+    const n = bare(num);
+    if (n) {
+      const hit =
+        invoices.find(i => norm(i.invoiceNumber) === norm(num)) ||
+        invoices.find(i => bare(i.invoiceNumber) === n) ||
+        invoices.find(i => norm(i.paystackReference) === n) ||
+        // the model may have dropped or added a prefix chunk
+        invoices.find(i => { const b = bare(i.invoiceNumber); return !!b && (b.endsWith(n) || n.endsWith(b)); });
+      if (hit) return hit;
+    }
+    // Last resort: identify by who/what he named.
+    const hn = norm(hintName);
+    if (hn) {
+      const first = hn.split(' ')[0];
+      const byName = invoices.filter(i => norm(i.clientName).includes(first));
+      if (byName.length === 1) return byName[0];
+      const hp = norm(hintProduct);
+      if (byName.length > 1 && hp) {
+        const both = byName.find(i => norm(i.productName).includes(hp) || hp.includes(norm(i.productName)));
+        if (both) return both;
+      }
+    }
+    return null;
   };
 
   // Execute a prepared action after Dennis confirms. All writes reuse the same
   // authenticated service functions the dashboard's own forms use.
-  const executeAction = async (i: number, action: SupervisorAction) => {
-    if (executingIndex !== null) return;
+  const executeAction = async (mi: number, ai: number, action: SupervisorAction) => {
+    if (executingKey !== null) return;
     const p = action.payload || {};
-    setExecutingIndex(i);
+    const i = mi; // finishOk target
+    setExecutingKey(`${mi}:${ai}`);
     try {
       switch (action.type) {
         case 'create_order': {
@@ -148,7 +211,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
             currency: 'KES'
           };
           onOrderCreated(inv);
-          finishOk(i,
+          finishOk(mi, ai,
             `✅ Done — order IG-${invoiceNumber} created: ${inv.productName} for ${inv.clientName}, KES ${total.toLocaleString()}${inv.isPaid ? ' (paid)' : ''}.` +
             (!inv.isPaid ? `\nPay link: ${window.location.origin}/pay/${invoiceNumber}` : ''));
           break;
@@ -169,13 +232,13 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
           const r = await createProduct(productData);
           if (!r.success || !r.id) throw new Error(r.error?.message || 'could not save the product');
           onProductCreated({ id: r.id, ...productData });
-          finishOk(i, `✅ Done — "${productData.name}" is live in the shop at KES ${productData.priceKES.toLocaleString()} (${productData.availability}). No images yet — add them from Stock when ready.`);
+          finishOk(mi, ai, `✅ Done — "${productData.name}" is live in the shop at KES ${productData.priceKES.toLocaleString()} (${productData.availability}). No images yet — add them from Stock when ready.`);
           break;
         }
         case 'update_tracking': {
           const num = (action.invoice_number || '').trim();
-          const inv = invoices.find(x => x.invoiceNumber === num);
-          if (!inv) throw new Error(`I can't find order IG-${num || '?'} — check the number`);
+          const inv = resolveInvoice(num, p.client_name, p.product_name);
+          if (!inv) throw new Error(`no order matched ref "${num || '?'}"${p.client_name ? ` or client "${p.client_name}"` : ''}`);
           const st = (p.internal_status || '') as InternalStatus;
           if (!PIPELINE.includes(st)) throw new Error(`"${p.internal_status || '?'}" isn't a tracking stage I know`);
           const clientStatus = internalToClientStatus(st);
@@ -189,7 +252,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
           });
           if (!r.success) throw new Error(r.error?.message || 'could not update tracking');
           onInvoiceUpdated({ ...inv, internalStatus: st, status: clientStatus, progress, mombasaArrivedAt: arrived || inv.mombasaArrivedAt });
-          finishOk(i, `✅ Done — IG-${num} moved to "${internalLabel(st, inv.origin)}". ${inv.clientName.split(' ')[0]} now sees "${clientStatus}" on their tracker.`);
+          finishOk(mi, ai, `✅ Done — ${inv.clientName}'s order (${inv.invoiceNumber}) moved to "${internalLabel(st, inv.origin)}". They now see "${clientStatus}" on their tracker.`);
           break;
         }
         case 'create_group_buy': {
@@ -203,14 +266,14 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
             closesAt: p.closes_at || null
           });
           if (!r.success || !r.slug) throw new Error(r.error || 'could not create the campaign');
-          finishOk(i,
+          finishOk(mi, ai,
             `✅ Done — group buy "${p.title}" is live:\n${window.location.origin}/group/${r.slug}\n` +
             `KES ${unitPrice.toLocaleString()}/unit, min deposit KES ${minDeposit.toLocaleString()}. Copy that link and post it.`);
           break;
         }
       }
     } catch (err: any) {
-      finishErr(i, `Couldn't do it: ${err.message || 'unknown error'}. Nothing was changed — try again or do it manually.`);
+      await finishErr(`${err.message || 'unknown error'}. Nothing was changed — fixing it now…`);
     }
   };
 
@@ -237,9 +300,9 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
         ] as [string, string][]);
       case 'update_tracking': {
         const st = (p.internal_status || '') as InternalStatus;
-        const inv = invoices.find(x => x.invoiceNumber === a.invoice_number);
+        const inv = resolveInvoice(a.invoice_number, p.client_name, p.product_name);
         return [
-          ['Order', `IG-${a.invoice_number || '—'}${inv ? ` (${inv.clientName})` : ''}`],
+          ['Order', inv ? `${inv.clientName} · ${inv.productName}` : `⚠ not found (${a.invoice_number || '—'})`],
           ['New stage', internalLabel(st, inv?.origin)],
           ['Client sees', internalToClientStatus(st)]
         ];
@@ -290,16 +353,20 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
     const unpaid = invoices.filter(i => !i.isPaid);
     const outstanding = unpaid.reduce((s, i) => s + Math.max((i.totalKES || 0) - (i.amountPaidKES || 0), 0), 0);
     const attention = computeAttention(invoices);
+    const delivered = invoices.filter(i => i.status === OrderStatus.DELIVERED).length;
     const lines: string[] = [];
-    lines.push(`Orders: ${invoices.length} total, ${unpaid.length} unpaid (KES ${outstanding.toLocaleString()} outstanding). Products in shop: ${products.length}.`);
+    lines.push(`Orders: ${invoices.length} total — ${delivered} delivered, ${invoices.length - delivered} still in progress. Unpaid: ${unpaid.length} (KES ${outstanding.toLocaleString()} outstanding). Products in shop: ${products.length}.`);
+    lines.push(`Note: dates below are when each order was created — use them for "recent"/"this month" questions. You do NOT have website traffic/analytics.`);
     if (attention.length) {
       lines.push(`NEEDS ATTENTION (${attention.length}):`);
-      attention.forEach(a => lines.push(`- ${a.invoice.clientName} (IG-${a.invoice.invoiceNumber}): ${a.message}`));
+      attention.forEach(a => lines.push(`- ${a.invoice.clientName} (ref "${a.invoice.invoiceNumber}"): ${a.message}`));
     }
-    lines.push('RECENT ORDERS:');
-    invoices.slice(0, 12).forEach(i => {
+    // ALL orders (compact) so the Manager can act on any of them, not just recent.
+    lines.push(`ALL ORDERS (copy the ref in quotes EXACTLY when acting on one):`);
+    invoices.forEach(i => {
       const bal = Math.max((i.totalKES || 0) - (i.amountPaidKES || 0), 0);
-      lines.push(`- IG-${i.invoiceNumber} | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | balance KES ${bal.toLocaleString()} | ${i.origin || 'origin?'}`);
+      const d = i.createdAt ? new Date(i.createdAt).toLocaleDateString('en-KE') : '';
+      lines.push(`- ref "${i.invoiceNumber}" | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | bal KES ${bal.toLocaleString()} | ${i.origin || 'origin?'}${d ? ` | ${d}` : ''}`);
     });
     if (products.length) {
       lines.push(`SHOP STOCK (${Math.min(products.length, 40)} of ${products.length}):`);
@@ -330,7 +397,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
       setMessages(m => [...m, { role: 'assistant', content: res.error || 'Sorry, I hit a snag. Try again?' }]);
       return;
     }
-    setMessages(m => [...m, { role: 'assistant', content: res.data!.reply, action: res.data!.action }]);
+    setMessages(m => [...m, { role: 'assistant', content: res.data!.reply, actions: res.data!.actions }]);
     speakText(res.data.reply);
   };
 
@@ -428,57 +495,67 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
               <div className={`px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${m.role === 'user' ? 'bg-[#3D8593] text-white rounded-2xl rounded-br-md' : 'bg-white text-gray-700 border border-gray-100 rounded-2xl rounded-bl-md shadow-sm'}`}>
                 {m.content}
               </div>
-              {m.action && m.action.type !== 'none' && EXEC_LABELS[m.action.type] && (
-                <div className="w-full min-w-[16rem] bg-white border border-[#3D8593]/25 rounded-2xl p-4 space-y-2 shadow-sm">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-[#3D8593]">{EXEC_LABELS[m.action.type]}</p>
-                  {summarize(m.action).map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-3 text-xs">
-                      <span className="text-gray-400 font-bold shrink-0">{k}</span>
-                      <span className="font-bold text-gray-800 text-right">{v}</span>
+              {(m.actions || []).map((action, ai) => {
+                const done = m.done?.[ai];
+                const busy = executingKey === `${i}:${ai}`;
+                if (EXEC_LABELS[action.type]) {
+                  return (
+                    <div key={ai} className="w-full min-w-[16rem] bg-white border border-[#3D8593]/25 rounded-2xl p-4 space-y-2 shadow-sm">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-[#3D8593]">{EXEC_LABELS[action.type]}</p>
+                      {summarize(action).map(([k, v]) => (
+                        <div key={k} className="flex justify-between gap-3 text-xs">
+                          <span className="text-gray-400 font-bold shrink-0">{k}</span>
+                          <span className="font-bold text-gray-800 text-right">{v}</span>
+                        </div>
+                      ))}
+                      {action.type === 'create_product' && action.payload?.description && (
+                        <p className="text-[11px] text-gray-500 leading-relaxed max-h-24 overflow-y-auto border-t border-gray-50 pt-2 whitespace-pre-line">
+                          {action.payload.description}
+                        </p>
+                      )}
+                      {done ? (
+                        <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 pt-1">
+                          <CheckCircle size={14} weight="fill" /> Handled
+                        </p>
+                      ) : (
+                        <div className="flex gap-2 pt-1.5">
+                          <button
+                            onClick={() => executeAction(i, ai, action)}
+                            disabled={executingKey !== null}
+                            className="flex-1 py-2.5 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
+                          >
+                            {busy
+                              ? (<><ArrowClockwise size={13} weight="bold" className="animate-spin" /> Doing it…</>)
+                              : (<><CheckCircle size={13} weight="fill" /> Confirm — do it</>)}
+                          </button>
+                          <button
+                            onClick={() => markDone(i, ai)}
+                            disabled={executingKey !== null}
+                            className="px-4 py-2.5 rounded-full border border-gray-200 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors disabled:opacity-40"
+                          >
+                            Skip
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {m.action.type === 'create_product' && m.action.payload?.description && (
-                    <p className="text-[11px] text-gray-500 leading-relaxed max-h-24 overflow-y-auto border-t border-gray-50 pt-2 whitespace-pre-line">
-                      {m.action.payload.description}
-                    </p>
-                  )}
-                  {m.executed ? (
-                    <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 pt-1">
-                      <CheckCircle size={14} weight="fill" /> Handled
-                    </p>
-                  ) : (
-                    <div className="flex gap-2 pt-1.5">
-                      <button
-                        onClick={() => executeAction(i, m.action!)}
-                        disabled={executingIndex !== null}
-                        className="flex-1 py-2.5 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
-                      >
-                        {executingIndex === i
-                          ? (<><ArrowClockwise size={13} weight="bold" className="animate-spin" /> Doing it…</>)
-                          : (<><CheckCircle size={13} weight="fill" /> Confirm — do it</>)}
-                      </button>
-                      <button
-                        onClick={() => { markExecuted(i); setMessages(ms => [...ms, { role: 'assistant', content: 'Okay, cancelled — nothing was changed.' }]); }}
-                        disabled={executingIndex !== null}
-                        className="px-4 py-2.5 rounded-full border border-gray-200 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-colors disabled:opacity-40"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              {m.action && m.action.type !== 'none' && !EXEC_LABELS[m.action.type] && ACTION_META[m.action.type] && (
-                <button
-                  onClick={() => onAction(m.action!)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors"
-                >
-                  {React.createElement(ACTION_META[m.action.type].Icon, { size: 14, weight: 'fill' })}
-                  {ACTION_META[m.action.type].label}
-                  {m.action.invoice_number ? ` · IG-${m.action.invoice_number}` : ''}
-                  <ArrowRight size={13} weight="bold" />
-                </button>
-              )}
+                  );
+                }
+                if (ACTION_META[action.type]) {
+                  return (
+                    <button
+                      key={ai}
+                      onClick={() => onAction(action)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors"
+                    >
+                      {React.createElement(ACTION_META[action.type].Icon, { size: 14, weight: 'fill' })}
+                      {ACTION_META[action.type].label}
+                      {action.invoice_number ? ` · ${action.invoice_number}` : ''}
+                      <ArrowRight size={13} weight="bold" />
+                    </button>
+                  );
+                }
+                return null;
+              })}
             </div>
           </div>
         ))}

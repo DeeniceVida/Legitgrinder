@@ -37,7 +37,7 @@ export type SupervisorAction = {
 
 export interface SupervisorReply {
   reply: string;
-  action: SupervisorAction;
+  actions: SupervisorAction[];
 }
 
 export async function askSupervisor(
@@ -52,7 +52,11 @@ export async function askSupervisor(
     });
     const data = await res.json();
     if (!res.ok) return { success: false, error: data.error || 'The Manager could not be reached.' };
-    return { success: true, data: { reply: data.reply, action: data.action || { type: 'none' } } };
+    // Tolerate the older single-action shape during a deploy window.
+    const actions: SupervisorAction[] = Array.isArray(data.actions)
+      ? data.actions
+      : (data.action && data.action.type && data.action.type !== 'none' ? [data.action] : []);
+    return { success: true, data: { reply: data.reply, actions } };
   } catch (err: any) {
     return {
       success: false,
