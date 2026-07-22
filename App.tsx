@@ -121,6 +121,17 @@ const AppContent: React.FC = () => {
     logVisit();
   }, []);
 
+  // Invoices are locked down by RLS: guests can't read the table (they use the
+  // public track_order / pay functions instead). So once a session is known,
+  // refetch orders with the authenticated identity — an admin gets every order,
+  // a customer gets only their own. This keeps the dashboard and order history
+  // populated after the initial anonymous load returns nothing.
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchInvoicesData().then(invs => setInvoices(invs || [])).catch(() => {});
+    }
+  }, [isLoggedIn, isAdmin]);
+
   const handleAuthSession = async (session: any) => {
     console.log('🔐 Auth Session Detected:', session.user.email);
     setIsLoggedIn(true);

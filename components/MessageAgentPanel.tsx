@@ -93,7 +93,7 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
               <div>
                 <h2 className="text-lg font-bold tracking-tight">Message Writer</h2>
                 <p className="text-[11px] text-white/50 font-medium">
-                  {invoice.clientName} · IG-{invoice.invoiceNumber}
+                  {invoice.clientName} · {invoice.invoiceNumber}
                 </p>
               </div>
             </div>

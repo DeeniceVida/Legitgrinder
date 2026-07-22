@@ -150,7 +150,7 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
               </span>
               <div>
                 <h2 className="text-lg font-bold tracking-tight">Tracking</h2>
-                <p className="text-[11px] text-white/50 font-medium">{invoice.clientName} · {invoice.productName} · IG-{invoice.invoiceNumber}</p>
+                <p className="text-[11px] text-white/50 font-medium">{invoice.clientName} · {invoice.productName} · {invoice.invoiceNumber}</p>
               </div>
             </div>
             <button onClick={onClose} aria-label="Close" className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors">

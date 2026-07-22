@@ -50,29 +50,38 @@ const PayInvoice: React.FC = () => {
 
   useEffect(() => {
     const load = async () => {
+      const apply = (data: any) => {
+        const total = data.total_kes || 0;
+        const alreadyPaid = data.amount_paid_kes || 0;
+        setInvoice({
+          id: data.id,
+          invoiceNumber: data.invoice_number,
+          clientName: data.client_name,
+          productName: data.product_name,
+          quantity: data.quantity || 1,
+          totalKES: total,
+          amountPaidKES: alreadyPaid,
+          outstandingKES: Math.max(total - alreadyPaid, 0),
+          currency: data.currency || 'KES',
+          isPaid: !!data.is_paid,
+          paymentStatus: data.payment_status || 'Unpaid',
+        });
+      };
       try {
-        const { data, error } = await supabase
+        // Read via the safe `get_payable_invoice` function (returns only the
+        // fields the pay page needs — no phone, email, or cost breakdown).
+        const { data, error } = await supabase.rpc('get_payable_invoice', { code: invoiceNumber });
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!error && row) { apply(row); return; }
+        if (error) console.warn('get_payable_invoice unavailable, falling back:', error.message);
+
+        // Fallback (rollout window / older deploys): legacy direct read.
+        const { data: legacy } = await supabase
           .from('invoices')
           .select('id, invoice_number, client_name, product_name, quantity, total_kes, amount_paid_kes, currency, is_paid, payment_status')
           .eq('invoice_number', invoiceNumber)
           .maybeSingle();
-        if (!error && data) {
-          const total = data.total_kes || 0;
-          const alreadyPaid = data.amount_paid_kes || 0;
-          setInvoice({
-            id: data.id,
-            invoiceNumber: data.invoice_number,
-            clientName: data.client_name,
-            productName: data.product_name,
-            quantity: data.quantity || 1,
-            totalKES: total,
-            amountPaidKES: alreadyPaid,
-            outstandingKES: Math.max(total - alreadyPaid, 0),
-            currency: data.currency || 'KES',
-            isPaid: !!data.is_paid,
-            paymentStatus: data.payment_status || 'Unpaid',
-          });
-        }
+        if (legacy) apply(legacy);
       } finally {
         setLoading(false);
       }
@@ -115,7 +124,7 @@ const PayInvoice: React.FC = () => {
     })().catch(console.error);
     const msg = encodeURIComponent(
       `✅ PAY-LINK PAYMENT RECEIVED\n\n` +
-      `Invoice: IG-${invoice?.invoiceNumber}\n` +
+      `Invoice: ${invoice?.invoiceNumber}\n` +
       `Item: ${invoice?.productName}\n` +
       `Amount: KES ${invoice?.totalKES.toLocaleString()}\n` +
       `Client email: ${email}\n` +
@@ -125,7 +134,7 @@ const PayInvoice: React.FC = () => {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
   };
 
-  const waFallback = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi LegitGrinder! I have a question about paying invoice IG-${invoiceNumber}.`)}`;
+  const waFallback = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi LegitGrinder! I have a question about paying invoice ${invoiceNumber}.`)}`;
 
   return (
     <div className="bg-mesh min-h-screen pt-36 pb-24 px-6 flex items-start justify-center">
@@ -149,7 +158,7 @@ const PayInvoice: React.FC = () => {
             <SealCheck size={48} weight="fill" className="text-emerald-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{paid ? 'Payment received!' : 'Already paid'}</h1>
             <p className="text-sm text-gray-500 font-light mb-6">
-              Invoice <span className="font-bold text-gray-900">IG-{invoice.invoiceNumber}</span>
+              Invoice <span className="font-bold text-gray-900">{invoice.invoiceNumber}</span>
               {paid ? ' has been paid. We have been notified and will start processing your order right away.' : ' has already been settled. Thank you!'}
             </p>
             <Link to={`/tracking?id=${invoice.invoiceNumber}`} className="inline-flex items-center gap-2 bg-[#0f1a1c] text-white px-8 py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest hover:bg-[#3D8593] transition-colors">
@@ -160,7 +169,7 @@ const PayInvoice: React.FC = () => {
           <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl overflow-hidden">
             <div className="bg-ink-hero text-white px-8 py-7">
               <p className="eyebrow text-[#FF9900] mb-2">Secure Payment</p>
-              <h1 className="text-2xl font-bold tracking-tight">Invoice IG-{invoice.invoiceNumber}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Invoice {invoice.invoiceNumber}</h1>
             </div>
             <div className="p-8">
               {(() => {

@@ -62,7 +62,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
     if (!canSpeak || !voiceOnRef.current) return;
     const clean = text
       .replace(/\p{Extended_Pictographic}/gu, '') // drop emoji
-      .replace(/IG-(\d+)/g, 'order $1')           // "IG-214" reads as "order 214"
+      .replace(/\b(?:IG-|LG|INV-)(\d+)/gi, 'order $1') // "LG100001"/"IG-214" reads as "order …"
       .replace(/KES/g, 'K E S')
       .replace(/[•·|]/g, ', ');
     window.speechSynthesis.cancel();
@@ -180,11 +180,9 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
     try {
       switch (action.type) {
         case 'create_order': {
-          const invoiceNumber = `${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 89)}`;
           const total = Number(p.total_kes) || 0;
           const clientWhatsapp = p.client_whatsapp ? normalizeKenyanPhone(p.client_whatsapp) : undefined;
           const r = await createManualInvoice({
-            invoiceNumber,
             clientName: p.client_name || 'Client',
             clientWhatsapp,
             productName: p.product_name || 'Item',
@@ -192,7 +190,8 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
             totalKES: total,
             isPaid: !!p.is_paid
           });
-          if (!r.success || !r.id) throw new Error(r.error?.message || 'could not save the order');
+          if (!r.success || !r.id || !r.invoiceNumber) throw new Error(r.error?.message || 'could not save the order');
+          const invoiceNumber = r.invoiceNumber; // DB-assigned, collision-proof (LG100001…)
           const inv: Invoice = {
             id: r.id,
             invoiceNumber,
@@ -212,7 +211,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
           };
           onOrderCreated(inv);
           finishOk(mi, ai,
-            `✅ Done — order IG-${invoiceNumber} created: ${inv.productName} for ${inv.clientName}, KES ${total.toLocaleString()}${inv.isPaid ? ' (paid)' : ''}.` +
+            `✅ Done — order ${invoiceNumber} created: ${inv.productName} for ${inv.clientName}, KES ${total.toLocaleString()}${inv.isPaid ? ' (paid)' : ''}.` +
             (!inv.isPaid ? `\nPay link: ${window.location.origin}/pay/${invoiceNumber}` : ''));
           break;
         }
@@ -329,7 +328,7 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
       const att = computeAttention(invoices);
       const greeting = att.length
         ? `Hey Dennis 👋 ${att.length} thing${att.length > 1 ? 's' : ''} need${att.length > 1 ? '' : 's'} you today:\n` +
-          att.slice(0, 5).map(a => `• ${a.invoice.clientName} (IG-${a.invoice.invoiceNumber}) — ${a.message}`).join('\n') +
+          att.slice(0, 5).map(a => `• ${a.invoice.clientName} (${a.invoice.invoiceNumber}) — ${a.message}`).join('\n') +
           (att.length > 5 ? `\n…and ${att.length - 5} more in the Action Center.` : '') +
           `\n\nAsk me for details or tell me what to do.`
         : "Hey Dennis 👋 All clear right now — nothing urgent on the orders. Tell me what to do and I'll handle it: \"create an order for Jane, iPhone 15, 95k\", \"list a canvas bag at 7,000 bob, in stock, 5 pieces\", \"mark order 214 as ready\", \"launch a group buy\" — or just ask for a report.";

@@ -87,7 +87,7 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
           >
             <input
               type="text"
-              placeholder="e.g. IG-4932 or T839201..."
+              placeholder="e.g. LG100001 or 100001..."
               className="w-full h-16 bg-white border border-gray-200 rounded-full pl-7 pr-20 text-lg font-bold tracking-wider focus:border-[#3D8593] outline-none transition-colors shadow-sm"
               value={invoiceInput}
               onChange={(e) => setInvoiceInput(e.target.value)}
@@ -140,7 +140,7 @@ const Tracking: React.FC<TrackingProps> = ({ isLoggedIn, invoices }) => {
               <div className="bg-ink-hero text-white px-7 py-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="eyebrow text-[#FF9900] mb-1.5">Order Found</p>
-                  <h2 className="text-2xl font-bold tracking-tight">#{searchedInvoice.invoiceNumber}</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">{searchedInvoice.invoiceNumber}</h2>
                 </div>
                 <div className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest ${delivered ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white'}`}>
                   {delivered ? '✓ Delivered' : searchedInvoice.status}

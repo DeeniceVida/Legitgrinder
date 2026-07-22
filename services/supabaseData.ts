@@ -471,62 +471,62 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
     }
 };
 
+// Public order tracking. Reads through the `track_order` DB function, which is
+// the ONLY doorway guests have into invoices — it returns status-level fields
+// only (no client name, phone, email, or prices), so no customer data leaks.
+// A leading # and the IG-/LG-/INV- display prefixes are tolerated server-side.
 export const fetchInvoiceByNumber = async (invoiceNumber: string): Promise<Invoice | null> => {
+    const code = (invoiceNumber || '').trim();
+    if (!code) return null;
+
+    const toInvoice = (row: any): Invoice => ({
+        id: row.invoice_number,               // no internal id is exposed publicly
+        invoiceNumber: row.invoice_number,
+        clientName: '',                       // withheld for privacy
+        productName: row.product_name,
+        quantity: 1,
+        items: [],
+        status: row.status as OrderStatus,
+        progress: row.progress || 0,
+        lastUpdate: row.last_update ? new Date(row.last_update).toLocaleString() : 'Never',
+        isPaid: false,
+        paymentStatus: PaymentStatus.UNPAID,
+        totalKES: 0,
+        date: row.created_at,
+        createdAt: row.created_at,
+        currency: (row.currency || 'KES') as Invoice['currency'],
+    });
+
     try {
-        // Match by invoice number OR Paystack reference, so tracking codes from
-        // shop checkouts (which are Paystack refs) resolve too.
-        // Forgiving input: receipts/emails display numbers as "IG-482917" and
-        // real numbers are stored as "INV-642269-2936", but customers routinely
-        // paste just the bare middle ("642269-2936"). So we strip display
-        // prefixes (IG-/LG-/INV-, leading #) and trailing punctuation, and — for
-        // the invoice_number column — also do a leading-wildcard (ends-with)
-        // match so a bare code still resolves to its "INV-…" record.
-        const raw = invoiceNumber.trim().replace(/[%_]/g, '').replace(/[.,\s]+$/, '');
+        const { data, error } = await supabase.rpc('track_order', { code });
+        if (!error) {
+            const row = Array.isArray(data) ? data[0] : data;
+            return row ? toInvoice(row) : null;
+        }
+        // If the function isn't deployed yet (rollout window), fall back below.
+        console.warn('track_order unavailable, falling back to direct read:', error.message);
+    } catch (e) {
+        console.warn('track_order call failed, falling back:', e);
+    }
+
+    // Fallback: legacy direct read (works only while the table is still readable).
+    try {
+        const raw = code.replace(/[%_]/g, '').replace(/[.,\s]+$/, '');
         const noHash = raw.replace(/^#/, '');
         const stripped = noHash.replace(/^(IG|LG|INV)-/i, '');
         const candidates = new Set<string>([raw, noHash, stripped].filter(Boolean));
         const ors = [...candidates]
             .flatMap(c => [
-                `invoice_number.ilike.${c}`,     // exact (case-insensitive)
-                `invoice_number.ilike.%${c}`,    // ends-with: "INV-<c>" when user typed bare "<c>"
-                `paystack_reference.ilike.${c}`, // Paystack / logistics tracking code
+                `invoice_number.ilike.${c}`,
+                `invoice_number.ilike.%${c}`,
+                `paystack_reference.ilike.${c}`,
             ])
             .join(',');
-        const { data: rows, error } = await supabase
-            .from('invoices')
-            .select('*')
-            .or(ors)
-            .limit(1);
-        const data = rows?.[0] || null;
-
-        if (error) throw error;
-        if (!data) return null;
-
-        return {
-            id: data.id,
-            invoiceNumber: data.invoice_number,
-            clientName: data.client_name,
-            clientWhatsapp: data.client_whatsapp,
-            productName: data.product_name,
-            quantity: data.quantity || 1,
-            items: data.items || [],
-            status: data.status as OrderStatus,
-            progress: data.progress || 0,
-            lastUpdate: data.last_update ? new Date(data.last_update).toLocaleString() : 'Never',
-            isPaid: data.is_paid,
-            paymentStatus: (data.payment_status || (data.is_paid ? PaymentStatus.PAID : PaymentStatus.UNPAID)) as PaymentStatus,
-            totalKES: parseFloat(data.total_kes || 0),
-            buyingPriceKES: parseFloat(data.buying_price_kes || 0),
-            shippingFeeKES: parseFloat(data.shipping_fee_kes || 0),
-            logisticsCostKES: parseFloat(data.logistics_cost_kes || 0),
-            serviceFeeKES: parseFloat(data.service_fee_kes || 0),
-            paystackReference: data.paystack_reference,
-            date: data.created_at,
-            createdAt: data.created_at,
-            currency: data.currency || 'KES'
-        };
+        const { data: rows } = await supabase.from('invoices').select('invoice_number, product_name, status, progress, last_update, created_at, currency').or(ors).limit(1);
+        const row = rows?.[0];
+        return row ? toInvoice(row) : null;
     } catch (error) {
-        console.error('Error fetching invoice by number:', error);
+        console.error('Error tracking order:', error);
         return null;
     }
 };
@@ -601,15 +601,17 @@ export const updateInvoiceBreakdown = async (
     }
 };
 
-export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string }> => {
+export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string; invoiceNumber?: string }> => {
     try {
-        // Generate a robust, unique invoice number if not provided
-        const invoiceNumber = invoiceData.invoiceNumber || `INV-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+        // Order number is assigned by the database (LG100001, LG100002, …) via an
+        // atomic sequence, so two orders can never collide. We only pass one if the
+        // caller explicitly supplied it; otherwise we omit it and read back what the
+        // DB assigned. (Admins can read the row back under their RLS policy.)
 
         const { data, error } = await supabase
             .from('invoices')
             .insert({
-                invoice_number: invoiceNumber,
+                ...(invoiceData.invoiceNumber ? { invoice_number: invoiceData.invoiceNumber } : {}),
                 client_name: invoiceData.clientName,
                 client_whatsapp: invoiceData.clientWhatsapp,
                 client_email: (invoiceData as any).clientEmail || null,
@@ -631,11 +633,11 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 created_at: invoiceData.createdAt || new Date().toISOString(),
                 currency: invoiceData.currency || 'KES'
             })
-            .select()
-            .single();
+            .select('id, invoice_number')
+            .maybeSingle();
 
         if (error) throw error;
-        return { success: true, id: data.id };
+        return { success: true, id: data?.id, invoiceNumber: data?.invoice_number };
     } catch (error) {
         console.error('Error creating manual invoice:', error);
         return { success: false, error };
@@ -1074,10 +1076,13 @@ export const updateSourcingStatus = async (id: number, status: string): Promise<
 };
 
 // Payment & Invoice Management (Phase 5)
-export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string }> => {
+export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string; invoiceNumber?: string }> => {
     try {
         console.log("💾 Recording Invoice for reference:", invoice.paystackReference);
 
+        // Let the DB assign the sequential order number (LG100001…) unless one was
+        // supplied. Guests can't read the row back under RLS, so we use maybeSingle
+        // and don't depend on the returned row — the insert itself still succeeds.
         const { data, error } = await supabase
             .from('invoices')
             .insert({
@@ -1089,19 +1094,19 @@ export const createInvoice = async (invoice: Partial<Invoice>): Promise<{ succes
                 is_paid: invoice.isPaid || false,
                 payment_status: invoice.paymentStatus || (invoice.isPaid ? PaymentStatus.PAID : PaymentStatus.UNPAID),
                 status: invoice.status || OrderStatus.RECEIVED_BY_AGENT,
-                invoice_number: invoice.invoiceNumber || `INV-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+                ...(invoice.invoiceNumber ? { invoice_number: invoice.invoiceNumber } : {}),
                 paystack_reference: invoice.paystackReference,
                 progress: invoice.progress || 0
             })
-            .select()
-            .single();
+            .select('id, invoice_number')
+            .maybeSingle();
 
         if (error) {
             console.error('CRITICAL: Invoice Persistence Failed:', error.message);
             throw error;
         }
 
-        return { success: true, id: data.id };
+        return { success: true, id: data?.id, invoiceNumber: data?.invoice_number };
     } catch (error: any) {
         return { success: false, error: error.message || error };
     }

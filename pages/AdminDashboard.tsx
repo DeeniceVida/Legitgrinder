@@ -1688,7 +1688,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               const balance = Math.max((inv.totalKES || 0) - paidSoFar, 0);
                               const isDeposit = !inv.isPaid && paidSoFar > 0;
                               const label = inv.isPaid ? 'receipt' : isDeposit ? 'balance invoice' : 'invoice';
-                              const to = inv.clientEmail || prompt(`Email the ${label} for IG-${inv.invoiceNumber} to which address?`, '');
+                              const to = inv.clientEmail || prompt(`Email the ${label} for ${inv.invoiceNumber} to which address?`, '');
                               if (!to) return;
                               const kind = inv.isPaid ? 'receipt' as const : 'invoice' as const;
                               const docData = {
@@ -1728,7 +1728,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               printWin.document.write(`
                                 <html>
                                   <head>
-                                    <title>Invoice IG-${inv.invoiceNumber}</title>
+                                    <title>Invoice ${inv.invoiceNumber}</title>
                                     <style>
                                       body { font-family: 'Inter', sans-serif; padding: 60px; color: #1a1a1a; position: relative; }
                                       .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.03; width: 80%; z-index: -1; }
@@ -1762,7 +1762,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     <div class="meta">
                                       <p><span>Quote Date:</span> ${new Date(inv.date || inv.createdAt).toLocaleDateString('en-GB')}</p>
                                       <p><span>Client Details:</span> ${inv.clientName}</p>
-                                      <p><span>Invoice No:</span> IG-${inv.invoiceNumber}</p>
+                                      <p><span>Invoice No:</span> ${inv.invoiceNumber}</p>
                                       <p><span>Web:</span> www.legitgrinder.com</p>
                                     </div>
                                     <div class="title">${inv.productName} Invoice</div>
@@ -1829,7 +1829,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               printWin.document.write(`
                                 <html>
                                   <head>
-                                    <title>Tax Record - IG-${inv.invoiceNumber}</title>
+                                    <title>Tax Record - ${inv.invoiceNumber}</title>
                                     <style>
                                       body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1a1a; }
                                       .header { font-size: 20px; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 30px; text-transform: uppercase; }
@@ -1845,7 +1845,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <body>
                                     <div class="header">INVOICE BREAKDOWN</div>
                                     <div class="meta">
-                                      <p><strong>Invoice No:</strong> IG-${inv.invoiceNumber}</p>
+                                      <p><strong>Invoice No:</strong> ${inv.invoiceNumber}</p>
                                       <p><strong>Transaction Code:</strong> ${inv.paystackReference || 'MANUAL-SYNC'}</p>
                                       <p><strong>Date:</strong> ${new Date(inv.date || inv.createdAt).toLocaleString()}</p>
                                       <p><strong>Item:</strong> ${inv.productName}</p>
@@ -4134,7 +4134,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
                 <div className="col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Original Invoice Ref (Optional)</label>
-                  <input value={refundData.originalInvoiceRef} onChange={e => setRefundData({ ...refundData, originalInvoiceRef: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. QWX982M21 or IG-1234" />
+                  <input value={refundData.originalInvoiceRef} onChange={e => setRefundData({ ...refundData, originalInvoiceRef: e.target.value })} className="w-full bg-neutral-50 border-none rounded-2xl px-8 py-5 font-bold text-lg focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" placeholder="e.g. LG100001 or QWX982M21" />
                 </div>
                 <div className="col-span-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3 ml-2">Refunded Item (Optional)</label>
@@ -4296,7 +4296,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </div>
                         </div>
 
-                        <div class="thanks">Thank you for choosing <strong>LegitGrinder</strong> — Authenticity Guaranteed · Invoice IG-${inv.invoiceNumber}</div>
+                        <div class="thanks">Thank you for choosing <strong>LegitGrinder</strong> — Authenticity Guaranteed · Invoice ${inv.invoiceNumber}</div>
                       </div>
                     </div>
                   </body>
@@ -4462,7 +4462,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
             <div className="mb-8">
               <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Edit <span className="text-[#3D8593]">Breakdown</span></h3>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: IG-{editingBreakdownInvoice.invoiceNumber}</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: {editingBreakdownInvoice.invoiceNumber}</p>
             </div>
             <form onSubmit={async (e) => {
               e.preventDefault();
