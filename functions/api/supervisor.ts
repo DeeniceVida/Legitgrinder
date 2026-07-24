@@ -122,15 +122,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        // Extended thinking gives the Manager room to reason through the numbers
-        // before answering. It's incompatible with a forced tool_choice, so we use
-        // 'auto' and instruct the model (in SYSTEM) to always call `respond`.
-        // max_tokens must exceed the thinking budget.
-        max_tokens: 3200,
-        thinking: { type: 'enabled', budget_tokens: 2048 },
+        // NOTE: extended thinking was tried here but the longer (tens-of-seconds)
+        // non-streaming response tripped Cloudflare's function timeout → 502. So we
+        // keep the fast, reliable forced-tool path and get "deeper reasoning" from
+        // the sharpened SYSTEM prompt instead. (True extended thinking would need
+        // streaming — a bigger change — see the prompt's reasoning guidance.)
+        max_tokens: 2000,
+        thinking: { type: 'disabled' },
         system,
         tools: [RESPOND_TOOL],
-        tool_choice: { type: 'auto' },
+        tool_choice: { type: 'tool', name: 'respond' },
         messages: history.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }))
       })
     });
