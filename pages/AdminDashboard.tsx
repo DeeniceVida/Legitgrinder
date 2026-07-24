@@ -1757,24 +1757,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <head>
                                     <title>Invoice ${inv.invoiceNumber}</title>
                                     <style>
-                                      body { font-family: 'Inter', sans-serif; padding: 60px; color: #1a1a1a; position: relative; }
-                                      .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.03; width: 80%; z-index: -1; }
-                                      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 60px; }
-                                      .brand h1 { margin: 0; font-size: 32px; font-weight: 900; }
-                                      .brand p { margin: 5px 0 0; font-size: 14px; font-weight: 500; color: #666; }
-                                      .logo { width: 120px; }
-                                      .meta { text-align: right; margin-top: 20px; }
-                                      .meta p { margin: 5px 0; font-size: 14px; font-weight: 700; }
+                                      @page { size: A4; margin: 14mm; }
+                                      * { box-sizing: border-box; }
+                                      body { font-family: 'Inter', Arial, sans-serif; padding: 8px; color: #1a1a1a; position: relative; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                                      .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); opacity: 0.03; width: 70%; z-index: -1; }
+                                      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+                                      .brand h1 { margin: 0; font-size: 28px; font-weight: 900; }
+                                      .brand p { margin: 4px 0 0; font-size: 13px; font-weight: 500; color: #666; }
+                                      .logo { width: 90px; }
+                                      .meta { text-align: right; margin-top: 8px; }
+                                      .meta p { margin: 4px 0; font-size: 13px; font-weight: 700; }
                                       .meta span { font-weight: 400; color: #666; margin-right: 10px; }
-                                      .title { text-align: center; font-size: 24px; font-weight: 500; margin: 40px 0; letter-spacing: 1px; }
-                                      table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-                                      th { background: #3d8593; color: white; padding: 15px; text-align: left; text-transform: uppercase; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
-                                      td { padding: 20px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-                                      .total-row td { border: none; padding-top: 30px; font-size: 18px; font-weight: 900; text-align: right; }
-                                      .terms { margin-top: 60px; border-top: 2px solid #000; pt-20; }
-                                      .terms h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-bottom: 15px; }
-                                      .terms p { font-size: 13px; color: #444; margin: 8px 0; line-height: 1.6; }
-                                      .footer { margin-top: 100px; text-align: center; font-size: 12px; font-weight: 500; color: #999; }
+                                      .title { text-align: center; font-size: 20px; font-weight: 500; margin: 20px 0; letter-spacing: 1px; }
+                                      table { width: 100%; border-collapse: collapse; margin-bottom: 22px; }
+                                      th { background: #3d8593; color: white; padding: 11px 15px; text-align: left; text-transform: uppercase; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
+                                      td { padding: 11px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
+                                      .total-row td { border: none; padding-top: 18px; font-size: 18px; font-weight: 900; text-align: right; }
+                                      .terms { margin-top: 26px; border-top: 2px solid #000; padding-top: 16px; }
+                                      .terms h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-bottom: 10px; }
+                                      .terms p { font-size: 12.5px; color: #444; margin: 6px 0; line-height: 1.5; }
+                                      .footer { margin-top: 34px; text-align: center; font-size: 12px; font-weight: 500; color: #999; }
+                                      @media print { body { padding: 0; } }
                                     </style>
                                   </head>
                                   <body>
