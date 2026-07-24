@@ -197,8 +197,8 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
                 value={inlandTracking} onChange={e => setInlandTracking(e.target.value)} />
               {!isChina && inlandTracker && (
                 <span className="block text-[10px] font-bold text-[#3D8593] mt-1.5">
-                  {inlandTracker.label === '17TRACK'
-                    ? 'Carrier not recognised — add "FedEx"/"UPS"/"USPS" before the number to link direct.'
+                  {inlandTracker.label === 'Google'
+                    ? 'Carrier not recognised — the check opens a web search that shows the status. Tip: type "FedEx"/"UPS"/"USPS" before the number to jump straight to the carrier.'
                     : `Detected ${inlandTracker.label} — the check button reads it directly.`}
                 </span>
               )}

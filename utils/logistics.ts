@@ -218,8 +218,13 @@ export function parcelTracker(raw?: string, isChina = false): ParcelTracker | nu
   if (!isChina) {
     const hit = CARRIERS.find((c) => c.test(code));
     if (hit) return { url: hit.url(code), label: hit.label };
+    // Unknown US/UK carrier → a plain web search of the number usually shows the
+    // status right in the results ("naked in the browser"), no carrier site or
+    // login needed. Works whatever the seller shipped with.
+    return { url: `https://www.google.com/search?q=${encodeURIComponent(code + ' tracking')}`, label: 'Google' };
   }
 
+  // China couriers read best on 17TRACK, so keep that for the China leg.
   return { url: `https://t.17track.net/en#nums=${encodeURIComponent(code)}`, label: '17TRACK' };
 }
 
