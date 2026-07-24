@@ -164,6 +164,65 @@ export function trackingLookupUrl(raw?: string): string {
   return code ? `https://t.17track.net/en#nums=${encodeURIComponent(code)}` : '';
 }
 
+/**
+ * Where a parcel-tracking button should point, and what to label it.
+ * `label` is the carrier name to show on the button (e.g. "FedEx").
+ */
+export interface ParcelTracker { url: string; label: string; }
+
+// Direct carrier trackers. US/UK domestic legs (FedEx especially) don't read on
+// 17TRACK, so we link straight to the carrier's own page — you read the real
+// status there, right up to when it reaches your forwarder/agent.
+const CARRIERS: { name: string; label: string; test: (c: string) => boolean; url: (c: string) => string }[] = [
+  { name: 'ups', label: 'UPS',
+    test: (c) => /^1Z[0-9A-Z]{16}$/i.test(c),
+    url: (c) => `https://www.ups.com/track?tracknum=${encodeURIComponent(c)}` },
+  { name: 'usps', label: 'USPS',
+    test: (c) => /^(9[0-5]\d{18,24})$/.test(c) || /^[A-Z]{2}\d{9}US$/i.test(c),
+    url: (c) => `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(c)}` },
+  { name: 'fedex', label: 'FedEx',
+    // FedEx numbers are numeric: 12, 15, 20 or 22 digits (Ground often 96… 22-digit).
+    test: (c) => /^(\d{12}|\d{15}|\d{20}|\d{22})$/.test(c),
+    url: (c) => `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(c)}` },
+  { name: 'dhl', label: 'DHL',
+    test: (c) => /^\d{10}$/.test(c),
+    url: (c) => `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(c)}` },
+];
+
+/** Match a carrier the admin typed by name in the field, e.g. "FedEx 771234…". */
+function carrierByName(raw: string) {
+  const s = raw.toLowerCase();
+  if (/\b(fedex|fdx)\b/.test(s)) return CARRIERS.find((c) => c.name === 'fedex');
+  if (/\bups\b/.test(s)) return CARRIERS.find((c) => c.name === 'ups');
+  if (/\b(usps|postal)\b/.test(s)) return CARRIERS.find((c) => c.name === 'usps');
+  if (/\bdhl\b/.test(s)) return CARRIERS.find((c) => c.name === 'dhl');
+  return undefined;
+}
+
+/**
+ * Decide where a "check parcel" button should go for a domestic/courier leg.
+ * - If the admin typed a carrier name in the field, that wins.
+ * - Otherwise, for US/UK legs, auto-detect the carrier from the number and link
+ *   direct to it (FedEx/UPS/USPS/DHL). This is what fixes "it says 17TRACK but
+ *   it's FedEx" — a FedEx number now opens on fedex.com.
+ * - China legs (and anything unrecognised) fall back to 17TRACK, which
+ *   auto-detects Chinese couriers well.
+ */
+export function parcelTracker(raw?: string, isChina = false): ParcelTracker | null {
+  const code = extractTrackingCode(raw);
+  if (!code) return null;
+
+  const named = raw ? carrierByName(raw) : undefined;
+  if (named) return { url: named.url(code), label: named.label };
+
+  if (!isChina) {
+    const hit = CARRIERS.find((c) => c.test(code));
+    if (hit) return { url: hit.url(code), label: hit.label };
+  }
+
+  return { url: `https://t.17track.net/en#nums=${encodeURIComponent(code)}`, label: '17TRACK' };
+}
+
 /** Ocean-container tracker (by container number). 17TRACK does not do containers. */
 export const CONTAINER_TRACKING_URL = 'https://www.track-trace.com/container';
 

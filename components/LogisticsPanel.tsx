@@ -9,7 +9,7 @@ import { updateOrderLogistics } from '../services/supabaseData';
 import {
   PIPELINE, internalLabel, internalToClientStatus, internalToProgress,
   internalToMessageIntent, orderInternalStatus, nextStatus, GRACE_DAYS,
-  trackingLookupUrl, CONTAINER_TRACKING_URL
+  parcelTracker, CONTAINER_TRACKING_URL
 } from '../utils/logistics';
 
 interface LogisticsPanelProps {
@@ -52,7 +52,7 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
 
   const origin_ = typeof window !== 'undefined' ? window.location.origin : 'https://legitgrinder.com';
   const clientTrackingLink = `${origin_}/tracking?id=${invoice.invoiceNumber}`;
-  const inlandLookup = trackingLookupUrl(inlandTracking);
+  const inlandTracker = parcelTracker(inlandTracking, isChina);
   const containerLookup = containerNumber.trim() ? CONTAINER_TRACKING_URL : '';
 
   const copyTrackingLink = () => {
@@ -192,8 +192,16 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="lg-inland" className={labelBase}>{isChina ? 'Inland China tracking #' : 'US/UK domestic tracking #'}</label>
-              <input id="lg-inland" className={inputBase} placeholder="e.g. SF1234567890"
+              <input id="lg-inland" className={inputBase}
+                placeholder={isChina ? 'e.g. SF1234567890' : 'e.g. FedEx 771234567890'}
                 value={inlandTracking} onChange={e => setInlandTracking(e.target.value)} />
+              {!isChina && inlandTracker && (
+                <span className="block text-[10px] font-bold text-[#3D8593] mt-1.5">
+                  {inlandTracker.label === '17TRACK'
+                    ? 'Carrier not recognised — add "FedEx"/"UPS"/"USPS" before the number to link direct.'
+                    : `Detected ${inlandTracker.label} — the check button reads it directly.`}
+                </span>
+              )}
             </div>
             {isChina ? (
               <div>
@@ -211,12 +219,15 @@ const LogisticsPanel: React.FC<LogisticsPanelProps> = ({
           </div>
 
           {/* One-click check on the tracking platform + client tracking link */}
-          {(inlandLookup || containerLookup) && (
+          {(inlandTracker || containerLookup) && (
             <div className="flex flex-wrap gap-2">
-              {inlandLookup && (
-                <a href={inlandLookup} target="_blank" rel="noopener noreferrer"
+              {inlandTracker && (
+                <a href={inlandTracker.url} target="_blank" rel="noopener noreferrer"
+                  title={inlandTracker.label === 'FedEx'
+                    ? 'Opens FedEx tracking directly — reads the real domestic status to your agent'
+                    : `Opens ${inlandTracker.label} to read this parcel's status`}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-gray-200 text-[11px] font-black uppercase tracking-widest text-gray-600 hover:border-[#3D8593] hover:text-[#3D8593] transition-all">
-                  <MagnifyingGlass size={14} weight="bold" /> Check {isChina ? 'inland' : 'parcel'} on 17TRACK
+                  <MagnifyingGlass size={14} weight="bold" /> Check parcel on {inlandTracker.label}
                 </a>
               )}
               {containerLookup && (
