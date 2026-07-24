@@ -6,7 +6,7 @@ import {
 import { draftClientMessage, MessageIntent } from '../services/messageAgent';
 import { normalizeKenyanPhone } from '../utils/phone';
 import { GOOGLE_REVIEW_LINK } from '../constants';
-import { Invoice } from '../types';
+import { Invoice, PaymentStatus } from '../types';
 
 interface MessageAgentPanelProps {
   invoice: Invoice | null;
@@ -46,8 +46,13 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
   if (!invoice) return null;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://legitgrinder.com';
-  const paidSoFar = invoice.amountPaidKES || 0;
-  const balance = Math.max((invoice.totalKES || 0) - paidSoFar, 0);
+  // Payment status (the dropdown) is authoritative. A "Paid" order has NO balance
+  // even if amount_paid_kes was never recorded — otherwise the agent wrongly
+  // claims money is still owed. Only "Partially Paid" carries a real balance.
+  const total = invoice.totalKES || 0;
+  const fullyPaid = invoice.paymentStatus === PaymentStatus.PAID || invoice.isPaid;
+  const paidSoFar = fullyPaid ? total : Math.min(invoice.amountPaidKES || 0, total);
+  const balance = fullyPaid ? 0 : Math.max(total - paidSoFar, 0);
   const payLink = `${origin}/pay/${invoice.invoiceNumber}`;
   const trackingLink = `${origin}/tracking?id=${invoice.invoiceNumber}`;
   const waNumber = normalizeKenyanPhone(invoice.clientWhatsapp);
@@ -65,8 +70,10 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
       productName: invoice.productName,
       invoiceNumber: invoice.invoiceNumber,
       totalKES: invoice.totalKES,
+      amountPaidKES: paidSoFar,
       balanceKES: balance,
-      isPaid: invoice.isPaid,
+      isPaid: fullyPaid,
+      paymentStatus: invoice.paymentStatus,
       status: invoice.status,
       payLink: balance > 0 ? payLink : undefined,
       trackingLink,

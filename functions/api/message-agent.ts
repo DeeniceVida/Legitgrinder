@@ -14,8 +14,10 @@ interface MessageRequest {
   productName?: string;
   invoiceNumber?: string;
   totalKES?: number;
+  amountPaidKES?: number;
   balanceKES?: number;
   isPaid?: boolean;
+  paymentStatus?: string; // 'Paid' | 'Partially Paid' | 'Unpaid' (the dropdown)
   status?: string;        // current order status
   payLink?: string;       // /pay/:invoiceNumber (only when a balance is due)
   trackingLink?: string;  // /tracking?id=:invoiceNumber
@@ -54,11 +56,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (b.invoiceNumber) lines.push(`Invoice: ${b.invoiceNumber}`);
     if (b.status) lines.push(`Current status: ${b.status}`);
     if (typeof b.totalKES === 'number') lines.push(`Order total: KES ${b.totalKES.toLocaleString()}`);
-    if (typeof b.balanceKES === 'number' && b.balanceKES > 0) {
-      lines.push(`Balance still due: KES ${b.balanceKES.toLocaleString()}`);
+    // Payment status (the dropdown) is authoritative. Only mention a balance when
+    // the order is genuinely Unpaid or Partially Paid AND a positive balance was
+    // passed. A "Paid" order has no balance — never imply money is owed on it.
+    const fullyPaid = b.isPaid || b.paymentStatus === 'Paid';
+    const hasBalance = !fullyPaid && typeof b.balanceKES === 'number' && b.balanceKES > 0;
+    if (b.paymentStatus) lines.push(`Payment status: ${b.paymentStatus}`);
+    if (typeof b.amountPaidKES === 'number' && b.amountPaidKES > 0) {
+      lines.push(`Amount paid so far: KES ${b.amountPaidKES.toLocaleString()}`);
+    }
+    if (hasBalance) {
+      lines.push(`Balance still due: KES ${b.balanceKES!.toLocaleString()} — you MAY mention this and include the pay link.`);
       if (b.payLink) lines.push(`Pay link (include this): ${b.payLink}`);
-    } else if (b.isPaid) {
-      lines.push('Payment status: fully paid — do NOT ask for money.');
+    } else {
+      lines.push('This order is fully paid — do NOT mention any balance, do NOT ask for money, and do NOT include a pay link.');
     }
     if (b.trackingLink && (intent === 'shipped' || intent === 'ready')) {
       lines.push(`Tracking link (include this): ${b.trackingLink}`);

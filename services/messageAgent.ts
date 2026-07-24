@@ -8,8 +8,10 @@ export interface MessageAgentInput {
   productName?: string;
   invoiceNumber?: string;
   totalKES?: number;
+  amountPaidKES?: number;
   balanceKES?: number;
   isPaid?: boolean;
+  paymentStatus?: string;
   status?: string;
   payLink?: string;
   trackingLink?: string;
