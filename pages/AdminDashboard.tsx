@@ -4222,7 +4222,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="mb-8">
               <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Elite <span className="text-rose-500">Receipting</span></h3>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: LG-{printingReceiptInvoice.invoiceNumber}</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: {printingReceiptInvoice.invoiceNumber}</p>
             </div>
 
             <form onSubmit={(e) => {
@@ -4248,40 +4248,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               printWin.document.write(`
                 <html>
                   <head>
-                    <title>Receipt LG-${inv.invoiceNumber}</title>
+                    <title>Receipt ${inv.invoiceNumber}</title>
                     <style>
                       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+                      @page { size: A4; margin: 10mm; }
                       * { box-sizing: border-box; }
-                      body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 32px; color: #1a2223; background: #f4f5f4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                      body { font-family: 'Plus Jakarta Sans', sans-serif; padding: 24px; color: #1a2223; background: #f4f5f4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                       .container { max-width: 720px; margin: auto; background: #fff; border-radius: 20px; overflow: hidden; position: relative; box-shadow: 0 20px 50px rgba(15,26,28,0.08); }
                       .accent { height: 8px; background: linear-gradient(90deg, #3D8593, #FF9900); }
-                      .inner { padding: 40px 48px; position: relative; }
-                      .watermark { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%) rotate(-18deg); opacity: 0.04; width: 70%; z-index: 0; }
+                      .inner { padding: 28px 40px; position: relative; }
+                      .watermark { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%) rotate(-18deg); opacity: 0.04; width: 66%; z-index: 0; }
                       .inner > * { position: relative; z-index: 1; }
-                      .header-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-                      .header-logo img { width: 54px; height: 54px; border-radius: 12px; object-fit: cover; }
+                      .header-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+                      .header-logo img { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; }
                       .brand-name { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
                       .brand-tag { font-size: 9px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: #3D8593; margin-top: 2px; }
-                      .contact-bar { display: flex; flex-wrap: wrap; gap: 4px 24px; border-top: 1px solid #eef0ef; border-bottom: 1px solid #eef0ef; padding: 12px 0; font-size: 10.5px; margin-bottom: 28px; font-weight: 600; color: #6b7677; }
-                      .receipt-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+                      .contact-bar { display: flex; flex-wrap: wrap; gap: 4px 24px; border-top: 1px solid #eef0ef; border-bottom: 1px solid #eef0ef; padding: 9px 0; font-size: 10.5px; margin-bottom: 18px; font-weight: 600; color: #6b7677; }
+                      .receipt-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 22px; }
                       .receipt-label { background: #0f1a1c; color: #fff; display: inline-block; padding: 8px 22px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; }
                       .meta-right { text-align: right; font-size: 12px; }
                       .meta-right .k { color: #9aa4a4; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 9px; }
-                      .meta-right .v { font-weight: 800; font-size: 14px; margin-bottom: 8px; }
-                      .field { margin-bottom: 18px; display: flex; align-items: baseline; font-size: 14px; }
+                      .meta-right .v { font-weight: 800; font-size: 14px; margin-bottom: 6px; }
+                      .field { margin-bottom: 12px; display: flex; align-items: baseline; font-size: 14px; }
                       .field label { font-weight: 600; min-width: 150px; color: #6b7677; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-                      .field .fv { border-bottom: 1px dashed #cfd6d6; flex: 1; margin-left: 8px; padding: 2px 8px; font-weight: 700; font-family: 'Instrument Serif', serif; font-style: italic; font-size: 17px; }
-                      .financial-summary { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 44px; gap: 24px; }
+                      .field .fv { border-bottom: 1px dashed #cfd6d6; flex: 1; margin-left: 8px; padding: 2px 8px; font-weight: 700; font-family: 'Instrument Serif', serif; font-style: italic; font-size: 16px; }
+                      .financial-summary { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 26px; gap: 24px; }
                       .summary-table { border-collapse: separate; border-spacing: 0; width: 280px; border-radius: 12px; overflow: hidden; border: 1px solid #eef0ef; }
-                      .summary-table td { padding: 12px 16px; font-size: 13px; font-weight: 600; color: #4a5556; border-bottom: 1px solid #eef0ef; }
+                      .summary-table td { padding: 9px 14px; font-size: 13px; font-weight: 600; color: #4a5556; border-bottom: 1px solid #eef0ef; }
                       .summary-table tr:last-child td { border-bottom: none; }
                       .summary-table .val { text-align: right; font-weight: 800; color: #0f1a1c; }
                       .summary-table .total-row td { background: #3D8593; color: #fff; font-weight: 800; }
                       .signature { border-top: 2px solid #0f1a1c; width: 220px; text-align: center; padding-top: 8px; font-size: 12px; font-weight: 700; }
                       .signature .role { color: #9aa4a4; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-                      .thanks { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eef0ef; font-size: 11px; color: #9aa4a4; font-weight: 600; letter-spacing: 0.5px; }
+                      .thanks { text-align: center; margin-top: 22px; padding-top: 12px; border-top: 1px solid #eef0ef; font-size: 11px; color: #9aa4a4; font-weight: 600; letter-spacing: 0.5px; }
                       .thanks strong { color: #3D8593; }
-                      @media print { body { background: #fff; padding: 0; } .container { box-shadow: none; border-radius: 0; } }
+                      @media print { body { background: #fff; padding: 0; } .container { box-shadow: none; border-radius: 0; max-width: none; } }
                     </style>
                   </head>
                   <body>
@@ -4309,7 +4310,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div class="k">Date</div>
                             <div class="v">${new Date().toLocaleDateString('en-GB')}</div>
                             <div class="k">Receipt No</div>
-                            <div class="v">LG-${inv.invoiceNumber}</div>
+                            <div class="v">${inv.invoiceNumber}</div>
                           </div>
                         </div>
 

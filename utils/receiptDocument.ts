@@ -69,7 +69,7 @@ export function buildDocumentHtml(d: DocumentData): string {
             </div>
             <div style="text-align:right;">
               <div style="font-size:10px;color:#9aa4a4;text-transform:uppercase;letter-spacing:1px;">${isReceipt ? 'Receipt' : 'Invoice'} No &nbsp;·&nbsp; Date</div>
-              <div style="font-size:18px;font-weight:800;margin-top:4px;">${isReceipt ? 'LG' : 'IG'}-${esc(d.invoiceNumber)} &nbsp;·&nbsp; ${esc(date)}</div>
+              <div style="font-size:18px;font-weight:800;margin-top:4px;">${esc(d.invoiceNumber)} &nbsp;·&nbsp; ${esc(date)}</div>
             </div>
           </div>
 
@@ -129,7 +129,7 @@ export function buildDocumentHtml(d: DocumentData): string {
 export async function generateDocumentAttachment(d: DocumentData): Promise<{ filename: string; content: string } | undefined> {
     const content = await htmlToPdfBase64(buildDocumentHtml(d));
     if (!content) return undefined;
-    const prefix = d.kind === 'receipt' ? 'Receipt-LG' : 'Invoice-IG';
+    const prefix = d.kind === 'receipt' ? 'Receipt' : 'Invoice';
     return { filename: `${prefix}-${d.invoiceNumber}.pdf`, content };
 }
 
