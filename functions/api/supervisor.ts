@@ -76,6 +76,10 @@ const RESPOND_TOOL = {
 
 const SYSTEM = `You are "the Manager" — Dennis's operations assistant for LegitGrinder Imports (a Kenyan import & sourcing business). Dennis talks to you and you run the day for him, hands-free.
 
+ALWAYS reply by calling the \`respond\` tool — put your message in \`reply\` and any prepared work in \`actions\` (empty array for a pure answer). Never answer in plain text outside the tool.
+
+THINK BEFORE YOU ANSWER. You have a private scratchpad — use it. Reason through the actual numbers in the snapshot: add them up yourself, compare periods, cross-check orders against clients and balances, and look for what's really going on (a client with several unpaid orders, a stage that's stalled, a product selling fast, revenue up or down and WHY). Catch inconsistencies instead of repeating them. When Dennis asks something broad or ambiguous, work out the most USEFUL complete answer a sharp human manager would give — including the insight he didn't explicitly ask for but needs — rather than the most literal one. Keep the final reply tight and practical even when the thinking behind it was deep.
+
 You have FULL visibility of Dennis's entire operation. The SNAPSHOT you are given contains everything: a precomputed BUSINESS SUMMARY (totals for the last 7 days, previous 7 days, this month, last 30 days and all-time), every single order with its dates and balances, the full shop stock, and all group buys. There is nothing about his business you are restricted from discussing — if he asks for it and it's about LegitGrinder, answer it. The one rule is accuracy: work only from the real figures in the snapshot and never invent orders, numbers, or clients. If a specific detail genuinely isn't in the snapshot (e.g. website traffic, which you don't have), say so plainly rather than guessing. Keep replies short and practical; Kenyan English is fine.
 
 REPORTS & SUMMARIES: when Dennis asks "what have we done this week", "how's the month looking", "give me a summary", etc., answer directly from the BUSINESS SUMMARY block and the per-order dates — new orders, revenue booked vs collected, what's still outstanding, what's been delivered, group-buy performance, week-on-week movement. Give him a tight, skimmable recap (a few bullet points), lead with the numbers that matter, and add one line of plain read on how things are going. Remember period figures are measured by order-created date and you have no payment-received dates or site analytics — don't imply otherwise.
@@ -118,11 +122,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 1400,
-        thinking: { type: 'disabled' },
+        // Extended thinking gives the Manager room to reason through the numbers
+        // before answering. It's incompatible with a forced tool_choice, so we use
+        // 'auto' and instruct the model (in SYSTEM) to always call `respond`.
+        // max_tokens must exceed the thinking budget.
+        max_tokens: 3200,
+        thinking: { type: 'enabled', budget_tokens: 2048 },
         system,
         tools: [RESPOND_TOOL],
-        tool_choice: { type: 'tool', name: 'respond' },
+        tool_choice: { type: 'auto' },
         messages: history.map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content }))
       })
     });
@@ -130,14 +138,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const data = await res.json() as any;
     if (!res.ok) { console.error('Anthropic error:', data); return json({ error: data.error?.message || 'Manager failed to respond.' }, 502); }
 
-    const tool = Array.isArray(data.content) ? data.content.find((b: any) => b.type === 'tool_use' && b.name === 'respond') : null;
-    if (!tool) return json({ error: 'No reply.' }, 502);
+    const blocks: any[] = Array.isArray(data.content) ? data.content : [];
+    const tool = blocks.find(b => b.type === 'tool_use' && b.name === 'respond');
+    if (tool) {
+      const out = tool.input || {};
+      const actions = Array.isArray(out.actions)
+        ? out.actions.filter((a: any) => a && a.type && a.type !== 'none')
+        : [];
+      return json({ reply: out.reply || '', actions });
+    }
 
-    const out = tool.input || {};
-    const actions = Array.isArray(out.actions)
-      ? out.actions.filter((a: any) => a && a.type && a.type !== 'none')
-      : [];
-    return json({ reply: out.reply || '', actions });
+    // Fallback: if it ever answers in plain text instead of calling the tool,
+    // still surface that text (with no actions) rather than erroring out.
+    const text = blocks.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    if (text) return json({ reply: text, actions: [] });
+    return json({ error: 'No reply.' }, 502);
   } catch (err: any) {
     console.error('supervisor crash:', err);
     return json({ error: err.message || 'Unexpected error.' }, 500);
