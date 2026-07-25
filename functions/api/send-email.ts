@@ -28,8 +28,9 @@ interface EmailPayload {
 }
 
 const LOGO = 'https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg';
+// Replies go to invoices@legitgrinder.com itself (forwarded to the owner's inbox
+// by Cloudflare Email Routing), so customers only ever see the business address.
 const FROM = 'LegitGrinder <invoices@legitgrinder.com>';
-const REPLY_TO = 'mungaimports@gmail.com';
 
 const money = (n: number, cur = 'KES') => `${cur} ${Math.round(n).toLocaleString('en-US')}`;
 const esc = (s: string) => String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string));
@@ -141,7 +142,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         const subject = (p.kind === 'receipt' ? 'Payment Receipt' : 'Your Invoice') + ` · ${p.invoiceNumber} · LegitGrinder`;
 
-        const emailBody: any = { from: FROM, to: [p.to], reply_to: REPLY_TO, subject, html: buildHtml(p) };
+        const emailBody: any = { from: FROM, to: [p.to], subject, html: buildHtml(p) };
         if (p.attachment?.content && p.attachment?.filename) {
             emailBody.attachments = [{ filename: p.attachment.filename, content: p.attachment.content }];
         }

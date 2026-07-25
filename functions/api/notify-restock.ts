@@ -15,8 +15,11 @@ interface RestockPayload {
 }
 
 const LOGO = 'https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg';
+// Replies go to the sending address itself (orders@legitgrinder.com), which
+// Cloudflare Email Routing forwards to the owner's inbox — so the customer
+// always sees one professional address and never a personal Gmail. Omitting
+// reply_to makes mail clients default to the From address.
 const FROM = 'LegitGrinder <orders@legitgrinder.com>';
-const REPLY_TO = 'mungaimports@gmail.com';
 
 const esc = (s: string) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string));
 
@@ -92,7 +95,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     let sent = 0;
     for (let i = 0; i < recipients.length; i += 100) {
       const chunk = recipients.slice(i, i + 100);
-      const batch = chunk.map((to) => ({ from: FROM, to: [to], reply_to: REPLY_TO, subject, html }));
+      const batch = chunk.map((to) => ({ from: FROM, to: [to], subject, html }));
       const res = await fetch('https://api.resend.com/emails/batch', {
         method: 'POST',
         headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
