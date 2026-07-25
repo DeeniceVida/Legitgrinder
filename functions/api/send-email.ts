@@ -81,7 +81,7 @@ function buildHtml(p: EmailPayload): string {
           <td style="font-size:11px;color:#9aa4a4;text-transform:uppercase;letter-spacing:1px;text-align:right;">Date</td>
         </tr>
         <tr>
-          <td style="font-size:15px;font-weight:800;color:#0f1a1c;">IG-${esc(p.invoiceNumber)}</td>
+          <td style="font-size:15px;font-weight:800;color:#0f1a1c;">${esc(p.invoiceNumber)}</td>
           <td style="font-size:15px;font-weight:800;color:#0f1a1c;text-align:right;">${new Date().toLocaleDateString('en-GB')}</td>
         </tr>
       </table>
@@ -139,7 +139,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             return new Response(JSON.stringify({ success: false, error: 'Missing recipient or invoice number' }), { status: 400, headers: cors });
         }
 
-        const subject = (p.kind === 'receipt' ? 'Payment Receipt' : 'Your Invoice') + ` · IG-${p.invoiceNumber} · LegitGrinder`;
+        const subject = (p.kind === 'receipt' ? 'Payment Receipt' : 'Your Invoice') + ` · ${p.invoiceNumber} · LegitGrinder`;
 
         const emailBody: any = { from: FROM, to: [p.to], reply_to: REPLY_TO, subject, html: buildHtml(p) };
         if (p.attachment?.content && p.attachment?.filename) {
