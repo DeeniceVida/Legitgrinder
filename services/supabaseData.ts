@@ -785,6 +785,63 @@ export const updateProduct = async (productId: string, updates: Partial<Product>
     }
 };
 
+// ── Back-in-stock waitlist ──────────────────────────────────────────────────
+
+// A shopper on an out-of-stock item leaves their email. Anon can INSERT only
+// (they can't read the list); a duplicate pending signup is treated as success.
+export const requestStockAlert = async (productId: string, email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const clean = (email || '').trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return { success: false, error: 'Please enter a valid email address.' };
+        const { error } = await supabase.from('stock_notifications').insert({ product_id: productId, email: clean });
+        // 23505 = unique violation → they're already on the waitlist. Treat as success.
+        if (error && (error.code === '23505' || /duplicate/i.test(error.message || ''))) return { success: true };
+        if (error) throw error;
+        return { success: true };
+    } catch (e: any) {
+        console.error('requestStockAlert error:', e);
+        return { success: false, error: e.message || 'Could not save your request. Please try again.' };
+    }
+};
+
+// When a product is restocked, email everyone waiting on it, then mark them done
+// so they're never emailed twice. Admin-only (relies on admin RLS to read the list).
+export const notifyBackInStock = async (product: Product): Promise<{ notified: number }> => {
+    try {
+        const { data: rows, error } = await supabase
+            .from('stock_notifications')
+            .select('id, email')
+            .eq('product_id', product.id)
+            .is('notified_at', null);
+        if (error || !rows || rows.length === 0) return { notified: 0 };
+
+        const recipients = [...new Set(rows.map(r => (r.email || '').trim().toLowerCase()).filter(Boolean))];
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://legitgrinder.com';
+        const res = await fetch('/api/notify-restock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                productName: product.name,
+                productUrl: `${origin}/shop?product=${product.id}`,
+                imageUrl: product.imageUrls?.[0],
+                priceKES: product.discountPriceKES || product.priceKES,
+                currency: 'KES',
+                recipients,
+            }),
+        });
+        const data = await res.json().catch(() => ({} as any));
+        if (!res.ok || !data.success) return { notified: 0 };
+
+        await supabase.from('stock_notifications')
+            .update({ notified_at: new Date().toISOString() })
+            .in('id', rows.map(r => r.id));
+        return { notified: recipients.length };
+    } catch (e) {
+        console.error('notifyBackInStock error:', e);
+        return { notified: 0 };
+    }
+};
+
 export const deleteProduct = async (productId: string): Promise<{ success: boolean; error?: any }> => {
     try {
         const { error } = await supabase

@@ -17,7 +17,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
@@ -713,10 +713,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           alert("❌ Failed to register asset: " + (result.error?.message || "Check console for details"));
         }
       } else if (editingProduct && typeof editingProduct !== 'string') {
+        const prev = editingProduct;
         const result = await updateProduct(editingProduct.id, productData);
         if (result.success) {
           onUpdateProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
           setEditingProduct(null);
+          maybeNotifyRestock(prev, { ...prev, ...productData } as Product);
           alert("✅ Specifications Refined & Synced");
         } else {
           console.error('❌ Update Error:', result.error);
@@ -870,11 +872,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // If a product just went from out-of-stock to available, email everyone on its
+  // back-in-stock waitlist. Fire-and-forget; reports how many were notified.
+  const maybeNotifyRestock = (prev: Product | undefined, merged: Product) => {
+    if (!prev) return;
+    const wasOut = prev.availability === Availability.LOCAL && (prev.stockCount || 0) === 0;
+    const nowAvailable = merged.availability === Availability.IMPORT || (merged.stockCount || 0) > 0;
+    if (!wasOut || !nowAvailable) return;
+    notifyBackInStock(merged).then(r => {
+      if (r.notified > 0) alert(`📣 Emailed ${r.notified} waitlisted customer${r.notified > 1 ? 's' : ''} that "${merged.name}" is back in stock.`);
+    });
+  };
+
   // Quick inline product updates (stock steppers, price edits) — optimistic UI + DB save
   const quickUpdateProduct = async (id: string, updates: Partial<Product>) => {
+    const prev = products.find(p => p.id === id);
     onUpdateProducts(products.map(p => p.id === id ? { ...p, ...updates } : p));
     const result = await updateProduct(id, updates);
-    if (!result.success) alert('Quick update failed to save — please retry.');
+    if (!result.success) { alert('Quick update failed to save — please retry.'); return; }
+    if (prev) maybeNotifyRestock(prev, { ...prev, ...updates });
   };
 
   const handleDeleteClient = async (id: string) => {

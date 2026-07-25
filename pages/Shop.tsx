@@ -7,6 +7,7 @@ import {
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
+import RestockNotify from '../components/RestockNotify';
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../lib/supabase';
 import SafeImage from '../components/SafeImage';
@@ -529,9 +530,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     </div>
                   </div>
                 ) : (
-                  <button disabled className="w-full py-7 bg-neutral-100 text-neutral-400 rounded-full font-black uppercase text-[11px] tracking-[0.3em] cursor-not-allowed">
-                    Currently Unavailable
-                  </button>
+                  <RestockNotify productId={p.id} productName={p.name} />
                 )}
               </div>
 
