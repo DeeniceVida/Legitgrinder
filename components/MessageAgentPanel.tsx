@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X, ArrowClockwise, WhatsappLogo, WarningCircle, PencilSimple,
-  Copy, CheckCircle, BellRinging, Package, PaperPlaneTilt, HandHeart, ChatText, Star
+  Copy, CheckCircle, BellRinging, Package, PaperPlaneTilt, HandHeart, ChatText, Star,
+  EnvelopeSimple, CircleNotch
 } from '@phosphor-icons/react';
-import { draftClientMessage, MessageIntent } from '../services/messageAgent';
+import { draftClientMessage, sendStatusEmail, MessageIntent } from '../services/messageAgent';
 import { normalizeKenyanPhone } from '../utils/phone';
 import { GOOGLE_REVIEW_LINK } from '../constants';
 import { Invoice, PaymentStatus } from '../types';
@@ -31,6 +32,9 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [emailTo, setEmailTo] = useState(invoice?.clientEmail || '');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [emailErr, setEmailErr] = useState('');
 
   // When opened straight into "Request review" (the delivered-order button),
   // generate the draft immediately so it's a true one-click action.
@@ -96,6 +100,36 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
     // Sending a review request marks the order as "review requested" so it drops
     // off the To-review list. Only for the review intent.
     if (intent === 'review' && invoice) onReviewRequested?.(invoice);
+  };
+
+  // Send the same drafted message as a branded email. Status updates go from
+  // orders@legitgrinder.com, payment reminders from invoices@ (chosen server-side).
+  const sendEmail = async () => {
+    if (emailStatus === 'sending') return;
+    setEmailErr('');
+    const to = emailTo.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { setEmailErr('Enter a valid email address.'); return; }
+    setEmailStatus('sending');
+    const res = await sendStatusEmail({
+      to,
+      intent,
+      clientName: invoice.clientName,
+      productName: invoice.productName,
+      invoiceNumber: invoice.invoiceNumber,
+      message,
+      trackUrl: trackingLink,
+      payUrl: balance > 0 ? payLink : undefined,
+      reviewUrl: intent === 'review' ? GOOGLE_REVIEW_LINK : undefined,
+      balanceKES: balance,
+      currency: invoice.currency,
+    });
+    if (res.success) {
+      setEmailStatus('sent');
+      if (intent === 'review') onReviewRequested?.(invoice);
+    } else {
+      setEmailErr(res.error || 'Could not send the email.');
+      setEmailStatus('idle');
+    }
   };
 
   const copyMessage = () => {
@@ -212,6 +246,48 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
               <p className="text-[11px] text-gray-400 font-medium text-center">
                 WhatsApp opens with the message ready — you press send. Nothing is sent automatically.
               </p>
+
+              {/* Or send the same message as a branded email */}
+              <div className="border-t border-gray-100 pt-5">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <EnvelopeSimple size={15} weight="duotone" className="text-[#3D8593]" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    Or email it {intent === 'reminder' ? '(from invoices@)' : '(from orders@)'}
+                  </span>
+                </div>
+                {emailStatus === 'sent' ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3.5 flex items-center gap-2.5">
+                    <CheckCircle size={18} weight="fill" className="text-emerald-600 shrink-0" />
+                    <p className="text-xs text-emerald-800 font-bold">Email sent to {emailTo.trim()}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <input
+                        type="email"
+                        value={emailTo}
+                        onChange={(e) => { setEmailTo(e.target.value); if (emailErr) setEmailErr(''); }}
+                        placeholder="client@email.com"
+                        aria-label="Client email address"
+                        className="flex-1 bg-white border border-gray-200 rounded-full px-5 py-3.5 text-sm font-medium focus:border-[#3D8593] outline-none transition-colors"
+                      />
+                      <button
+                        onClick={sendEmail}
+                        disabled={emailStatus === 'sending'}
+                        className="shrink-0 px-7 py-3.5 rounded-full bg-[#3D8593] text-white font-black uppercase text-[11px] tracking-widest hover:bg-[#0f1a1c] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {emailStatus === 'sending'
+                          ? <><CircleNotch size={15} weight="bold" className="animate-spin" /> Sending</>
+                          : <><PaperPlaneTilt size={15} weight="fill" /> Send email</>}
+                      </button>
+                    </div>
+                    {emailErr && <p className="text-[11px] text-rose-500 font-medium mt-2 ml-1">{emailErr}</p>}
+                    <p className="text-[11px] text-gray-400 font-medium mt-2 ml-1">
+                      Sends immediately, branded, with a tracking link{balance > 0 ? ' and a pay button' : ''}.
+                    </p>
+                  </>
+                )}
+              </div>
             </>
           )}
         </div>

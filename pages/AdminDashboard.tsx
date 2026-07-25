@@ -1706,7 +1706,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <button
                             onClick={() => { setMessageIntent(undefined); setMessagingInvoice(inv); }}
                             className="p-2 bg-[#25D366]/10 text-[#1eb955] rounded-2xl hover:bg-[#25D366] hover:text-white transition-all"
-                            title="Draft a WhatsApp message with AI"
+                            title="AI writes the update — send it by WhatsApp or email (arrived, shipped, reminder…)"
                           >
                             <MessageCircle className="w-4 h-4" />
                           </button>
