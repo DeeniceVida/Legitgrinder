@@ -10,6 +10,7 @@ interface RestockPayload {
   imageUrl?: string;
   priceKES?: number;
   currency?: string;
+  variations?: { name: string; type?: string }[];
   recipients: string[];
 }
 
@@ -19,9 +20,29 @@ const REPLY_TO = 'mungaimports@gmail.com';
 
 const esc = (s: string) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string));
 
+// Join productUrl with a variant query param (handles an existing ? already).
+function withVariant(url: string, name: string): string {
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}variant=${encodeURIComponent(name)}`;
+}
+
 function buildHtml(p: RestockPayload): string {
   const price = typeof p.priceKES === 'number' && p.priceKES > 0
     ? `${p.currency || 'KES'} ${Math.round(p.priceKES).toLocaleString('en-US')}` : '';
+
+  // Up to 8 clickable options (e.g. sizes). Each jumps to the shop with that
+  // option pre-selected, ready to purchase. Falls back to one "Shop it now"
+  // button when the product has no options.
+  const opts = (p.variations || []).filter(v => v && v.name).slice(0, 8);
+  const optionsBlock = opts.length
+    ? `<p style="margin:2px 0 10px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#9aa4a4;">Pick yours — tap to buy</p>
+       <div style="line-height:2.2;">${opts.map(v =>
+         `<a href="${esc(withVariant(p.productUrl, v.name))}" style="display:inline-block;margin:0 8px 8px 0;background:#fff;border:2px solid #0f1a1c;color:#0f1a1c;text-decoration:none;font-size:13px;font-weight:800;padding:9px 18px;border-radius:999px;">${esc(v.name)} →</a>`
+       ).join('')}</div>`
+    : `<div style="text-align:center;margin:8px 0 4px;">
+         <a href="${esc(p.productUrl)}" style="display:inline-block;background:#0f1a1c;color:#fff;text-decoration:none;font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:15px 40px;border-radius:999px;">Shop it now →</a>
+       </div>`;
+
   return `<!doctype html><html><body style="margin:0;background:#f4f5f4;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <div style="max-width:600px;margin:24px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(15,26,28,0.08);">
     <div style="height:6px;background:linear-gradient(90deg,#3D8593,#FF9900);"></div>
@@ -37,10 +58,8 @@ function buildHtml(p: RestockPayload): string {
         These move fast — grab yours before it sells out again.
       </p>
       ${p.imageUrl ? `<img src="${esc(p.imageUrl)}" alt="${esc(p.productName)}" style="width:100%;max-height:280px;object-fit:cover;border-radius:14px;margin:4px 0 18px;"/>` : ''}
-      ${price ? `<p style="margin:0 0 18px;font-size:18px;font-weight:900;color:#0f1a1c;">${price}</p>` : ''}
-      <div style="text-align:center;margin:8px 0 4px;">
-        <a href="${esc(p.productUrl)}" style="display:inline-block;background:#0f1a1c;color:#fff;text-decoration:none;font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:15px 40px;border-radius:999px;">Shop it now →</a>
-      </div>
+      ${price ? `<p style="margin:0 0 18px;font-size:18px;font-weight:900;color:#0f1a1c;">${opts.length ? 'From ' : ''}${price}</p>` : ''}
+      ${optionsBlock}
       <p style="margin:18px 0 0;font-size:12px;color:#9aa4a4;text-align:center;">You asked us to let you know when this was available. Reply to this email if you have any questions.</p>
     </div>
     <div style="padding:24px 36px 32px;margin-top:16px;border-top:1px solid #eef0ef;text-align:center;">

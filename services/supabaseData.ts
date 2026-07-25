@@ -843,6 +843,11 @@ export const notifyBackInStock = async (product: Product): Promise<{ notified: n
                 imageUrl: product.imageUrls?.[0],
                 priceKES: product.discountPriceKES || product.priceKES,
                 currency: 'KES',
+                // Clickable options (sizes/variants) — each becomes a button that
+                // deep-links to the shop with that option pre-selected, ready to buy.
+                variations: (product.variations || [])
+                    .filter(v => v && v.name)
+                    .map(v => ({ name: v.name, type: v.type })),
                 recipients,
             }),
         });

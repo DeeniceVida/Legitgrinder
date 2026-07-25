@@ -49,6 +49,19 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     if (productIdParam) window.scrollTo(0, 0);
   }, [productIdParam]);
 
+  // Restock emails link straight to a size, e.g. /shop?product=<id>&variant=<name>.
+  // Pre-select that option so the shopper lands ready to buy (Amazon-style).
+  // Uses selectedProduct so the matched object is the SAME reference the option
+  // buttons compare against (they check selection by identity).
+  useEffect(() => {
+    const variantParam = searchParams.get('variant');
+    if (!variantParam || !selectedProduct?.variations?.length) return;
+    const match = selectedProduct.variations.find(
+      v => (v.name || '').trim().toLowerCase() === variantParam.trim().toLowerCase()
+    );
+    if (match) setSelectedVariations(prev => ({ ...prev, [match.type]: match }));
+  }, [selectedProduct]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch logged in user for metadata
   useEffect(() => {
     const getUser = async () => {
