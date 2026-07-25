@@ -17,7 +17,7 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock, fetchWaitlistCounts } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
@@ -107,6 +107,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
   const [syncBrandFilter, setSyncBrandFilter] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
   const [productSearch, setProductSearch] = useState('');
@@ -465,6 +466,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       fetchEBooks().then(setEbooks);
     } else if (activeTab === 'adbanners') {
       fetchBanners().then(setAdBanners);
+    } else if (activeTab === 'products') {
+      fetchWaitlistCounts().then(setWaitlistCounts).catch(() => {});
     }
   }, [activeTab]);
 
@@ -880,7 +883,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const nowAvailable = merged.availability === Availability.IMPORT || (merged.stockCount || 0) > 0;
     if (!wasOut || !nowAvailable) return;
     notifyBackInStock(merged).then(r => {
-      if (r.notified > 0) alert(`📣 Emailed ${r.notified} waitlisted customer${r.notified > 1 ? 's' : ''} that "${merged.name}" is back in stock.`);
+      if (r.notified > 0) {
+        setWaitlistCounts(prev => { const next = { ...prev }; delete next[merged.id]; return next; });
+        alert(`📣 Emailed ${r.notified} waitlisted customer${r.notified > 1 ? 's' : ''} that "${merged.name}" is back in stock.`);
+      }
     });
   };
 
@@ -2159,7 +2165,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-bold text-sm text-gray-900 truncate max-w-[240px]">{p.name}</p>
-                                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">{p.category}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">{p.category}</p>
+                                    {waitlistCounts[p.id] > 0 && (
+                                      <span
+                                        title={`${waitlistCounts[p.id]} shopper${waitlistCounts[p.id] > 1 ? 's are' : ' is'} waiting for this to come back in stock — they'll be emailed automatically when you restock it.`}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FF9900]/10 text-[#FF9900] text-[9px] font-black uppercase tracking-widest"
+                                      >
+                                        🔔 {waitlistCounts[p.id]} waiting
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </td>

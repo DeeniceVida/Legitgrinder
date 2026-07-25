@@ -804,6 +804,23 @@ export const requestStockAlert = async (productId: string, email: string): Promi
     }
 };
 
+// How many shoppers are on each product's back-in-stock waitlist (pending only).
+// Returns { [productId]: count }. Admin-only via RLS.
+export const fetchWaitlistCounts = async (): Promise<Record<string, number>> => {
+    try {
+        const { data, error } = await supabase
+            .from('stock_notifications')
+            .select('product_id')
+            .is('notified_at', null);
+        if (error || !data) return {};
+        const counts: Record<string, number> = {};
+        for (const r of data) counts[r.product_id] = (counts[r.product_id] || 0) + 1;
+        return counts;
+    } catch {
+        return {};
+    }
+};
+
 // When a product is restocked, email everyone waiting on it, then mark them done
 // so they're never emailed twice. Admin-only (relies on admin RLS to read the list).
 export const notifyBackInStock = async (product: Product): Promise<{ notified: number }> => {

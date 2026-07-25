@@ -14,7 +14,7 @@ interface RestockPayload {
 }
 
 const LOGO = 'https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg';
-const FROM = 'LegitGrinder <invoices@legitgrinder.com>';
+const FROM = 'LegitGrinder <orders@legitgrinder.com>';
 const REPLY_TO = 'mungaimports@gmail.com';
 
 const esc = (s: string) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string));
