@@ -121,6 +121,13 @@ const AppContent: React.FC = () => {
     logVisit();
   }, []);
 
+  // Every route change starts at the top of the new page — don't inherit the
+  // scroll position from the page you were just on. (Keyed on pathname only, so
+  // in-page query changes like ?product= don't yank the view around.)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   // Invoices are locked down by RLS: guests can't read the table (they use the
   // public track_order / pay functions instead). So once a session is known,
   // refetch orders with the authenticated identity — an admin gets every order,
