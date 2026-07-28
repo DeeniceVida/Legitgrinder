@@ -9,6 +9,8 @@ import { KES_PER_USD, FEE_STRUCTURE, WHATSAPP_NUMBER } from '../constants';
 import { CalculationResult, SourcingRequest } from '../types';
 import { submitSourcingRequest } from '../services/supabaseData';
 import { Reveal } from '../components/Motion';
+import GroupBuyPoster from '../components/GroupBuyPoster';
+import { GroupCampaign, fetchGroupCampaigns } from '../services/groupBuys';
 
 const QUEST_STEPS = ['The Product', 'Shipping', 'Your Details'];
 
@@ -45,6 +47,9 @@ const Calculators: React.FC<CalculatorsProps> = ({ isAdmin = false }) => {
   const [discountOn, setDiscountOn] = useState(true);
   const [discountAmount, setDiscountAmount] = useState<string>('1000');
   const [quoteCopied, setQuoteCopied] = useState(false);
+  // Running group buys — same poster the shop uses, shown to people pricing imports.
+  const [groupCampaigns, setGroupCampaigns] = useState<GroupCampaign[]>([]);
+  useEffect(() => { fetchGroupCampaigns().then(setGroupCampaigns).catch(() => {}); }, []);
 
   const shipWeightKg = deviceType === 'custom'
     ? (parseFloat(customWeight) || 0)
@@ -297,6 +302,9 @@ const Calculators: React.FC<CalculatorsProps> = ({ isAdmin = false }) => {
             </button>
           ))}
         </div>
+
+        {/* Running group buys — cheaper than importing solo, so it belongs here */}
+        <GroupBuyPoster campaigns={groupCampaigns} />
 
         {activeTab === 'us-phone' ? (
           /* ============================================================

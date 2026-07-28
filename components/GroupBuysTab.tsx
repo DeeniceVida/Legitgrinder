@@ -134,10 +134,13 @@ const GroupBuysTab: React.FC = () => {
       closesAt
     };
     const res = editingId
-      ? await updateGroupCampaign(editingId, common)
+      ? await updateGroupCampaign(editingId, { ...common, slug: form.slug.trim() || undefined })
       : await createGroupCampaign({ ...common, slug: form.slug.trim() || undefined });
     setCreating(false);
     if (!res.success) { setFormError(res.error || 'Could not save campaign.'); return; }
+    // Saved, but the DB was missing columns — tell the admin plainly rather than
+    // letting colours/images vanish with no explanation.
+    if (res.warning) alert(`⚠️ Saved, but:\n\n${res.warning}`);
     setForm(blankForm); setShowForm(false); setEditingId(null);
     load();
   };
@@ -267,7 +270,15 @@ const GroupBuysTab: React.FC = () => {
           {formError && <p className="text-sm text-rose-600 font-medium">{formError}</p>}
           <div className="grid md:grid-cols-2 gap-4">
             <div><label className={label}>Item title *</label><input className={input} placeholder="e.g. Monitor (Group Buy)" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-            {!editingId && <div><label className={label}>Link code <span className="text-gray-300">(optional)</span></label><input className={input} placeholder="auto from title" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} /></div>}
+            <div>
+              <label className={label}>
+                Link code <span className="text-gray-300">{editingId ? '— changing this breaks links already shared' : '(optional)'}</span>
+              </label>
+              <input className={input} placeholder="auto from title" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} />
+              <p className="text-[10px] text-gray-400 font-medium mt-1.5 ml-1">
+                Never paste a supplier URL here — it becomes the public link customers see.
+              </p>
+            </div>
           </div>
           <div><label className={label}>Description</label><textarea rows={2} className={`${input} resize-none`} placeholder="Short pitch shown on the page" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
           <div className="grid md:grid-cols-2 gap-4">

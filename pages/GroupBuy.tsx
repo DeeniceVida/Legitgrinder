@@ -9,6 +9,7 @@ import { WHATSAPP_NUMBER, WHATSAPP_GROUP_LINK } from '../constants';
 import { verifyPaystackPayment } from '../services/supabaseData';
 import { fetchGroupCampaign, recordGroupOrder, markGroupJoined, GroupCampaign } from '../services/groupBuys';
 import { normalizeKenyanPhone } from '../utils/phone';
+import Countdown from '../components/Countdown';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
@@ -219,14 +220,7 @@ const GroupBuy: React.FC = () => {
                 <span className="text-xl font-black text-gray-900">KES {unitPrice.toLocaleString()}</span>
               </div>
 
-              {campaign.closesAt && (
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 mb-5">
-                  <span className="text-amber-500">⏳</span>
-                  <p className="text-[11px] font-bold text-amber-700">
-                    Reservations close {new Date(campaign.closesAt).toLocaleString('en-KE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              )}
+              {campaign.closesAt && <Countdown to={campaign.closesAt} className="mb-5" />}
 
               {/* Colour choice — same price whichever they pick */}
               {colors.length > 0 && (

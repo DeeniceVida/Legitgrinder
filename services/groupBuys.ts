@@ -115,6 +115,23 @@ export const markGroupJoined = async (orderCode: string): Promise<void> => {
 const slugify = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'campaign';
 
+/**
+ * A pasted supplier URL must never become the public link — that would put
+ * "alibaba.com/product-detail/..." in the address customers see. Anything that
+ * looks like a URL or carries a domain is rejected so we fall back to the title.
+ */
+const looksLikeUrl = (s: string) =>
+  /^https?:\/\//i.test(s.trim()) || /\b[a-z0-9-]+\.(com|net|org|cn|co|io|shop|store)\b/i.test(s);
+
+/** Build a safe public slug: use the admin's code only if it isn't a URL. */
+const safeSlug = (rawSlug: string | undefined, title: string): string => {
+  const candidate = (rawSlug || '').trim();
+  if (candidate && !looksLikeUrl(candidate)) return slugify(candidate);
+  // Fall back to the title — also stripped of any URL fragments.
+  const cleanTitle = title.replace(/https?:\/\/\S+/gi, ' ').trim();
+  return `${slugify(cleanTitle || 'campaign')}-${Math.random().toString(36).slice(2, 5)}`;
+};
+
 /** Admin: list all campaigns, newest first. */
 export const fetchGroupCampaigns = async (): Promise<GroupCampaign[]> => {
   const { data, error } = await supabase
@@ -144,8 +161,8 @@ export const createGroupCampaign = async (c: {
   videoUrl?: string; shippingMode?: 'air' | 'sea'; colors?: GroupColor[];
   unitPriceKES: number; minDepositKES: number; slug?: string;
   whatsappGroupLink?: string; closesAt?: string | null;
-}): Promise<{ success: boolean; slug?: string; error?: string }> => {
-  const slug = (c.slug && slugify(c.slug)) || `${slugify(c.title)}-${Math.random().toString(36).slice(2, 5)}`;
+}): Promise<{ success: boolean; slug?: string; error?: string; warning?: string }> => {
+  const slug = safeSlug(c.slug, c.title);
   const gallery = (c.imageUrls || []).filter(Boolean);
   const base = {
     slug, title: c.title, description: c.description || null,
@@ -163,14 +180,23 @@ export const createGroupCampaign = async (c: {
     colors: c.colors && c.colors.length ? c.colors : null,
   });
   if (!error) return { success: true, slug };
-  // The gallery/video migration may not be applied yet — still create the
-  // campaign (with its single cover image) rather than blocking the admin.
+  // The gallery/video/colours migration may not be applied yet — still create
+  // the campaign rather than blocking, but SAY SO instead of silently dropping
+  // the fields (which looks like the feature is broken).
   if (isMissingMediaColumn(error.message)) {
     const { error: retryErr } = await supabase.from('group_campaigns').insert(base);
-    if (!retryErr) return { success: true, slug };
+    if (!retryErr) return { success: true, slug, warning: missingMigrationWarning(error.message) };
     return { success: false, error: retryErr.message };
   }
   return { success: false, error: error.message };
+};
+
+/** Plain-English note telling the admin which SQL file still needs running. */
+const missingMigrationWarning = (msg?: string) => {
+  const needsColors = /colors/.test(msg || '');
+  const file = needsColors ? 'add_group_buy_colors.sql' : 'add_group_buy_media.sql';
+  const what = needsColors ? 'Colour options were NOT saved' : 'Images/video were NOT saved';
+  return `${what} — the database is missing those columns. Run ${file} in the Supabase SQL editor, then edit this campaign and add them again.`;
 };
 
 /** True when the DB is missing the image_urls / video_url columns. */
@@ -179,12 +205,14 @@ const isMissingMediaColumn = (msg?: string) =>
 
 /** Admin: edit an existing campaign's editable fields. */
 export const updateGroupCampaign = async (id: string, c: {
+  slug?: string;
   title?: string; description?: string; imageUrl?: string; imageUrls?: string[];
   videoUrl?: string; shippingMode?: 'air' | 'sea'; colors?: GroupColor[];
   unitPriceKES?: number; minDepositKES?: number;
   whatsappGroupLink?: string; closesAt?: string | null;
-}): Promise<{ success: boolean; error?: string }> => {
+}): Promise<{ success: boolean; error?: string; warning?: string }> => {
   const payload: any = {};
+  if (c.slug !== undefined && c.slug.trim()) payload.slug = safeSlug(c.slug, c.title || '');
   if (c.title !== undefined) payload.title = c.title;
   if (c.description !== undefined) payload.description = c.description || null;
   if (c.imageUrls !== undefined) {
@@ -207,7 +235,8 @@ export const updateGroupCampaign = async (id: string, c: {
   if (isMissingMediaColumn(error.message)) {
     const { image_urls, video_url, shipping_mode, colors, ...rest } = payload;
     const { error: retryErr } = await supabase.from('group_campaigns').update(rest).eq('id', id);
-    return { success: !retryErr, error: retryErr?.message };
+    if (retryErr) return { success: false, error: retryErr.message };
+    return { success: true, warning: missingMigrationWarning(error.message) };
   }
   return { success: false, error: error.message };
 };

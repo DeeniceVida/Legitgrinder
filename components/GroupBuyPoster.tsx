@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  UsersThree, ArrowRight, CaretLeft, CaretRight, Clock,
+  UsersThree, ArrowRight, CaretLeft, CaretRight,
   AirplaneTilt, Boat, HandCoins, Package
 } from '@phosphor-icons/react';
 import { GroupCampaign } from '../services/groupBuys';
+import Countdown from './Countdown';
 import SafeImage from './SafeImage';
 
 interface GroupBuyPosterProps {
@@ -13,17 +14,6 @@ interface GroupBuyPosterProps {
 
 const ROTATE_MS = 7000;
 
-/** Human countdown to the deadline — urgency without a ticking clock. */
-const closesIn = (iso?: string): string | null => {
-  if (!iso) return null;
-  const ms = new Date(iso).getTime() - Date.now();
-  if (isNaN(ms) || ms <= 0) return null;
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours < 1) return 'Closing within the hour';
-  if (hours < 24) return `Closes in ${hours} hour${hours > 1 ? 's' : ''}`;
-  const days = Math.round(hours / 24);
-  return `Closes in ${days} day${days > 1 ? 's' : ''}`;
-};
 
 /**
  * The group-buy poster shown in the shop's sliding banner area. Image sits on
@@ -71,7 +61,6 @@ const GroupBuyPoster: React.FC<GroupBuyPosterProps> = ({ campaigns }) => {
       <div className="relative grid">
         {live.map((c, i) => {
           const deposit = c.minDepositKES > 0 ? c.minDepositKES : Math.round(c.unitPriceKES / 2);
-          const countdown = closesIn(c.closesAt);
           const bySea = c.shippingMode === 'sea';
           const cover = (c.imageUrls && c.imageUrls[0]) || c.imageUrl;
 
@@ -99,11 +88,7 @@ const GroupBuyPoster: React.FC<GroupBuyPosterProps> = ({ campaigns }) => {
 
                 {/* COPY — right */}
                 <div className="min-w-0">
-                  {countdown && (
-                    <span className="inline-flex items-center gap-1.5 mb-3 px-3 py-1.5 rounded-full bg-white/10 text-[10px] font-black uppercase tracking-widest text-[#7fc2ce]">
-                      <Clock size={12} weight="fill" /> {countdown}
-                    </span>
-                  )}
+                  {c.closesAt && <Countdown to={c.closesAt} variant="chip" className="mb-3" />}
 
                   <h3 className="text-2xl md:text-4xl font-bold tracking-tight leading-[1.08] mb-2 heading-accent line-clamp-2">
                     {c.title}
