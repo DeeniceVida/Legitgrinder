@@ -51,8 +51,9 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {/* Track — taller on mobile so the stacked layout fits fully */}
-      <div className="relative h-[440px] sm:h-[360px] md:h-[300px]">
+      {/* Track — slides stack in one grid cell so the height follows the tallest
+          slide. Fixed heights used to clip the taller framed images. */}
+      <div className="relative grid">
         {products.map((p, i) => {
           const theme = THEMES[i % THEMES.length];
           const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0);
@@ -64,20 +65,27 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
           return (
             <div
               key={p.id}
-              className={`absolute inset-0 transition-opacity duration-700 ${i === index ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
+              className={`col-start-1 row-start-1 transition-opacity duration-700 ${i === index ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
               style={{ backgroundColor: theme.bg, color: theme.text }}
               aria-hidden={i !== index}
             >
-              <div className="h-full max-w-6xl mx-auto px-5 md:px-12 grid grid-cols-1 md:grid-cols-2 items-center gap-1 md:gap-4">
-                {/* Image — top on mobile, right on desktop */}
-                <div className="order-1 md:order-2 flex items-center justify-center md:justify-end pt-6 md:py-6 h-[130px] sm:h-[150px] md:h-full shrink-0">
-                  <button onClick={() => onOpen(p.id)} className="h-full max-h-[120px] sm:max-h-[150px] md:max-h-[220px] aspect-square cursor-pointer">
-                    <SafeImage src={p.imageUrls[0]} alt={p.name} className="h-full w-full object-contain drop-shadow-2xl" />
+              <div className="max-w-6xl mx-auto px-5 md:px-12 pb-16 md:pb-8 grid grid-cols-1 md:grid-cols-2 items-center gap-2 md:gap-6">
+                {/* Image — top on mobile, right on desktop.
+                    A landscape tile (not a square) with padding: wide items like
+                    mats fill the width, tall items fill the height, and nothing
+                    is cropped. The frame makes it read as deliberately placed. */}
+                <div className="order-1 md:order-2 flex items-center justify-center md:justify-end pt-6 md:py-8">
+                  <button
+                    onClick={() => onOpen(p.id)}
+                    aria-label={`View ${p.name}`}
+                    className="w-full max-w-[300px] sm:max-w-[340px] md:max-w-[380px] h-[220px] sm:h-[260px] md:h-[300px] rounded-[1.5rem] overflow-hidden bg-white/70 border border-black/[0.06] shadow-[0_18px_40px_-18px_rgba(15,26,28,0.45)] p-3 cursor-pointer transition-transform duration-300 hover:scale-[1.03] active:scale-95"
+                  >
+                    <SafeImage src={p.imageUrls[0]} alt={p.name} className="h-full w-full object-contain" />
                   </button>
                 </div>
 
                 {/* Copy — centered on mobile, left on desktop */}
-                <div className="order-2 md:order-1 pb-16 md:py-8 text-center md:text-left flex flex-col items-center md:items-start">
+                <div className="order-2 md:order-1 md:py-8 text-center md:text-left flex flex-col items-center md:items-start">
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-2 md:mb-3">
                     {onSale && (
                       <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: theme.accent, color: theme.bg }}>On Offer</span>
