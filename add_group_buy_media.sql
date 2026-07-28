@@ -8,7 +8,8 @@
 
 alter table public.group_campaigns
   add column if not exists image_urls text[],   -- gallery, first one is the cover
-  add column if not exists video_url  text;     -- TikTok / YouTube / Instagram link
+  add column if not exists video_url  text,     -- TikTok / YouTube / Instagram link
+  add column if not exists shipping_mode text default 'air';  -- 'air' | 'sea' — drives the ETA shown on the poster
 
 -- Backfill the gallery from the old single image so existing campaigns keep working.
 update public.group_campaigns

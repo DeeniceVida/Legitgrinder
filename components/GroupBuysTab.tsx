@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   UsersThree, Plus, LinkSimple, Copy, CheckCircle, CircleNotch, MagnifyingGlass,
   WhatsappLogo, LockSimple, LockSimpleOpen, CurrencyDollar, Package, ArrowLeft,
-  PencilSimple, Clock
+  PencilSimple, Clock, ArrowsClockwise
 } from '@phosphor-icons/react';
 import {
   GroupCampaign, GroupOrder, fetchGroupCampaigns, fetchGroupOrders,
@@ -20,10 +20,11 @@ const GroupBuysTab: React.FC = () => {
   const [selected, setSelected] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [view, setView] = useState<'all' | 'running' | 'past'>('all');
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const blankForm = { title: '', description: '', imageUrls: '', videoUrl: '', unitPrice: '', minDeposit: '', slug: '', groupLink: '', closesAt: '' };
+  const blankForm = { title: '', description: '', imageUrls: '', videoUrl: '', shippingMode: 'air' as 'air' | 'sea', unitPrice: '', minDeposit: '', slug: '', groupLink: '', closesAt: '' };
   const [form, setForm] = useState(blankForm);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -54,17 +55,54 @@ const GroupBuysTab: React.FC = () => {
   };
 
   const openNew = () => { setEditingId(null); setForm(blankForm); setFormError(null); setShowForm(true); };
+
+  /**
+   * Rerun a past campaign: opens the CREATE form pre-filled from the old one, so
+   * it becomes a brand-new campaign (fresh link and fresh roster) that can be
+   * fully edited first — price, description, images, deadline. The original and
+   * its orders are left untouched.
+   */
+  const openRerun = (c: GroupCampaign) => {
+    setEditingId(null);
+    setForm({
+      title: c.title,
+      description: c.description || '',
+      imageUrls: (c.imageUrls && c.imageUrls.length ? c.imageUrls : (c.imageUrl ? [c.imageUrl] : [])).join('\n'),
+      videoUrl: c.videoUrl || '',
+      shippingMode: (c.shippingMode || 'air') as 'air' | 'sea',
+      unitPrice: String(c.unitPriceKES),
+      minDeposit: String(c.minDepositKES),
+      slug: '',       // auto-generate a new link so it doesn't clash
+      groupLink: c.whatsappGroupLink || '',
+      closesAt: ''    // set a fresh deadline
+    });
+    setFormError(null);
+    setShowForm(true);
+  };
   const openEdit = (c: GroupCampaign) => {
     setEditingId(c.id);
     setForm({
       title: c.title, description: c.description || '',
       imageUrls: (c.imageUrls && c.imageUrls.length ? c.imageUrls : (c.imageUrl ? [c.imageUrl] : [])).join('\n'),
       videoUrl: c.videoUrl || '',
+      shippingMode: (c.shippingMode || 'air') as 'air' | 'sea',
       unitPrice: String(c.unitPriceKES), minDeposit: String(c.minDepositKES),
       slug: c.slug, groupLink: c.whatsappGroupLink || '', closesAt: toLocalInput(c.closesAt)
     });
     setFormError(null); setShowForm(true);
   };
+
+  /** A campaign is "past" once it's closed or its deadline has gone by. */
+  const isPast = (c: GroupCampaign) =>
+    c.status !== 'open' || (!!c.closesAt && new Date(c.closesAt).getTime() < Date.now());
+
+  const visibleCampaigns = useMemo(() => {
+    const list = view === 'all' ? campaigns
+      : view === 'running' ? campaigns.filter(c => !isPast(c))
+        : campaigns.filter(isPast);
+    // Running first, then most recent deadline.
+    return [...list].sort((a, b) => Number(isPast(a)) - Number(isPast(b)));
+  }, [campaigns, view]);
 
   const handleSubmit = async () => {
     setFormError(null);
@@ -77,6 +115,7 @@ const GroupBuysTab: React.FC = () => {
       // Accept one URL per line or comma-separated — first one becomes the cover.
       imageUrls: form.imageUrls.split(/[\n,]+/).map(s => s.trim()).filter(Boolean),
       videoUrl: form.videoUrl.trim() || undefined,
+      shippingMode: form.shippingMode,
       unitPriceKES: parseInt(form.unitPrice) || 0,
       minDepositKES: parseInt(form.minDeposit) || Math.round((parseInt(form.unitPrice) || 0) / 2),
       whatsappGroupLink: form.groupLink.trim() || undefined,
@@ -224,9 +263,18 @@ const GroupBuysTab: React.FC = () => {
             <label className={label}>Images <span className="text-gray-300">— one URL per line, first is the cover</span></label>
             <textarea rows={3} className={`${input} resize-none`} placeholder={"https://…/front.jpg\nhttps://…/side.jpg\nhttps://…/box.jpg"} value={form.imageUrls} onChange={e => setForm({ ...form, imageUrls: e.target.value })} />
           </div>
-          <div>
-            <label className={label}>Video link <span className="text-gray-300">(TikTok / YouTube / Instagram — optional)</span></label>
-            <input className={input} placeholder="https://www.tiktok.com/@you/video/…" value={form.videoUrl} onChange={e => setForm({ ...form, videoUrl: e.target.value })} />
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className={label}>Video link <span className="text-gray-300">(TikTok / YouTube / IG — optional)</span></label>
+              <input className={input} placeholder="https://www.tiktok.com/@you/video/…" value={form.videoUrl} onChange={e => setForm({ ...form, videoUrl: e.target.value })} />
+            </div>
+            <div>
+              <label className={label}>Shipping <span className="text-gray-300">— sets the ETA on the poster</span></label>
+              <select className={input} value={form.shippingMode} onChange={e => setForm({ ...form, shippingMode: e.target.value as 'air' | 'sea' })}>
+                <option value="air">Air · 2–3 weeks</option>
+                <option value="sea">Sea · 30–45 days</option>
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-3">
             <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest text-gray-400 border border-gray-200 hover:bg-neutral-50">Cancel</button>
@@ -234,6 +282,25 @@ const GroupBuysTab: React.FC = () => {
               {creating ? <><CircleNotch size={15} className="animate-spin" /> Saving…</> : <><CheckCircle size={15} weight="fill" /> {editingId ? 'Save changes' : 'Create campaign'}</>}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Running / Past filter */}
+      {campaigns.length > 0 && (
+        <div className="flex items-center gap-1 bg-neutral-50 border border-neutral-100 rounded-full p-1 w-fit">
+          {([
+            ['all', `All (${campaigns.length})`],
+            ['running', `Running (${campaigns.filter(c => !isPast(c)).length})`],
+            ['past', `Past (${campaigns.filter(isPast).length})`],
+          ] as const).map(([val, lbl]) => (
+            <button
+              key={val}
+              onClick={() => setView(val)}
+              className={`px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${view === val ? 'bg-[#3D8593] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              {lbl}
+            </button>
+          ))}
         </div>
       )}
 
@@ -245,7 +312,7 @@ const GroupBuysTab: React.FC = () => {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
-          {campaigns.map(c => {
+          {visibleCampaigns.map(c => {
             const s = statsFor(c.id);
             const open = c.status === 'open';
             return (
@@ -279,9 +346,16 @@ const GroupBuysTab: React.FC = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={() => copyLink(c.slug)} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-brand-bg border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-all">
-                    {copiedSlug === c.slug ? <><CheckCircle size={13} weight="fill" className="text-emerald-500" /> Copied</> : <><LinkSimple size={13} weight="bold" /> Copy link</>}
-                  </button>
+                  {isPast(c) ? (
+                    <button onClick={() => openRerun(c)} title="Start a fresh campaign pre-filled from this one — edit price, deadline, anything"
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[#FF9900] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0f1a1c] transition-all">
+                      <ArrowsClockwise size={13} weight="bold" /> Rerun
+                    </button>
+                  ) : (
+                    <button onClick={() => copyLink(c.slug)} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-brand-bg border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-all">
+                      {copiedSlug === c.slug ? <><CheckCircle size={13} weight="fill" className="text-emerald-500" /> Copied</> : <><LinkSimple size={13} weight="bold" /> Copy link</>}
+                    </button>
+                  )}
                   <button onClick={() => setSelected(c.id)} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all">
                     View orders
                   </button>

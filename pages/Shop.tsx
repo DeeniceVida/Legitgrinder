@@ -8,6 +8,8 @@ import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
 import RestockNotify from '../components/RestockNotify';
+import GroupBuyPoster from '../components/GroupBuyPoster';
+import { GroupCampaign, fetchGroupCampaigns as fetchAllCampaigns } from '../services/groupBuys';
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../lib/supabase';
 import SafeImage from '../components/SafeImage';
@@ -25,6 +27,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<Record<string, ProductVariation>>({});
+  // Running group buys shown in the poster slot above the featured carousel.
+  const [groupCampaigns, setGroupCampaigns] = useState<GroupCampaign[]>([]);
   const [activeAccordion, setActiveAccordion] = useState<string | null>('description');
   const [showPaystack, setShowPaystack] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -61,6 +65,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     );
     if (match) setSelectedVariations(prev => ({ ...prev, [match.type]: match }));
   }, [selectedProduct]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load group-buy campaigns (public read) for the poster.
+  useEffect(() => {
+    fetchAllCampaigns().then(setGroupCampaigns).catch(() => {});
+  }, []);
 
   // Fetch logged in user for metadata
   useEffect(() => {
@@ -582,6 +591,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       )}
 
       <div className="px-6 max-w-7xl mx-auto">
+        {/* GROUP BUYS — running campaigns get the top slot so people can reserve */}
+        <GroupBuyPoster campaigns={groupCampaigns} />
+
         {/* FEATURED CAROUSEL — auto-rotating promo of featured products */}
         {(() => {
           const featured = products.filter(p => p.isFeatured);

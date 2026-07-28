@@ -8,6 +8,7 @@ export interface GroupCampaign {
   imageUrl?: string;        // legacy single cover image (older campaigns)
   imageUrls?: string[];     // gallery — first one is the cover
   videoUrl?: string;        // TikTok / YouTube / Instagram link
+  shippingMode?: 'air' | 'sea';  // drives the ETA shown on the poster
   unitPriceKES: number;
   minDepositKES: number;   // minimum deposit PER UNIT
   whatsappGroupLink?: string;
@@ -44,6 +45,7 @@ const toCampaign = (d: any): GroupCampaign => {
     imageUrl: d.image_url || gallery[0] || undefined,
     imageUrls: gallery,
     videoUrl: d.video_url || undefined,
+    shippingMode: d.shipping_mode === 'sea' ? 'sea' : 'air',
     unitPriceKES: Number(d.unit_price_kes) || 0,
     minDepositKES: Number(d.min_deposit_kes) || 0,
     whatsappGroupLink: d.whatsapp_group_link || undefined,
@@ -118,7 +120,7 @@ export const fetchGroupOrders = async (campaignId?: string): Promise<GroupOrder[
 /** Admin: create a campaign. Auto-slugs from the title if no slug is given. */
 export const createGroupCampaign = async (c: {
   title: string; description?: string; imageUrl?: string; imageUrls?: string[];
-  videoUrl?: string;
+  videoUrl?: string; shippingMode?: 'air' | 'sea';
   unitPriceKES: number; minDepositKES: number; slug?: string;
   whatsappGroupLink?: string; closesAt?: string | null;
 }): Promise<{ success: boolean; slug?: string; error?: string }> => {
@@ -136,6 +138,7 @@ export const createGroupCampaign = async (c: {
     ...base,
     image_urls: gallery.length ? gallery : null,
     video_url: c.videoUrl || null,
+    shipping_mode: c.shippingMode || 'air',
   });
   if (!error) return { success: true, slug };
   // The gallery/video migration may not be applied yet — still create the
@@ -150,12 +153,12 @@ export const createGroupCampaign = async (c: {
 
 /** True when the DB is missing the image_urls / video_url columns. */
 const isMissingMediaColumn = (msg?: string) =>
-  !!msg && /image_urls|video_url/.test(msg) && /does not exist|schema cache/i.test(msg);
+  !!msg && /image_urls|video_url|shipping_mode/.test(msg) && /does not exist|schema cache/i.test(msg);
 
 /** Admin: edit an existing campaign's editable fields. */
 export const updateGroupCampaign = async (id: string, c: {
   title?: string; description?: string; imageUrl?: string; imageUrls?: string[];
-  videoUrl?: string;
+  videoUrl?: string; shippingMode?: 'air' | 'sea';
   unitPriceKES?: number; minDepositKES?: number;
   whatsappGroupLink?: string; closesAt?: string | null;
 }): Promise<{ success: boolean; error?: string }> => {
@@ -168,6 +171,7 @@ export const updateGroupCampaign = async (id: string, c: {
     payload.image_url = gallery[0] || null;   // keep the legacy cover in sync
   }
   if (c.videoUrl !== undefined) payload.video_url = c.videoUrl || null;
+  if (c.shippingMode !== undefined) payload.shipping_mode = c.shippingMode;
   if (c.imageUrl !== undefined && c.imageUrls === undefined) payload.image_url = c.imageUrl || null;
   if (c.unitPriceKES !== undefined) payload.unit_price_kes = c.unitPriceKES;
   if (c.minDepositKES !== undefined) payload.min_deposit_kes = c.minDepositKES;
@@ -178,7 +182,7 @@ export const updateGroupCampaign = async (id: string, c: {
   // Same graceful fallback as create: save everything except the media columns
   // if the migration hasn't been run yet.
   if (isMissingMediaColumn(error.message)) {
-    const { image_urls, video_url, ...rest } = payload;
+    const { image_urls, video_url, shipping_mode, ...rest } = payload;
     const { error: retryErr } = await supabase.from('group_campaigns').update(rest).eq('id', id);
     return { success: !retryErr, error: retryErr?.message };
   }
