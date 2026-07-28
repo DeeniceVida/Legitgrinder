@@ -5,7 +5,7 @@ import {
   PencilSimple, Clock, ArrowsClockwise
 } from '@phosphor-icons/react';
 import {
-  GroupCampaign, GroupOrder, fetchGroupCampaigns, fetchGroupOrders,
+  GroupCampaign, GroupColor, GroupOrder, fetchGroupCampaigns, fetchGroupOrders,
   createGroupCampaign, updateGroupCampaign, setGroupCampaignStatus
 } from '../services/groupBuys';
 import { normalizeKenyanPhone } from '../utils/phone';
@@ -24,7 +24,7 @@ const GroupBuysTab: React.FC = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const blankForm = { title: '', description: '', imageUrls: '', videoUrl: '', shippingMode: 'air' as 'air' | 'sea', unitPrice: '', minDeposit: '', slug: '', groupLink: '', closesAt: '' };
+  const blankForm = { title: '', description: '', imageUrls: '', videoUrl: '', shippingMode: 'air' as 'air' | 'sea', colors: '', unitPrice: '', minDeposit: '', slug: '', groupLink: '', closesAt: '' };
   const [form, setForm] = useState(blankForm);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -56,6 +56,15 @@ const GroupBuysTab: React.FC = () => {
 
   const openNew = () => { setEditingId(null); setForm(blankForm); setFormError(null); setShowForm(true); };
 
+  // Colours are typed one per line as "Name" or "Name | image-url".
+  const colorsToText = (list?: GroupColor[]) =>
+    (list || []).map(c => (c.imageUrl ? `${c.name} | ${c.imageUrl}` : c.name)).join('\n');
+  const textToColors = (text: string): GroupColor[] =>
+    text.split('\n').map(line => {
+      const [name, url] = line.split('|').map(s => s.trim());
+      return name ? { name, imageUrl: url || undefined } : null;
+    }).filter(Boolean) as GroupColor[];
+
   /**
    * Rerun a past campaign: opens the CREATE form pre-filled from the old one, so
    * it becomes a brand-new campaign (fresh link and fresh roster) that can be
@@ -70,6 +79,7 @@ const GroupBuysTab: React.FC = () => {
       imageUrls: (c.imageUrls && c.imageUrls.length ? c.imageUrls : (c.imageUrl ? [c.imageUrl] : [])).join('\n'),
       videoUrl: c.videoUrl || '',
       shippingMode: (c.shippingMode || 'air') as 'air' | 'sea',
+      colors: colorsToText(c.colors),
       unitPrice: String(c.unitPriceKES),
       minDeposit: String(c.minDepositKES),
       slug: '',       // auto-generate a new link so it doesn't clash
@@ -86,6 +96,7 @@ const GroupBuysTab: React.FC = () => {
       imageUrls: (c.imageUrls && c.imageUrls.length ? c.imageUrls : (c.imageUrl ? [c.imageUrl] : [])).join('\n'),
       videoUrl: c.videoUrl || '',
       shippingMode: (c.shippingMode || 'air') as 'air' | 'sea',
+      colors: colorsToText(c.colors),
       unitPrice: String(c.unitPriceKES), minDeposit: String(c.minDepositKES),
       slug: c.slug, groupLink: c.whatsappGroupLink || '', closesAt: toLocalInput(c.closesAt)
     });
@@ -116,6 +127,7 @@ const GroupBuysTab: React.FC = () => {
       imageUrls: form.imageUrls.split(/[\n,]+/).map(s => s.trim()).filter(Boolean),
       videoUrl: form.videoUrl.trim() || undefined,
       shippingMode: form.shippingMode,
+      colors: textToColors(form.colors),
       unitPriceKES: parseInt(form.unitPrice) || 0,
       minDepositKES: parseInt(form.minDeposit) || Math.round((parseInt(form.unitPrice) || 0) / 2),
       whatsappGroupLink: form.groupLink.trim() || undefined,
@@ -207,7 +219,14 @@ const GroupBuysTab: React.FC = () => {
                       <p className="font-bold text-gray-900">{o.clientName}</p>
                       <p className="text-[11px] text-gray-400 font-medium">{o.clientWhatsapp}</p>
                     </td>
-                    <td className="px-4 py-3.5 font-mono text-[11px] text-gray-500">{o.orderCode}</td>
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-[11px] text-gray-500">{o.orderCode}</span>
+                      {o.color && (
+                        <span className="block mt-1 w-fit px-2 py-0.5 rounded-full bg-[#3D8593]/10 text-[#3D8593] text-[10px] font-black uppercase tracking-widest">
+                          {o.color}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5 text-center font-bold">{o.units}</td>
                     <td className="px-4 py-3.5 text-right font-bold text-emerald-600">{o.amountPaidKES.toLocaleString()}</td>
                     <td className="px-4 py-3.5 text-right font-black text-[#FF9900]">{balance.toLocaleString()}</td>
@@ -262,6 +281,21 @@ const GroupBuysTab: React.FC = () => {
           <div>
             <label className={label}>Images <span className="text-gray-300">— one URL per line, first is the cover</span></label>
             <textarea rows={3} className={`${input} resize-none`} placeholder={"https://…/front.jpg\nhttps://…/side.jpg\nhttps://…/box.jpg"} value={form.imageUrls} onChange={e => setForm({ ...form, imageUrls: e.target.value })} />
+          </div>
+          <div>
+            <label className={label}>
+              Colours <span className="text-gray-300">— one per line. Buyers pick one; price never changes.</span>
+            </label>
+            <textarea
+              rows={3}
+              className={`${input} resize-none`}
+              placeholder={"Gray\nBlack | https://…/black.jpg\nWhite | https://…/white.jpg"}
+              value={form.colors}
+              onChange={e => setForm({ ...form, colors: e.target.value })}
+            />
+            <p className="text-[10px] text-gray-400 font-medium mt-1.5 ml-1">
+              Add an image after a “|” to show a real swatch. Leave blank if there's only one colour.
+            </p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div>

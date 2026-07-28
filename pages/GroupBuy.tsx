@@ -28,6 +28,9 @@ const GroupBuy: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
+  const [selectedColor, setSelectedColor] = useState('');
+
+  const colors = campaign?.colors || [];
 
   // Gallery, falling back to the legacy single cover image.
   const gallery = (campaign?.imageUrls && campaign.imageUrls.length
@@ -55,7 +58,9 @@ const GroupBuy: React.FC = () => {
   const parsedDeposit = parseInt(deposit || '0', 10) || 0;
   const amountToCharge = Math.min(Math.max(parsedDeposit || minDeposit, minDeposit), total);
   const balanceAfter = Math.max(total - amountToCharge, 0);
-  const canPay = !!name.trim() && phoneValid && emailValid && amountToCharge >= minDeposit;
+  // When the campaign offers colours, one must be chosen before paying.
+  const colorChosen = colors.length === 0 || !!selectedColor;
+  const canPay = !!name.trim() && phoneValid && emailValid && colorChosen && amountToCharge >= minDeposit;
 
   const handleSuccess = async (response: any) => {
     verifyPaystackPayment(response.reference).catch(console.error);
@@ -64,6 +69,7 @@ const GroupBuy: React.FC = () => {
       clientName: name.trim(),
       clientWhatsapp: normalizeKenyanPhone(whatsapp),
       clientEmail: email.trim(),
+      color: selectedColor || undefined,
       units,
       totalKES: total,
       amountPaidKES: amountToCharge,
@@ -78,6 +84,7 @@ const GroupBuy: React.FC = () => {
       `Campaign: ${campaign!.title}\n` +
       `Client: ${name.trim()} (${normalizeKenyanPhone(whatsapp)})\n` +
       `Units: ${units}\n` +
+      (selectedColor ? `Colour: ${selectedColor}\n` : '') +
       `Paid now: KES ${amountToCharge.toLocaleString()}\n` +
       `Balance: KES ${balanceAfter.toLocaleString()}\n` +
       `Order: ${res.orderCode || '—'}\n` +
@@ -91,7 +98,7 @@ const GroupBuy: React.FC = () => {
   // and what is still owed on arrival.
   const confirmationText =
     `✅ Deposit paid — ${campaign?.title}\n` +
-    `Order ${orderCode} · ${units} unit${units > 1 ? 's' : ''} · ${name}\n` +
+    `Order ${orderCode} · ${units} unit${units > 1 ? 's' : ''}${selectedColor ? ` · ${selectedColor}` : ''} · ${name}\n` +
     `Paid: KES ${amountToCharge.toLocaleString()} · Balance on arrival: KES ${balanceAfter.toLocaleString()}`;
 
   // Every campaign points to the one community group unless it sets its own link.
@@ -133,6 +140,9 @@ const GroupBuy: React.FC = () => {
 
             <div className="bg-brand-bg rounded-2xl border border-gray-100 p-5 text-left text-sm space-y-2 mb-6">
               <div className="flex justify-between"><span className="text-gray-400 font-bold">Units</span><span className="font-bold text-gray-900">{units}</span></div>
+              {selectedColor && (
+                <div className="flex justify-between"><span className="text-gray-400 font-bold">Colour</span><span className="font-bold text-gray-900">{selectedColor}</span></div>
+              )}
               <div className="flex justify-between"><span className="text-gray-400 font-bold">Paid now</span><span className="font-bold text-emerald-600">KES {amountToCharge.toLocaleString()}</span></div>
               <div className="flex justify-between pt-2 border-t border-gray-100"><span className="text-gray-400 font-bold">Balance (on arrival)</span><span className="font-black text-[#FF9900]">KES {balanceAfter.toLocaleString()}</span></div>
             </div>
@@ -218,6 +228,38 @@ const GroupBuy: React.FC = () => {
                 </div>
               )}
 
+              {/* Colour choice — same price whichever they pick */}
+              {colors.length > 0 && (
+                <div className="mb-5">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                    Choose your colour <span className="text-gray-300 normal-case tracking-normal font-medium">— same price either way</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2.5">
+                    {colors.map(col => {
+                      const active = selectedColor === col.name;
+                      return (
+                        <button
+                          key={col.name}
+                          type="button"
+                          onClick={() => setSelectedColor(col.name)}
+                          aria-pressed={active}
+                          className={`flex items-center gap-2 rounded-2xl border-2 transition-all ${col.imageUrl ? 'p-1.5 pr-3.5' : 'px-4 py-2.5'} ${active ? 'border-[#3D8593] bg-[#3D8593]/5' : 'border-gray-200 hover:border-[#3D8593]/50'}`}
+                        >
+                          {col.imageUrl && (
+                            <img src={col.imageUrl} alt="" className="w-9 h-9 rounded-xl object-cover border border-gray-100" />
+                          )}
+                          <span className={`text-xs font-bold ${active ? 'text-[#3D8593]' : 'text-gray-700'}`}>{col.name}</span>
+                          {active && <CheckCircle size={14} weight="fill" className="text-[#3D8593]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!selectedColor && (
+                    <p className="text-[11px] text-gray-400 font-medium mt-2">Pick a colour to continue.</p>
+                  )}
+                </div>
+              )}
+
               {/* Units */}
               <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">How many units?</label>
               <div className="flex items-center gap-3 mb-2">
@@ -290,7 +332,7 @@ const GroupBuy: React.FC = () => {
                 />
               ) : (
                 <button disabled className="w-full h-14 bg-neutral-200 text-neutral-400 rounded-full font-black uppercase text-[11px] tracking-[0.25em] cursor-not-allowed">
-                  {!name.trim() ? 'Enter your name' : !phoneValid ? 'Enter a valid WhatsApp number' : !emailValid ? 'Enter your email' : 'Enter a valid deposit'}
+                  {!name.trim() ? 'Enter your name' : !phoneValid ? 'Enter a valid WhatsApp number' : !emailValid ? 'Enter your email' : !colorChosen ? 'Choose your colour' : 'Enter a valid deposit'}
                 </button>
               )}
 

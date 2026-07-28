@@ -1,5 +1,11 @@
 import { supabase } from '../lib/supabase';
 
+/** A colour a buyer can pick. Purely a choice — it never changes the price. */
+export interface GroupColor {
+  name: string;
+  imageUrl?: string;
+}
+
 export interface GroupCampaign {
   id: string;
   slug: string;
@@ -9,6 +15,7 @@ export interface GroupCampaign {
   imageUrls?: string[];     // gallery — first one is the cover
   videoUrl?: string;        // TikTok / YouTube / Instagram link
   shippingMode?: 'air' | 'sea';  // drives the ETA shown on the poster
+  colors?: GroupColor[];         // choices only — colours never change the price
   unitPriceKES: number;
   minDepositKES: number;   // minimum deposit PER UNIT
   whatsappGroupLink?: string;
@@ -27,6 +34,7 @@ export interface GroupOrder {
   totalKES: number;
   amountPaidKES: number;
   joinedGroup: boolean;
+  color?: string;
   createdAt?: string;
 }
 
@@ -46,6 +54,9 @@ const toCampaign = (d: any): GroupCampaign => {
     imageUrls: gallery,
     videoUrl: d.video_url || undefined,
     shippingMode: d.shipping_mode === 'sea' ? 'sea' : 'air',
+    colors: Array.isArray(d.colors)
+      ? d.colors.filter((c: any) => c && c.name).map((c: any) => ({ name: String(c.name), imageUrl: c.imageUrl || undefined }))
+      : [],
     unitPriceKES: Number(d.unit_price_kes) || 0,
     minDepositKES: Number(d.min_deposit_kes) || 0,
     whatsappGroupLink: d.whatsapp_group_link || undefined,
@@ -69,8 +80,9 @@ export const fetchGroupCampaign = async (slug: string): Promise<GroupCampaign | 
 export const recordGroupOrder = async (args: {
   campaignId: string; clientName: string; clientWhatsapp: string; clientEmail: string;
   units: number; totalKES: number; amountPaidKES: number; paystackReference: string;
+  color?: string;
 }): Promise<{ success: boolean; orderCode?: string; error?: string }> => {
-  const { data, error } = await supabase.rpc('record_group_order', {
+  const base = {
     p_campaign_id: args.campaignId,
     p_client_name: args.clientName,
     p_client_whatsapp: args.clientWhatsapp,
@@ -79,9 +91,18 @@ export const recordGroupOrder = async (args: {
     p_total_kes: args.totalKES,
     p_amount_paid_kes: args.amountPaidKES,
     p_paystack_reference: args.paystackReference
-  });
-  if (error) return { success: false, error: error.message };
-  return { success: true, orderCode: data as string };
+  };
+  const { data, error } = await supabase.rpc('record_group_order', { ...base, p_color: args.color || null });
+  if (!error) return { success: true, orderCode: data as string };
+
+  // The colour migration may not be applied yet — never lose a paid reservation
+  // over it: retry without the colour rather than failing the order.
+  if (/p_color|record_group_order/.test(error.message || '')) {
+    const retry = await supabase.rpc('record_group_order', base);
+    if (!retry.error) return { success: true, orderCode: retry.data as string };
+    return { success: false, error: retry.error.message };
+  }
+  return { success: false, error: error.message };
 };
 
 /** Public: flag that the client tapped through to join the WhatsApp group. */
@@ -113,14 +134,14 @@ export const fetchGroupOrders = async (campaignId?: string): Promise<GroupOrder[
     clientName: d.client_name || undefined, clientWhatsapp: d.client_whatsapp || undefined,
     clientEmail: d.client_email || undefined, units: d.units || 1,
     totalKES: Number(d.total_kes) || 0, amountPaidKES: Number(d.amount_paid_kes) || 0,
-    joinedGroup: !!d.joined_group, createdAt: d.created_at
+    joinedGroup: !!d.joined_group, color: d.color || undefined, createdAt: d.created_at
   }));
 };
 
 /** Admin: create a campaign. Auto-slugs from the title if no slug is given. */
 export const createGroupCampaign = async (c: {
   title: string; description?: string; imageUrl?: string; imageUrls?: string[];
-  videoUrl?: string; shippingMode?: 'air' | 'sea';
+  videoUrl?: string; shippingMode?: 'air' | 'sea'; colors?: GroupColor[];
   unitPriceKES: number; minDepositKES: number; slug?: string;
   whatsappGroupLink?: string; closesAt?: string | null;
 }): Promise<{ success: boolean; slug?: string; error?: string }> => {
@@ -139,6 +160,7 @@ export const createGroupCampaign = async (c: {
     image_urls: gallery.length ? gallery : null,
     video_url: c.videoUrl || null,
     shipping_mode: c.shippingMode || 'air',
+    colors: c.colors && c.colors.length ? c.colors : null,
   });
   if (!error) return { success: true, slug };
   // The gallery/video migration may not be applied yet — still create the
@@ -153,12 +175,12 @@ export const createGroupCampaign = async (c: {
 
 /** True when the DB is missing the image_urls / video_url columns. */
 const isMissingMediaColumn = (msg?: string) =>
-  !!msg && /image_urls|video_url|shipping_mode/.test(msg) && /does not exist|schema cache/i.test(msg);
+  !!msg && /image_urls|video_url|shipping_mode|colors/.test(msg) && /does not exist|schema cache/i.test(msg);
 
 /** Admin: edit an existing campaign's editable fields. */
 export const updateGroupCampaign = async (id: string, c: {
   title?: string; description?: string; imageUrl?: string; imageUrls?: string[];
-  videoUrl?: string; shippingMode?: 'air' | 'sea';
+  videoUrl?: string; shippingMode?: 'air' | 'sea'; colors?: GroupColor[];
   unitPriceKES?: number; minDepositKES?: number;
   whatsappGroupLink?: string; closesAt?: string | null;
 }): Promise<{ success: boolean; error?: string }> => {
@@ -172,6 +194,7 @@ export const updateGroupCampaign = async (id: string, c: {
   }
   if (c.videoUrl !== undefined) payload.video_url = c.videoUrl || null;
   if (c.shippingMode !== undefined) payload.shipping_mode = c.shippingMode;
+  if (c.colors !== undefined) payload.colors = c.colors.length ? c.colors : null;
   if (c.imageUrl !== undefined && c.imageUrls === undefined) payload.image_url = c.imageUrl || null;
   if (c.unitPriceKES !== undefined) payload.unit_price_kes = c.unitPriceKES;
   if (c.minDepositKES !== undefined) payload.min_deposit_kes = c.minDepositKES;
@@ -182,7 +205,7 @@ export const updateGroupCampaign = async (id: string, c: {
   // Same graceful fallback as create: save everything except the media columns
   // if the migration hasn't been run yet.
   if (isMissingMediaColumn(error.message)) {
-    const { image_urls, video_url, shipping_mode, ...rest } = payload;
+    const { image_urls, video_url, shipping_mode, colors, ...rest } = payload;
     const { error: retryErr } = await supabase.from('group_campaigns').update(rest).eq('id', id);
     return { success: !retryErr, error: retryErr?.message };
   }
