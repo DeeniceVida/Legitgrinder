@@ -385,7 +385,8 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             internalStatus: inv.internal_status || undefined,
             estArrival: inv.est_arrival || undefined,
             mombasaArrivedAt: inv.mombasa_arrived_at || undefined,
-            reviewRequestedAt: inv.review_requested_at || undefined
+            reviewRequestedAt: inv.review_requested_at || undefined,
+            shippingAgent: inv.shipping_agent || undefined
         }));
     } catch (error) {
         console.error('Error fetching invoices:', error);
@@ -782,6 +783,58 @@ export const updateProduct = async (productId: string, updates: Partial<Product>
     } catch (error) {
         console.error('Error updating product:', error.message || error);
         return { success: false, error };
+    }
+};
+
+// ── Shipping agent tags ─────────────────────────────────────────────────────
+
+export interface ShippingAgent { id: string; name: string; color: string; }
+
+/** Admin: the list of shipping agents you tag orders with. */
+export const fetchShippingAgents = async (): Promise<ShippingAgent[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('shipping_agents')
+            .select('id, name, color')
+            .order('name');
+        if (error || !data) return [];
+        return data.map((a: any) => ({ id: a.id, name: a.name, color: a.color || 'slate' }));
+    } catch {
+        return [];
+    }
+};
+
+export const createShippingAgent = async (name: string, color: string): Promise<{ success: boolean; error?: string; agent?: ShippingAgent }> => {
+    try {
+        const { data, error } = await supabase
+            .from('shipping_agents')
+            .insert({ name: name.trim(), color })
+            .select('id, name, color')
+            .single();
+        if (error) throw error;
+        return { success: true, agent: { id: data.id, name: data.name, color: data.color } };
+    } catch (e: any) {
+        const msg = /duplicate|unique/i.test(e.message || '') ? 'You already have an agent with that name.' : (e.message || 'Could not save the agent.');
+        return { success: false, error: msg };
+    }
+};
+
+export const deleteShippingAgent = async (id: string): Promise<{ success: boolean }> => {
+    const { error } = await supabase.from('shipping_agents').delete().eq('id', id);
+    return { success: !error };
+};
+
+/** Tag (or untag, with null) an order with the agent that shipped it. */
+export const setInvoiceShippingAgent = async (invoiceId: string, agentName: string | null): Promise<{ success: boolean; error?: string }> => {
+    try {
+        const { error } = await supabase
+            .from('invoices')
+            .update({ shipping_agent: agentName })
+            .eq('id', invoiceId);
+        if (error) throw error;
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
     }
 };
 

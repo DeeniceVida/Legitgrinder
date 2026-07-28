@@ -17,7 +17,8 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock, fetchWaitlistCounts } from '../services/supabaseData';
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock, fetchWaitlistCounts,
+  ShippingAgent, fetchShippingAgents, createShippingAgent, deleteShippingAgent, setInvoiceShippingAgent } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
@@ -108,6 +109,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
+  // Shipping agents you tag orders with (e.g. "Agent A" = red).
+  const [shippingAgents, setShippingAgents] = useState<ShippingAgent[]>([]);
+  const [showAgentManager, setShowAgentManager] = useState(false);
+  const [newAgentName, setNewAgentName] = useState('');
+  const [newAgentColor, setNewAgentColor] = useState('rose');
+  const [agentError, setAgentError] = useState<string | null>(null);
   const [syncBrandFilter, setSyncBrandFilter] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
   const [productSearch, setProductSearch] = useState('');
@@ -165,6 +172,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [invoiceFilterPayment, setInvoiceFilterPayment] = useState<'all' | PaymentStatus>('all');
   const [invoiceFilterMonth, setInvoiceFilterMonth] = useState<string>('all'); // 'all' | 'YYYY-MM'
   const [invoiceFilterDelivery, setInvoiceFilterDelivery] = useState<'all' | 'delivered' | 'undelivered' | 'toreview'>('all');
+  const [invoiceFilterAgent, setInvoiceFilterAgent] = useState<string>('all'); // 'all' | 'none' | agent name
   const [invoiceSort, setInvoiceSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
 
   const invoiceMonths = useMemo(() => {
@@ -195,6 +203,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const d = inv.createdAt || inv.date;
         if (!d || new Date(d).toISOString().slice(0, 7) !== invoiceFilterMonth) return false;
       }
+      if (invoiceFilterAgent !== 'all') {
+        if (invoiceFilterAgent === 'none' ? !!inv.shippingAgent : inv.shippingAgent !== invoiceFilterAgent) return false;
+      }
       return true;
     });
     const time = (inv: Invoice) => new Date(inv.createdAt || inv.date || 0).getTime();
@@ -204,7 +215,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       invoiceSort === 'highest' ? (b.totalKES || 0) - (a.totalKES || 0) :
       (a.totalKES || 0) - (b.totalKES || 0)
     );
-  }, [invoices, invoiceSearch, invoiceFilterPayment, invoiceFilterDelivery, invoiceFilterMonth, invoiceSort]);
+  }, [invoices, invoiceSearch, invoiceFilterPayment, invoiceFilterDelivery, invoiceFilterMonth, invoiceFilterAgent, invoiceSort]);
 
   const invoiceSummary = useMemo(() => ({
     count: filteredInvoices.length,
@@ -468,8 +479,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       fetchBanners().then(setAdBanners);
     } else if (activeTab === 'products') {
       fetchWaitlistCounts().then(setWaitlistCounts).catch(() => {});
+    } else if (activeTab === 'invoices') {
+      fetchShippingAgents().then(setShippingAgents).catch(() => {});
     }
   }, [activeTab]);
+
+  // Tailwind needs literal class names, so map each agent colour explicitly.
+  const AGENT_COLORS: Record<string, string> = {
+    rose: 'bg-rose-100 text-rose-700 border-rose-200',
+    amber: 'bg-amber-100 text-amber-700 border-amber-200',
+    emerald: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    teal: 'bg-teal-100 text-teal-700 border-teal-200',
+    violet: 'bg-violet-100 text-violet-700 border-violet-200',
+    slate: 'bg-slate-100 text-slate-700 border-slate-200',
+  };
+  const AGENT_DOTS: Record<string, string> = {
+    rose: 'bg-rose-500', amber: 'bg-amber-500', emerald: 'bg-emerald-500',
+    teal: 'bg-teal-500', violet: 'bg-violet-500', slate: 'bg-slate-500',
+  };
+  const agentColorOf = (name?: string) =>
+    shippingAgents.find(a => a.name === name)?.color || 'slate';
+
+  const handleAddAgent = async () => {
+    setAgentError(null);
+    if (!newAgentName.trim()) { setAgentError('Give the agent a name.'); return; }
+    const res = await createShippingAgent(newAgentName, newAgentColor);
+    if (!res.success) {
+      setAgentError(/relation|does not exist|schema cache/i.test(res.error || '')
+        ? 'Run add_shipping_agents.sql in Supabase first — the table does not exist yet.'
+        : res.error || 'Could not add the agent.');
+      return;
+    }
+    setShippingAgents(prev => [...prev, res.agent!].sort((a, b) => a.name.localeCompare(b.name)));
+    setNewAgentName('');
+  };
+
+  const handleTagOrder = async (inv: Invoice, agentName: string | null) => {
+    onUpdateInvoices(invoices.map(x => x.id === inv.id ? { ...x, shippingAgent: agentName || undefined } : x));
+    const res = await setInvoiceShippingAgent(inv.id, agentName);
+    if (!res.success) alert(`Could not save the tag: ${res.error || 'unknown error'}`);
+  };
 
   const handleSaveBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -1595,6 +1644,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ))}
                   </select>
                   <select
+                    value={invoiceFilterAgent}
+                    onChange={(e) => {
+                      if (e.target.value === '__manage') { setShowAgentManager(true); return; }
+                      setInvoiceFilterAgent(e.target.value);
+                    }}
+                    className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
+                    title="Filter by the shipping agent that carried the order"
+                  >
+                    <option value="all">All Agents</option>
+                    {shippingAgents.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+                    <option value="none">Untagged</option>
+                    <option value="__manage">⚙ Manage agents…</option>
+                  </select>
+                  <select
                     value={invoiceSort}
                     onChange={(e) => setInvoiceSort(e.target.value as any)}
                     className="h-12 bg-neutral-50 border border-neutral-100 rounded-full px-5 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
@@ -1627,9 +1690,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
                   <span className="text-[#FF9900] text-sm mr-1">{invoiceSummary.inTransit}</span> Not Yet Delivered
                 </p>
-                {(invoiceSearch || invoiceFilterPayment !== 'all' || invoiceFilterDelivery !== 'all' || invoiceFilterMonth !== 'all') && (
+                {(invoiceSearch || invoiceFilterPayment !== 'all' || invoiceFilterDelivery !== 'all' || invoiceFilterMonth !== 'all' || invoiceFilterAgent !== 'all') && (
                   <button
-                    onClick={() => { setInvoiceSearch(''); setInvoiceFilterPayment('all'); setInvoiceFilterDelivery('all'); setInvoiceFilterMonth('all'); }}
+                    onClick={() => { setInvoiceSearch(''); setInvoiceFilterPayment('all'); setInvoiceFilterDelivery('all'); setInvoiceFilterMonth('all'); setInvoiceFilterAgent('all'); }}
                     className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline ml-auto"
                   >
                     Clear Filters
@@ -1692,6 +1755,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           className="bg-neutral-50 border border-neutral-100 rounded-lg px-2 py-1.5 text-[9px] font-black uppercase tracking-wide outline-none focus:ring-2 focus:ring-teal-100 max-w-[150px]"
                         >
                           {Object.values(OrderStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        {/* Shipping agent tag — who carried this order */}
+                        <select
+                          value={inv.shippingAgent || ''}
+                          onChange={(e) => handleTagOrder(inv, e.target.value || null)}
+                          title="Tag the shipping agent that carried this order"
+                          className={`mt-1.5 block rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide outline-none border cursor-pointer max-w-[150px] ${
+                            inv.shippingAgent
+                              ? AGENT_COLORS[agentColorOf(inv.shippingAgent)] || AGENT_COLORS.slate
+                              : 'bg-white text-gray-300 border-dashed border-gray-200'
+                          }`}
+                        >
+                          <option value="">+ Agent</option>
+                          {shippingAgents.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
                         </select>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -2748,6 +2825,77 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         existingCategories={Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort()}
         onCreated={(newProduct) => onUpdateProducts([...products, newProduct])}
       />
+
+      {/* SHIPPING AGENT MANAGER */}
+      {showAgentManager && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 relative">
+            <button onClick={() => { setShowAgentManager(false); setAgentError(null); }} aria-label="Close"
+              className="absolute top-6 right-6 p-2.5 bg-neutral-100 rounded-xl hover:bg-neutral-200 transition-all">
+              <X className="w-4 h-4 text-gray-400" />
+            </button>
+
+            <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase mb-1">Shipping <span className="text-[#3D8593]">Agents</span></h3>
+            <p className="text-xs text-gray-500 font-light mb-6">Tag each order with the agent that carried it, then filter by agent.</p>
+
+            {agentError && (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3.5 mb-4">
+                <p className="text-xs text-rose-700 font-medium">{agentError}</p>
+              </div>
+            )}
+
+            <div className="space-y-2 mb-6 max-h-56 overflow-y-auto">
+              {shippingAgents.length === 0 && (
+                <p className="text-sm text-gray-400 font-light py-4 text-center">No agents yet — add your first below.</p>
+              )}
+              {shippingAgents.map(a => (
+                <div key={a.id} className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl border ${AGENT_COLORS[a.color] || AGENT_COLORS.slate}`}>
+                  <span className="flex items-center gap-2.5 font-black text-xs uppercase tracking-widest">
+                    <span className={`w-2.5 h-2.5 rounded-full ${AGENT_DOTS[a.color] || AGENT_DOTS.slate}`} />
+                    {a.name}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Remove "${a.name}"? Orders already tagged keep the label.`)) return;
+                      await deleteShippingAgent(a.id);
+                      setShippingAgents(prev => prev.filter(x => x.id !== a.id));
+                    }}
+                    aria-label={`Remove ${a.name}`}
+                    className="opacity-50 hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-neutral-100 pt-5">
+              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Add an agent</label>
+              <input
+                value={newAgentName}
+                onChange={(e) => { setNewAgentName(e.target.value); setAgentError(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddAgent(); }}
+                placeholder="e.g. Agent A · Kenya Cargo"
+                className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-[#3D8593] mb-3"
+              />
+              <div className="flex items-center gap-2 mb-4">
+                {Object.keys(AGENT_DOTS).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => setNewAgentColor(c)}
+                    aria-label={`Colour ${c}`}
+                    className={`w-8 h-8 rounded-full ${AGENT_DOTS[c]} transition-all ${newAgentColor === c ? 'ring-2 ring-offset-2 ring-gray-900 scale-110' : 'opacity-60 hover:opacity-100'}`}
+                  />
+                ))}
+              </div>
+              <button onClick={handleAddAgent}
+                className="w-full py-3.5 bg-[#0f1a1c] text-white rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all">
+                Add agent
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI WhatsApp Message Agent */}
       <MessageAgentPanel

@@ -3,7 +3,8 @@ import { useParams } from 'react-router-dom';
 import { PaystackButton } from 'react-paystack';
 import {
   SealCheck, WhatsappLogo, ShieldCheck, CircleNotch, UsersThree,
-  Minus, Plus, Copy, CheckCircle, Package
+  Minus, Plus, Copy, CheckCircle, Package,
+  MagnifyingGlassPlus, X, CaretLeft, CaretRight
 } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER, WHATSAPP_GROUP_LINK } from '../constants';
 import { verifyPaystackPayment } from '../services/supabaseData';
@@ -30,6 +31,8 @@ const GroupBuy: React.FC = () => {
   const [showTerms, setShowTerms] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState('');
+  // Index of the image shown full-screen, or null when the lightbox is closed.
+  const [lightbox, setLightbox] = useState<number | null>(null);
 
   const colors = campaign?.colors || [];
 
@@ -112,13 +115,87 @@ const GroupBuy: React.FC = () => {
     });
   };
 
+  // Lightbox: arrows step through the gallery, Esc closes.
+  const stepLightbox = (dir: number) =>
+    setLightbox(i => (i === null ? i : (i + dir + gallery.length) % gallery.length));
+
+  useEffect(() => {
+    if (lightbox === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightbox(null);
+      if (e.key === 'ArrowRight') stepLightbox(1);
+      if (e.key === 'ArrowLeft') stepLightbox(-1);
+    };
+    window.addEventListener('keydown', onKey);
+    // Don't let the page scroll behind the overlay.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [lightbox, gallery.length]);
+
   const joinGroup = () => {
     if (orderCode) markGroupJoined(orderCode);
     if (groupLink) window.open(groupLink, '_blank');
   };
 
   return (
-    <div className="bg-mesh min-h-screen pt-36 pb-24 px-6 flex items-start justify-center">
+    <>
+      {/* FULL-SCREEN IMAGE VIEWER */}
+      {lightbox !== null && gallery[lightbox] && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/95 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setLightbox(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Product image"
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            aria-label="Close"
+            className="absolute top-5 right-5 z-10 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          >
+            <X size={20} weight="bold" />
+          </button>
+
+          <img
+            src={gallery[lightbox]}
+            alt={campaign?.title || ''}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[85vh] object-contain rounded-xl animate-in zoom-in-95 duration-300"
+          />
+
+          {gallery.length > 1 && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); stepLightbox(-1); }}
+                aria-label="Previous image"
+                className="absolute left-3 md:left-6 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
+              >
+                <CaretLeft size={20} weight="bold" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); stepLightbox(1); }}
+                aria-label="Next image"
+                className="absolute right-3 md:right-6 w-11 h-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors"
+              >
+                <CaretRight size={20} weight="bold" />
+              </button>
+              <div className="absolute bottom-6 inset-x-0 flex justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {gallery.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLightbox(i)}
+                    aria-label={`Image ${i + 1}`}
+                    className={`h-2 rounded-full transition-all ${i === lightbox ? 'w-6 bg-white' : 'w-2 bg-white/40 hover:bg-white/70'}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="bg-mesh min-h-screen pt-36 pb-24 px-6 flex items-start justify-center">
       <div className="w-full max-w-lg">
         {loading ? (
           <div className="bg-white rounded-[2rem] border border-gray-100 shadow-xl p-12 flex flex-col items-center gap-4">
@@ -172,14 +249,24 @@ const GroupBuy: React.FC = () => {
               <h1 className="text-2xl font-bold tracking-tight">{campaign.title}</h1>
             </div>
             <div className="p-8">
-              {/* Gallery — big cover, tap a thumbnail to switch */}
+              {/* Gallery — big cover, tap a thumbnail to switch, tap the cover to zoom */}
               {gallery.length > 0 && (
                 <div className="mb-5">
-                  <img
-                    src={gallery[activeImage] || gallery[0]}
-                    alt={campaign.title}
-                    className="w-full h-56 object-cover rounded-2xl border border-gray-100"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(activeImage)}
+                    aria-label="Tap to enlarge"
+                    className="group relative block w-full"
+                  >
+                    <img
+                      src={gallery[activeImage] || gallery[0]}
+                      alt={campaign.title}
+                      className="w-full h-56 object-cover rounded-2xl border border-gray-100"
+                    />
+                    <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur text-white text-[10px] font-black uppercase tracking-widest group-hover:bg-black/80 transition-colors">
+                      <MagnifyingGlassPlus size={13} weight="bold" /> Tap to enlarge
+                    </span>
+                  </button>
                   {gallery.length > 1 && (
                     <div className="flex gap-2 mt-2.5 overflow-x-auto pb-1">
                       {gallery.map((url, i) => (
@@ -336,8 +423,9 @@ const GroupBuy: React.FC = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

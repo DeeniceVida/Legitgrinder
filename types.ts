@@ -136,6 +136,7 @@ export interface Invoice {
   estArrival?: string;          // estimated arrival date (esp. US/UK air)
   mombasaArrivedAt?: string;    // when it arrived at port — drives the grace period
   reviewRequestedAt?: string;   // when the admin sent the review request (delivered orders)
+  shippingAgent?: string;       // which shipping agent carried this order
 }
 
 
