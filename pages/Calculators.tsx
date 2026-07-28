@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   DeviceMobile, LinkSimple, WhatsappLogo, ArrowRight, PaperPlaneTilt,
   CheckCircle, User, Package, AirplaneTilt, Timer, ShieldCheck,
-  ArrowsClockwise, WarningCircle, Calculator as CalculatorIcon
+  ArrowsClockwise, WarningCircle, Calculator as CalculatorIcon,
+  Copy, Lock
 } from '@phosphor-icons/react';
 import { KES_PER_USD, FEE_STRUCTURE, WHATSAPP_NUMBER } from '../constants';
 import { CalculationResult, SourcingRequest } from '../types';
@@ -25,7 +26,12 @@ const inputBase =
 
 const labelBase = 'block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2.5';
 
-const Calculators: React.FC = () => {
+interface CalculatorsProps {
+  /** Admin-only quote tools (discount control + copy-to-clipboard) stay hidden from clients. */
+  isAdmin?: boolean;
+}
+
+const Calculators: React.FC<CalculatorsProps> = ({ isAdmin = false }) => {
   const [activeTab, setActiveTab] = useState<'us-phone' | 'general'>('us-phone');
 
   // US Tech States
@@ -34,6 +40,11 @@ const Calculators: React.FC = () => {
   const [deviceType, setDeviceType] = useState<DeviceType>('phone');
   const [customWeight, setCustomWeight] = useState<string>('');
   const [usPhoneResult, setUsPhoneResult] = useState<CalculationResult | null>(null);
+  // Admin-only quote controls: keep or drop the standard discount, and copy the
+  // finished breakdown to send to a client. Clients never see these.
+  const [discountOn, setDiscountOn] = useState(true);
+  const [discountAmount, setDiscountAmount] = useState<string>('1000');
+  const [quoteCopied, setQuoteCopied] = useState(false);
 
   const shipWeightKg = deviceType === 'custom'
     ? (parseFloat(customWeight) || 0)
@@ -80,17 +91,72 @@ const Calculators: React.FC = () => {
       applePickupFeeKES = FEE_STRUCTURE.APPLE_PICKUP_FEE_USD * KES_PER_USD;
     }
 
-    const specialDiscountKES = 1000;
+    // Clients always get the standard KES 1,000 discount. Only the admin can
+    // turn it off or change it when preparing a quote.
+    const parsedDiscount = Math.max(0, Math.round(Number(discountAmount) || 0));
+    const specialDiscountKES = isAdmin ? (discountOn ? parsedDiscount : 0) : 1000;
 
     setUsPhoneResult({
       buyingPriceKES,
       shippingFeeKES,
       serviceFeeKES,
       applePickupFeeKES: applePickupFeeKES > 0 ? applePickupFeeKES : undefined,
-      specialDiscountKES,
+      specialDiscountKES: specialDiscountKES > 0 ? specialDiscountKES : undefined,
       totalKES: buyingPriceKES + shippingFeeKES + serviceFeeKES + applePickupFeeKES - specialDiscountKES
     });
-  }, [phonePriceUSD, phoneUrl, shipWeightKg]);
+  }, [phonePriceUSD, phoneUrl, shipWeightKg, isAdmin, discountOn, discountAmount]);
+
+  /**
+   * Admin: build a clean, client-ready quote and copy it to the clipboard, so it
+   * can be pasted straight into WhatsApp or an email. Uses WhatsApp's *bold*
+   * markers, which read fine as plain text everywhere else.
+   */
+  const buildQuoteText = (res: CalculationResult): string => {
+    const money = (n: number) => `KES ${Math.round(n).toLocaleString()}`;
+    const lines = [
+      '*LegitGrinder — Quote*',
+      `${deviceLabel} (est. ${shipWeightKg} kg)`,
+      ...(phoneUrl.trim() ? [phoneUrl.trim()] : []),
+      '',
+      `Buying Price: ${money(res.buyingPriceKES)}`,
+      `Shipping & Handling (${shipWeightKg} kg): ${money(res.shippingFeeKES)}`,
+      `Service Fee: ${money(res.serviceFeeKES)}`,
+      ...(res.applePickupFeeKES ? [`Apple Store Pickup: ${money(res.applePickupFeeKES)}`] : []),
+      ...(res.specialDiscountKES ? [`Client Discount: −${money(res.specialDiscountKES)}`] : []),
+      '',
+      `*TOTAL: ${money(res.totalKES)}*`,
+      'Delivered to Nairobi CBD · Air 2–3 weeks',
+      '',
+      'Authenticity guaranteed.',
+      `LegitGrinder · +254 791 873 538`,
+    ];
+    return lines.join('\n');
+  };
+
+  const handleCopyQuote = async (res: CalculationResult) => {
+    const text = buildQuoteText(res);
+    const flash = () => { setQuoteCopied(true); setTimeout(() => setQuoteCopied(false), 2500); };
+    try {
+      await navigator.clipboard.writeText(text);
+      flash();
+    } catch {
+      // Clipboard API can be blocked (older browsers, insecure context). Fall
+      // back to a hidden textarea so the copy still works.
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        flash();
+      } catch {
+        window.prompt('Copy the quote below:', text);
+      }
+    }
+  };
 
   const handleShareWhatsApp = (type: string, res: CalculationResult) => {
     const appleFeeText = res.applePickupFeeKES ? `\nApple Store Pick Up Fee: KES ${res.applePickupFeeKES.toLocaleString()}` : '';
@@ -357,6 +423,54 @@ const Calculators: React.FC = () => {
                         KES {Math.round(usPhoneResult.totalKES).toLocaleString()}
                       </p>
                     </div>
+                    {/* ADMIN-ONLY quote tools — hidden from clients entirely */}
+                    {isAdmin && (
+                      <div className="mb-6 rounded-2xl border border-[#FF9900]/30 bg-[#FF9900]/5 p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Lock size={13} weight="duotone" className="text-[#FF9900]" />
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#FF9900]">
+                            Admin only · clients never see this
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 mb-4">
+                          <button
+                            onClick={() => setDiscountOn(v => !v)}
+                            role="switch"
+                            aria-checked={discountOn}
+                            className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${discountOn ? 'bg-emerald-500' : 'bg-white/20'}`}
+                          >
+                            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${discountOn ? 'left-[26px]' : 'left-0.5'}`} />
+                          </button>
+                          <span className="text-xs font-bold text-white/80">
+                            {discountOn ? 'Discount applied' : 'No discount'}
+                          </span>
+                          {discountOn && (
+                            <div className="flex items-center gap-1.5 ml-auto">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">KES</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={discountAmount}
+                                onChange={(e) => setDiscountAmount(e.target.value)}
+                                aria-label="Discount amount in KES"
+                                className="w-24 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm font-bold text-white outline-none focus:border-[#FF9900] transition-colors"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => handleCopyQuote(usPhoneResult)}
+                          className="w-full bg-white/10 border border-white/20 text-white py-3.5 rounded-full font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2.5 hover:bg-white hover:text-[#0f1a1c] transition-all"
+                        >
+                          {quoteCopied
+                            ? <><CheckCircle size={15} weight="fill" className="text-emerald-400" /> Quote copied — paste it to your client</>
+                            : <><Copy size={15} weight="bold" /> Copy quote for client</>}
+                        </button>
+                      </div>
+                    )}
+
                     <button
                       onClick={() => handleShareWhatsApp('US Order', usPhoneResult)}
                       className="w-full bg-white text-[#0f1a1c] py-5 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 hover:bg-[#25D366] hover:text-white transition-all"

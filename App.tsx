@@ -226,7 +226,7 @@ const AppContent: React.FC = () => {
           <Route path="/collaboration" element={<Collaboration />} />
           <Route path="/consultation" element={<ConsultationPage onSubmit={(c) => setConsultations([...consultations, c])} />} />
           <Route path="/shop" element={<Shop products={products} onUpdateProducts={setProducts} />} />
-          <Route path="/calculators" element={<Calculators />} />
+          <Route path="/calculators" element={<Calculators isAdmin={isAdmin} />} />
           <Route path="/blogs" element={<Blogs blogs={blogs} faqs={faqs} />} />
           <Route path="/books" element={<Books />} />
           <Route path="/about" element={<AboutUs />} />
