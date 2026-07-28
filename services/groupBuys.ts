@@ -5,7 +5,9 @@ export interface GroupCampaign {
   slug: string;
   title: string;
   description?: string;
-  imageUrl?: string;
+  imageUrl?: string;        // legacy single cover image (older campaigns)
+  imageUrls?: string[];     // gallery — first one is the cover
+  videoUrl?: string;        // TikTok / YouTube / Instagram link
   unitPriceKES: number;
   minDepositKES: number;   // minimum deposit PER UNIT
   whatsappGroupLink?: string;
@@ -27,6 +29,29 @@ export interface GroupOrder {
   createdAt?: string;
 }
 
+/**
+ * Row → GroupCampaign. Falls back to the legacy single `image_url` so campaigns
+ * created before the gallery migration still show their cover.
+ */
+const toCampaign = (d: any): GroupCampaign => {
+  const gallery: string[] = Array.isArray(d.image_urls) ? d.image_urls.filter(Boolean) : [];
+  if (gallery.length === 0 && d.image_url) gallery.push(d.image_url);
+  return {
+    id: d.id,
+    slug: d.slug,
+    title: d.title,
+    description: d.description || undefined,
+    imageUrl: d.image_url || gallery[0] || undefined,
+    imageUrls: gallery,
+    videoUrl: d.video_url || undefined,
+    unitPriceKES: Number(d.unit_price_kes) || 0,
+    minDepositKES: Number(d.min_deposit_kes) || 0,
+    whatsappGroupLink: d.whatsapp_group_link || undefined,
+    status: d.status || 'open',
+    closesAt: d.closes_at || undefined
+  };
+};
+
 /** Public: load a campaign by its shareable slug. */
 export const fetchGroupCampaign = async (slug: string): Promise<GroupCampaign | null> => {
   const { data, error } = await supabase
@@ -35,18 +60,7 @@ export const fetchGroupCampaign = async (slug: string): Promise<GroupCampaign | 
     .eq('slug', slug)
     .maybeSingle();
   if (error || !data) return null;
-  return {
-    id: data.id,
-    slug: data.slug,
-    title: data.title,
-    description: data.description || undefined,
-    imageUrl: data.image_url || undefined,
-    unitPriceKES: Number(data.unit_price_kes) || 0,
-    minDepositKES: Number(data.min_deposit_kes) || 0,
-    whatsappGroupLink: data.whatsapp_group_link || undefined,
-    status: data.status || 'open',
-    closesAt: data.closes_at || undefined
-  };
+  return toCampaign(data);
 };
 
 /** Public: record a client's reservation after they pay (via SECURITY DEFINER RPC). */
@@ -83,13 +97,7 @@ export const fetchGroupCampaigns = async (): Promise<GroupCampaign[]> => {
   const { data, error } = await supabase
     .from('group_campaigns').select('*').order('created_at', { ascending: false });
   if (error || !data) return [];
-  return data.map((d: any) => ({
-    id: d.id, slug: d.slug, title: d.title,
-    description: d.description || undefined, imageUrl: d.image_url || undefined,
-    unitPriceKES: Number(d.unit_price_kes) || 0, minDepositKES: Number(d.min_deposit_kes) || 0,
-    whatsappGroupLink: d.whatsapp_group_link || undefined, status: d.status || 'open',
-    closesAt: d.closes_at || undefined
-  }));
+  return data.map(toCampaign);
 };
 
 /** Admin: all reservations (optionally for one campaign), newest first. */
@@ -109,37 +117,72 @@ export const fetchGroupOrders = async (campaignId?: string): Promise<GroupOrder[
 
 /** Admin: create a campaign. Auto-slugs from the title if no slug is given. */
 export const createGroupCampaign = async (c: {
-  title: string; description?: string; imageUrl?: string;
+  title: string; description?: string; imageUrl?: string; imageUrls?: string[];
+  videoUrl?: string;
   unitPriceKES: number; minDepositKES: number; slug?: string;
   whatsappGroupLink?: string; closesAt?: string | null;
 }): Promise<{ success: boolean; slug?: string; error?: string }> => {
   const slug = (c.slug && slugify(c.slug)) || `${slugify(c.title)}-${Math.random().toString(36).slice(2, 5)}`;
-  const { error } = await supabase.from('group_campaigns').insert({
-    slug, title: c.title, description: c.description || null, image_url: c.imageUrl || null,
+  const gallery = (c.imageUrls || []).filter(Boolean);
+  const base = {
+    slug, title: c.title, description: c.description || null,
+    // Keep the legacy single column in sync so nothing depending on it breaks.
+    image_url: c.imageUrl || gallery[0] || null,
     unit_price_kes: c.unitPriceKES, min_deposit_kes: c.minDepositKES,
     whatsapp_group_link: c.whatsappGroupLink || null, status: 'open',
     closes_at: c.closesAt || null
+  };
+  const { error } = await supabase.from('group_campaigns').insert({
+    ...base,
+    image_urls: gallery.length ? gallery : null,
+    video_url: c.videoUrl || null,
   });
-  if (error) return { success: false, error: error.message };
-  return { success: true, slug };
+  if (!error) return { success: true, slug };
+  // The gallery/video migration may not be applied yet — still create the
+  // campaign (with its single cover image) rather than blocking the admin.
+  if (isMissingMediaColumn(error.message)) {
+    const { error: retryErr } = await supabase.from('group_campaigns').insert(base);
+    if (!retryErr) return { success: true, slug };
+    return { success: false, error: retryErr.message };
+  }
+  return { success: false, error: error.message };
 };
+
+/** True when the DB is missing the image_urls / video_url columns. */
+const isMissingMediaColumn = (msg?: string) =>
+  !!msg && /image_urls|video_url/.test(msg) && /does not exist|schema cache/i.test(msg);
 
 /** Admin: edit an existing campaign's editable fields. */
 export const updateGroupCampaign = async (id: string, c: {
-  title?: string; description?: string; imageUrl?: string;
+  title?: string; description?: string; imageUrl?: string; imageUrls?: string[];
+  videoUrl?: string;
   unitPriceKES?: number; minDepositKES?: number;
   whatsappGroupLink?: string; closesAt?: string | null;
 }): Promise<{ success: boolean; error?: string }> => {
   const payload: any = {};
   if (c.title !== undefined) payload.title = c.title;
   if (c.description !== undefined) payload.description = c.description || null;
-  if (c.imageUrl !== undefined) payload.image_url = c.imageUrl || null;
+  if (c.imageUrls !== undefined) {
+    const gallery = (c.imageUrls || []).filter(Boolean);
+    payload.image_urls = gallery.length ? gallery : null;
+    payload.image_url = gallery[0] || null;   // keep the legacy cover in sync
+  }
+  if (c.videoUrl !== undefined) payload.video_url = c.videoUrl || null;
+  if (c.imageUrl !== undefined && c.imageUrls === undefined) payload.image_url = c.imageUrl || null;
   if (c.unitPriceKES !== undefined) payload.unit_price_kes = c.unitPriceKES;
   if (c.minDepositKES !== undefined) payload.min_deposit_kes = c.minDepositKES;
   if (c.whatsappGroupLink !== undefined) payload.whatsapp_group_link = c.whatsappGroupLink || null;
   if (c.closesAt !== undefined) payload.closes_at = c.closesAt || null;
   const { error } = await supabase.from('group_campaigns').update(payload).eq('id', id);
-  return { success: !error, error: error?.message };
+  if (!error) return { success: true };
+  // Same graceful fallback as create: save everything except the media columns
+  // if the migration hasn't been run yet.
+  if (isMissingMediaColumn(error.message)) {
+    const { image_urls, video_url, ...rest } = payload;
+    const { error: retryErr } = await supabase.from('group_campaigns').update(rest).eq('id', id);
+    return { success: !retryErr, error: retryErr?.message };
+  }
+  return { success: false, error: error.message };
 };
 
 /** Admin: open / close a campaign. */

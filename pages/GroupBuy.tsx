@@ -27,6 +27,12 @@ const GroupBuy: React.FC = () => {
   const [orderCode, setOrderCode] = useState('');
   const [copied, setCopied] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [activeImage, setActiveImage] = useState(0);
+
+  // Gallery, falling back to the legacy single cover image.
+  const gallery = (campaign?.imageUrls && campaign.imageUrls.length
+    ? campaign.imageUrls
+    : (campaign?.imageUrl ? [campaign.imageUrl] : []));
 
   const isClosed = !!campaign && (
     campaign.status !== 'open' ||
@@ -80,8 +86,13 @@ const GroupBuy: React.FC = () => {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${adminMsg}`, '_blank');
   };
 
-  // Leads with the item name so the admin can tell orders apart in the one shared group.
-  const confirmationText = `✅ Deposit paid — ${campaign?.title}\nOrder ${orderCode} · ${units} unit${units > 1 ? 's' : ''} · ${name}`;
+  // Pasted by the client into the shared group as their receipt. Leads with the
+  // item so the admin can tell orders apart, and states exactly what was paid
+  // and what is still owed on arrival.
+  const confirmationText =
+    `✅ Deposit paid — ${campaign?.title}\n` +
+    `Order ${orderCode} · ${units} unit${units > 1 ? 's' : ''} · ${name}\n` +
+    `Paid: KES ${amountToCharge.toLocaleString()} · Balance on arrival: KES ${balanceAfter.toLocaleString()}`;
 
   // Every campaign points to the one community group unless it sets its own link.
   const groupLink = campaign?.whatsappGroupLink || WHATSAPP_GROUP_LINK;
@@ -150,9 +161,47 @@ const GroupBuy: React.FC = () => {
               <h1 className="text-2xl font-bold tracking-tight">{campaign.title}</h1>
             </div>
             <div className="p-8">
-              {campaign.imageUrl && (
-                <img src={campaign.imageUrl} alt={campaign.title} className="w-full h-44 object-cover rounded-2xl mb-5 border border-gray-100" />
+              {/* Gallery — big cover, tap a thumbnail to switch */}
+              {gallery.length > 0 && (
+                <div className="mb-5">
+                  <img
+                    src={gallery[activeImage] || gallery[0]}
+                    alt={campaign.title}
+                    className="w-full h-56 object-cover rounded-2xl border border-gray-100"
+                  />
+                  {gallery.length > 1 && (
+                    <div className="flex gap-2 mt-2.5 overflow-x-auto pb-1">
+                      {gallery.map((url, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setActiveImage(i)}
+                          aria-label={`View image ${i + 1}`}
+                          className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${i === activeImage ? 'border-[#3D8593]' : 'border-gray-100 opacity-70 hover:opacity-100'}`}
+                        >
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
+
+              {/* Video — opens TikTok / YouTube / Instagram in a new tab */}
+              {campaign.videoUrl && (
+                <a
+                  href={campaign.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 mb-5 bg-[#0f1a1c] text-white rounded-2xl px-5 py-4 hover:bg-[#3D8593] transition-colors"
+                >
+                  <span className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center shrink-0">▶</span>
+                  <span>
+                    <span className="block text-[10px] font-black uppercase tracking-widest text-[#FF9900]">Watch the video</span>
+                    <span className="block text-xs text-white/70 font-medium">See this item in action before you reserve</span>
+                  </span>
+                </a>
+              )}
+
               {campaign.description && <p className="text-sm text-gray-500 font-light leading-relaxed mb-6">{campaign.description}</p>}
 
               <div className="flex justify-between items-baseline mb-3">

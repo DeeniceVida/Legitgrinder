@@ -23,7 +23,7 @@ const GroupBuysTab: React.FC = () => {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const blankForm = { title: '', description: '', imageUrl: '', unitPrice: '', minDeposit: '', slug: '', groupLink: '', closesAt: '' };
+  const blankForm = { title: '', description: '', imageUrls: '', videoUrl: '', unitPrice: '', minDeposit: '', slug: '', groupLink: '', closesAt: '' };
   const [form, setForm] = useState(blankForm);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,7 +57,9 @@ const GroupBuysTab: React.FC = () => {
   const openEdit = (c: GroupCampaign) => {
     setEditingId(c.id);
     setForm({
-      title: c.title, description: c.description || '', imageUrl: c.imageUrl || '',
+      title: c.title, description: c.description || '',
+      imageUrls: (c.imageUrls && c.imageUrls.length ? c.imageUrls : (c.imageUrl ? [c.imageUrl] : [])).join('\n'),
+      videoUrl: c.videoUrl || '',
       unitPrice: String(c.unitPriceKES), minDeposit: String(c.minDepositKES),
       slug: c.slug, groupLink: c.whatsappGroupLink || '', closesAt: toLocalInput(c.closesAt)
     });
@@ -72,7 +74,9 @@ const GroupBuysTab: React.FC = () => {
     const common = {
       title: form.title.trim(),
       description: form.description.trim() || undefined,
-      imageUrl: form.imageUrl.trim() || undefined,
+      // Accept one URL per line or comma-separated — first one becomes the cover.
+      imageUrls: form.imageUrls.split(/[\n,]+/).map(s => s.trim()).filter(Boolean),
+      videoUrl: form.videoUrl.trim() || undefined,
       unitPriceKES: parseInt(form.unitPrice) || 0,
       minDepositKES: parseInt(form.minDeposit) || Math.round((parseInt(form.unitPrice) || 0) / 2),
       whatsappGroupLink: form.groupLink.trim() || undefined,
@@ -216,7 +220,14 @@ const GroupBuysTab: React.FC = () => {
             <div><label className={label}>WhatsApp group link</label><input className={input} placeholder="https://chat.whatsapp.com/…" value={form.groupLink} onChange={e => setForm({ ...form, groupLink: e.target.value })} /></div>
             <div><label className={label}>Closes at <span className="text-gray-300">(deadline)</span></label><input type="datetime-local" className={input} value={form.closesAt} onChange={e => setForm({ ...form, closesAt: e.target.value })} /></div>
           </div>
-          <div><label className={label}>Image URL <span className="text-gray-300">(optional)</span></label><input className={input} placeholder="https://…" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} /></div>
+          <div>
+            <label className={label}>Images <span className="text-gray-300">— one URL per line, first is the cover</span></label>
+            <textarea rows={3} className={`${input} resize-none`} placeholder={"https://…/front.jpg\nhttps://…/side.jpg\nhttps://…/box.jpg"} value={form.imageUrls} onChange={e => setForm({ ...form, imageUrls: e.target.value })} />
+          </div>
+          <div>
+            <label className={label}>Video link <span className="text-gray-300">(TikTok / YouTube / Instagram — optional)</span></label>
+            <input className={input} placeholder="https://www.tiktok.com/@you/video/…" value={form.videoUrl} onChange={e => setForm({ ...form, videoUrl: e.target.value })} />
+          </div>
           <div className="flex justify-end gap-3">
             <button onClick={() => { setShowForm(false); setEditingId(null); }} className="px-6 py-3 rounded-full text-[11px] font-black uppercase tracking-widest text-gray-400 border border-gray-200 hover:bg-neutral-50">Cancel</button>
             <button onClick={handleSubmit} disabled={creating} className="btn-vibrant-teal px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-40">
