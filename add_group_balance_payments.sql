@@ -59,6 +59,12 @@ grant execute on function public.get_group_order(text) to anon, authenticated;
 -- names (code / paid_kes, not order_code / amount_paid_kes). Reusing a column
 -- name as an OUT parameter makes every unqualified reference to it ambiguous
 -- inside the function body, and Postgres refuses to run it.
+--
+-- The DROP is required: CREATE OR REPLACE cannot change a function's OUT
+-- parameters, so replacing an earlier version of this function fails with
+-- "cannot change return type of existing function" unless it is dropped first.
+drop function if exists public.record_group_balance_payment(text, numeric, text);
+
 create or replace function public.record_group_balance_payment(
   p_code text, p_amount numeric, p_reference text
 )
