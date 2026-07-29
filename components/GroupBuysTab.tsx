@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   UsersThree, Plus, LinkSimple, Copy, CheckCircle, CircleNotch, MagnifyingGlass,
   WhatsappLogo, LockSimple, LockSimpleOpen, CurrencyDollar, Package, ArrowLeft,
-  PencilSimple, Clock, ArrowsClockwise
+  PencilSimple, Clock, ArrowsClockwise, PaperPlaneTilt
 } from '@phosphor-icons/react';
 import {
   GroupCampaign, GroupColor, GroupOrder, fetchGroupCampaigns, fetchGroupOrders,
-  createGroupCampaign, updateGroupCampaign, setGroupCampaignStatus
+  createGroupCampaign, updateGroupCampaign, setGroupCampaignStatus,
+  markCampaignArrived, sendGroupBalanceEmails
 } from '../services/groupBuys';
 import { normalizeKenyanPhone } from '../utils/phone';
 
@@ -21,6 +22,9 @@ const GroupBuysTab: React.FC = () => {
   const [search, setSearch] = useState('');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [view, setView] = useState<'all' | 'running' | 'past'>('all');
+  const [notifying, setNotifying] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [copiedGroupMsg, setCopiedGroupMsg] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -169,6 +173,69 @@ const GroupBuysTab: React.FC = () => {
     return list;
   }, [orders, selected, search]);
 
+  /**
+   * Mark the campaign arrived and email every buyer who still owes money their
+   * own balance and pay link. Safe to run again — already-paid buyers are
+   * skipped, so nobody gets chased for money they've settled.
+   */
+  const handleArrivedAndNotify = async (c: GroupCampaign, owing: GroupOrder[]) => {
+    const withEmail = owing.filter(o => (o.clientEmail || '').includes('@'));
+    const noEmail = owing.length - withEmail.length;
+    const owed = owing.reduce((s, o) => s + Math.max(o.totalKES - o.amountPaidKES, 0), 0);
+
+    if (!confirm(
+      `Email ${withEmail.length} buyer${withEmail.length === 1 ? '' : 's'} that "${c.title}" has arrived?\n\n` +
+      `They'll each get their own balance (KES ${owed.toLocaleString()} total) and a pay link.` +
+      (noEmail > 0 ? `\n\n${noEmail} buyer(s) have no email on file — WhatsApp them individually from the list below.` : '')
+    )) return;
+
+    setNotifying(true);
+    setNotifyResult(null);
+
+    if (!c.arrivedAt) {
+      const mark = await markCampaignArrived(c.id);
+      if (!mark.success) {
+        setNotifying(false);
+        setNotifyResult({ ok: false, msg: mark.error || 'Could not mark the campaign as arrived.' });
+        return;
+      }
+    }
+
+    const origin = window.location.origin;
+    const res = await sendGroupBalanceEmails({
+      campaignTitle: c.title,
+      imageUrl: (c.imageUrls && c.imageUrls[0]) || c.imageUrl,
+      collectionNote: 'Ready for collection at our Nairobi CBD pickup point once your balance is cleared.',
+      recipients: withEmail.map(o => ({
+        email: o.clientEmail!, name: o.clientName, orderCode: o.orderCode,
+        units: o.units, color: o.color,
+        totalKES: o.totalKES, paidKES: o.amountPaidKES,
+        balanceKES: Math.max(o.totalKES - o.amountPaidKES, 0),
+        payUrl: `${origin}/group/pay/${o.orderCode}`
+      }))
+    });
+
+    setNotifying(false);
+    setNotifyResult(res.success
+      ? { ok: true, msg: `✅ Emailed ${res.sent} buyer${res.sent === 1 ? '' : 's'}.${noEmail > 0 ? ` ${noEmail} had no email — WhatsApp them below.` : ''}` }
+      : { ok: false, msg: `❌ ${res.error || 'The emails could not be sent.'}` });
+    load();
+  };
+
+  /** One announcement to paste into the shared WhatsApp group. */
+  const copyGroupMessage = (c: GroupCampaign) => {
+    const msg =
+      `📦 *${c.title} has arrived!*\n\n` +
+      `Everyone who reserved — your order is in and ready for collection at our Nairobi CBD point.\n\n` +
+      `Your exact balance and a pay link have been emailed to you. Kindly clear it so we can hand yours over.\n\n` +
+      `Didn't get the email? Reply here with your order code (GRP-XXXXXX) and we'll resend it.\n\n` +
+      `— LegitGrinder`;
+    navigator.clipboard.writeText(msg).then(() => {
+      setCopiedGroupMsg(true);
+      setTimeout(() => setCopiedGroupMsg(false), 2200);
+    });
+  };
+
   const waBalance = (o: GroupOrder, title: string) => {
     const first = (o.clientName || 'there').split(' ')[0];
     const balance = Math.max(o.totalKES - o.amountPaidKES, 0);
@@ -204,6 +271,56 @@ const GroupBuysTab: React.FC = () => {
           </div>
         </div>
 
+        {/* ARRIVAL & BALANCE COLLECTION */}
+        {(() => {
+          const owing = orders.filter(o => o.campaignId === selectedCampaign.id && (o.totalKES - o.amountPaidKES) > 0);
+          const settled = orders.filter(o => o.campaignId === selectedCampaign.id && (o.totalKES - o.amountPaidKES) <= 0);
+          const owed = owing.reduce((s, o) => s + Math.max(o.totalKES - o.amountPaidKES, 0), 0);
+          const arrived = !!selectedCampaign.arrivedAt;
+          return (
+            <div className={`rounded-[2rem] border p-6 ${arrived ? 'bg-emerald-50/60 border-emerald-200' : 'bg-white border-neutral-100 shadow-sm'}`}>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5">
+                    {arrived ? 'Stock has landed' : 'When the stock lands'}
+                  </p>
+                  <p className="text-sm font-bold text-gray-900">
+                    {arrived
+                      ? `Marked arrived ${new Date(selectedCampaign.arrivedAt!).toLocaleString('en-KE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
+                      : 'One click emails every buyer their balance and a pay link.'}
+                  </p>
+                  <p className="text-[11px] font-bold text-gray-500 mt-2">
+                    <span className="text-[#FF9900]">{owing.length}</span> still owe KES {owed.toLocaleString()} ·{' '}
+                    <span className="text-emerald-600">{settled.length}</span> fully paid
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => copyGroupMessage(selectedCampaign)}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-all"
+                  >
+                    {copiedGroupMsg ? <><CheckCircle size={13} weight="fill" className="text-emerald-500" /> Copied</> : <><Copy size={13} weight="bold" /> Group message</>}
+                  </button>
+                  <button
+                    onClick={() => handleArrivedAndNotify(selectedCampaign, owing)}
+                    disabled={notifying || owing.length === 0}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
+                  >
+                    {notifying
+                      ? <><CircleNotch size={13} className="animate-spin" /> Emailing…</>
+                      : arrived
+                        ? <><PaperPlaneTilt size={13} weight="fill" /> Resend balance emails</>
+                        : <><Package size={13} weight="fill" /> Mark arrived &amp; email balances</>}
+                  </button>
+                </div>
+              </div>
+              {notifyResult && (
+                <p className={`text-xs font-bold mt-4 ${notifyResult.ok ? 'text-emerald-700' : 'text-rose-600'}`}>{notifyResult.msg}</p>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -232,7 +349,13 @@ const GroupBuysTab: React.FC = () => {
                     </td>
                     <td className="px-4 py-3.5 text-center font-bold">{o.units}</td>
                     <td className="px-4 py-3.5 text-right font-bold text-emerald-600">{o.amountPaidKES.toLocaleString()}</td>
-                    <td className="px-4 py-3.5 text-right font-black text-[#FF9900]">{balance.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right">
+                      {balance > 0
+                        ? <span className="font-black text-[#FF9900]">{balance.toLocaleString()}</span>
+                        : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase tracking-widest">
+                            <CheckCircle size={11} weight="fill" /> Paid
+                          </span>}
+                    </td>
                     <td className="px-4 py-3.5 text-center">
                       {o.joinedGroup ? <CheckCircle size={18} weight="fill" className="text-emerald-500 inline" /> : <span className="text-gray-300">—</span>}
                     </td>

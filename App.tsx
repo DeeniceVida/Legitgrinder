@@ -18,6 +18,7 @@ import AboutUs from './pages/AboutUs';
 import ResetPassword from './pages/ResetPassword';
 import PayInvoice from './pages/PayInvoice';
 import GroupBuy from './pages/GroupBuy';
+import GroupBalancePay from './pages/GroupBalancePay';
 import HowItWorks from './pages/HowItWorks';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import SafeImage from './components/SafeImage';
@@ -234,6 +235,7 @@ const AppContent: React.FC = () => {
           <Route path="/history" element={<OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/pay/:invoiceNumber" element={<PayInvoice />} />
+          <Route path="/group/pay/:orderCode" element={<GroupBalancePay />} />
           <Route path="/group/:slug" element={<GroupBuy />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route

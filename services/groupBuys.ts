@@ -21,6 +21,7 @@ export interface GroupCampaign {
   whatsappGroupLink?: string;
   status: string;
   closesAt?: string;       // ISO deadline — after this, no more payments
+  arrivedAt?: string;      // set when stock lands and balances are called in
 }
 
 export interface GroupOrder {
@@ -61,7 +62,8 @@ const toCampaign = (d: any): GroupCampaign => {
     minDepositKES: Number(d.min_deposit_kes) || 0,
     whatsappGroupLink: d.whatsapp_group_link || undefined,
     status: d.status || 'open',
-    closesAt: d.closes_at || undefined
+    closesAt: d.closes_at || undefined,
+    arrivedAt: d.arrived_at || undefined
   };
 };
 
@@ -103,6 +105,93 @@ export const recordGroupOrder = async (args: {
     return { success: false, error: retry.error.message };
   }
   return { success: false, error: error.message };
+};
+
+/** What the public balance-pay page is allowed to see about an order. */
+export interface PublicGroupOrder {
+  orderCode: string;
+  clientName?: string;
+  campaignTitle: string;
+  units: number;
+  color?: string;
+  totalKES: number;
+  amountPaidKES: number;
+  balanceKES: number;
+  arrived: boolean;
+}
+
+/** Public: look up one order by its code (SECURITY DEFINER — no contact details). */
+export const fetchGroupOrderByCode = async (code: string): Promise<PublicGroupOrder | null> => {
+  try {
+    const { data, error } = await supabase.rpc('get_group_order', { p_code: code });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row) return null;
+    return {
+      orderCode: row.order_code,
+      clientName: row.client_name || undefined,
+      campaignTitle: row.campaign_title,
+      units: row.units || 1,
+      color: row.color || undefined,
+      totalKES: Number(row.total_kes) || 0,
+      amountPaidKES: Number(row.amount_paid_kes) || 0,
+      balanceKES: Number(row.balance_kes) || 0,
+      arrived: !!row.arrived,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/** Public: record a balance payment against the buyer's own order. */
+export const recordGroupBalancePayment = async (
+  code: string, amountKES: number, reference: string
+): Promise<{ success: boolean; balanceKES?: number; fullyPaid?: boolean; error?: string }> => {
+  try {
+    const { data, error } = await supabase.rpc('record_group_balance_payment', {
+      p_code: code, p_amount: Math.round(amountKES), p_reference: reference
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row) return { success: false, error: error?.message || 'Could not record the payment.' };
+    return { success: true, balanceKES: Number(row.balance_kes) || 0, fullyPaid: !!row.fully_paid };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+};
+
+/** Admin: mark the campaign's stock as landed (drives the balance emails). */
+export const markCampaignArrived = async (id: string): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase
+    .from('group_campaigns')
+    .update({ arrived_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error && /arrived_at/.test(error.message)) {
+    return { success: false, error: 'Run add_group_balance_payments.sql in Supabase first — the arrived_at column does not exist yet.' };
+  }
+  return { success: !error, error: error?.message };
+};
+
+/** Admin: email every buyer with an outstanding balance their own pay link. */
+export const sendGroupBalanceEmails = async (args: {
+  campaignTitle: string;
+  imageUrl?: string;
+  collectionNote?: string;
+  recipients: {
+    email: string; name?: string; orderCode: string; units?: number; color?: string;
+    totalKES: number; paidKES: number; balanceKES: number; payUrl: string;
+  }[];
+}): Promise<{ success: boolean; sent?: number; skipped?: number; error?: string }> => {
+  try {
+    const res = await fetch('/api/group-balance-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(args)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) return { success: false, error: data.error || 'The emails could not be sent.' };
+    return { success: true, sent: data.sent, skipped: data.skipped };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'Could not reach the email service (live site only).' };
+  }
 };
 
 /** Public: flag that the client tapped through to join the WhatsApp group. */
