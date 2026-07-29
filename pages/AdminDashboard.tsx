@@ -6,7 +6,7 @@ import {
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
-  ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText, Star
+  ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText, Star, Building2 as Buildings
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -36,6 +36,10 @@ import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 import { normalizeKenyanPhone } from '../utils/phone';
+import {
+  CorporateQuote, CorporateCategory, fetchCorporateQuotes, fetchCorporateCategories,
+  upsertCorporateCategory, setCorporateQuoteStatus
+} from '../services/corporate';
 import { computeAttention } from '../utils/logistics';
 import type { MessageIntent } from '../services/messageAgent';
 
@@ -104,7 +108,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'groupbuys' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -115,6 +119,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newAgentName, setNewAgentName] = useState('');
   const [newAgentColor, setNewAgentColor] = useState('rose');
   const [agentError, setAgentError] = useState<string | null>(null);
+  // /corporate — B2B quote requests and the price bands that drive its estimator.
+  const [corpQuotes, setCorpQuotes] = useState<CorporateQuote[]>([]);
+  const [corpCats, setCorpCats] = useState<CorporateCategory[]>([]);
+  const [corpView, setCorpView] = useState<'leads' | 'pricing'>('leads');
+  const newCorporateCount = corpQuotes.filter(q => q.status === 'new' && q.leadQuality === 'priority').length;
+
+  const loadCorporate = () => {
+    fetchCorporateQuotes().then(setCorpQuotes).catch(() => {});
+    fetchCorporateCategories(false).then(setCorpCats).catch(() => {});
+  };
+
+  const saveCorpCategory = async (c: CorporateCategory) => {
+    const res = await upsertCorporateCategory(c);
+    if (!res.success) { alert(`Could not save: ${res.error}`); return; }
+    loadCorporate();
+  };
+
+  /** Draft the qualifying question before doing any sourcing work. */
+  const qualifyLead = (q: CorporateQuote) => {
+    const first = (q.fullName || 'there').split(' ')[0];
+    const msg = encodeURIComponent(
+      `Hi ${first}, thanks for your request for ${q.businessName}. ` +
+      `Before I pull exact factory and shipping costs for ${q.categories.join(' and ') || 'your order'}, ` +
+      `two quick things: what's your target delivery date, and do you have a target budget per unit? ` +
+      `That way the quotation I send you is accurate rather than generic.`
+    );
+    const phone = q.whatsapp ? normalizeKenyanPhone(q.whatsapp) : '';
+    window.open(phone ? `https://wa.me/${phone}?text=${msg}` : `mailto:${q.email}`, '_blank');
+  };
   const [syncBrandFilter, setSyncBrandFilter] = useState<'iphone' | 'samsung' | 'pixel'>('iphone');
   const [adminSearchTerm, setAdminSearchTerm] = useState('');
   const [productSearch, setProductSearch] = useState('');
@@ -266,6 +299,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
+    { id: 'corporate', name: 'Corporate', group: 'Main', badge: newCorporateCount || undefined, icon: <Buildings className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Phone Price Sync', group: 'Operations', icon: <RefreshCcw className="w-4 h-4" /> },
@@ -481,6 +515,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       fetchWaitlistCounts().then(setWaitlistCounts).catch(() => {});
     } else if (activeTab === 'invoices') {
       fetchShippingAgents().then(setShippingAgents).catch(() => {});
+    } else if (activeTab === 'corporate') {
+      loadCorporate();
     }
   }, [activeTab]);
 
@@ -2816,6 +2852,158 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
         {activeTab === 'groupbuys' && <GroupBuysTab />}
+
+        {activeTab === 'corporate' && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="flex flex-wrap items-center justify-between gap-4 px-1">
+              <div>
+                <h2 className="text-3xl font-black text-gray-900 tracking-tighter uppercase italic">Corporate <span className="text-[#3D8593]">Procurement</span></h2>
+                <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mt-1">
+                  legitgrinder.com/corporate · B2B bulk quote requests
+                </p>
+              </div>
+              <div className="flex items-center gap-1 bg-neutral-50 border border-neutral-100 rounded-full p-1">
+                {([['leads', `Leads (${corpQuotes.length})`], ['pricing', 'Price bands']] as const).map(([v, l]) => (
+                  <button key={v} onClick={() => setCorpView(v)}
+                    className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${corpView === v ? 'bg-[#3D8593] text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {corpView === 'pricing' ? (
+              <>
+                <div className="bg-amber-50 border border-amber-200 rounded-[1.5rem] p-5">
+                  <p className="text-sm text-amber-800 font-medium">
+                    The instant estimate on <strong>/corporate</strong> only appears for lines that have a price band here.
+                    Leave a band blank and that category can still be requested — buyers just won't see a figure you haven't approved.
+                  </p>
+                </div>
+                <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-[10px] font-black uppercase tracking-widest text-gray-400 border-b border-neutral-100">
+                        <th className="px-5 py-4">Category</th>
+                        <th className="px-4 py-4 text-right">Landed / unit — from</th>
+                        <th className="px-4 py-4 text-right">to</th>
+                        <th className="px-4 py-4 text-center">Min qty</th>
+                        <th className="px-4 py-4 text-center">Live</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {corpCats.map(c => (
+                        <tr key={c.id} className="border-b border-neutral-50">
+                          <td className="px-5 py-3.5">
+                            <p className="font-bold text-gray-900">{c.name}</p>
+                            {c.blurb && <p className="text-[11px] text-gray-400 font-medium">{c.blurb}</p>}
+                          </td>
+                          {(['minKES', 'maxKES'] as const).map(key => (
+                            <td key={key} className="px-4 py-3.5 text-right">
+                              <input
+                                type="number" min={0}
+                                key={`${c.id}-${key}-${c[key] ?? ''}`}
+                                defaultValue={c[key] ?? ''}
+                                placeholder="—"
+                                onBlur={(e) => {
+                                  const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                                  if (val === c[key]) return;
+                                  saveCorpCategory({ ...c, [key]: val });
+                                }}
+                                className="w-28 h-9 bg-neutral-50 border border-neutral-100 rounded-lg px-3 text-sm font-bold text-right outline-none focus:border-[#3D8593] focus:bg-white"
+                              />
+                            </td>
+                          ))}
+                          <td className="px-4 py-3.5 text-center">
+                            <input
+                              type="number" min={1}
+                              key={`${c.id}-moq-${c.moq}`}
+                              defaultValue={c.moq}
+                              onBlur={(e) => {
+                                const val = parseInt(e.target.value, 10) || 1;
+                                if (val === c.moq) return;
+                                saveCorpCategory({ ...c, moq: val });
+                              }}
+                              className="w-20 h-9 bg-neutral-50 border border-neutral-100 rounded-lg px-3 text-sm font-bold text-center outline-none focus:border-[#3D8593] focus:bg-white"
+                            />
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            <button
+                              onClick={() => saveCorpCategory({ ...c, isActive: !c.isActive })}
+                              className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${c.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}
+                            >
+                              {c.isActive ? 'Live' : 'Hidden'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {corpCats.length === 0 && (
+                        <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400 font-medium">
+                          No categories yet — run <span className="font-mono text-xs">add_corporate_quotes.sql</span> in Supabase.
+                        </td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                {corpQuotes.length === 0 && (
+                  <div className="bg-white rounded-[2rem] border border-neutral-100 shadow-sm py-16 text-center">
+                    <Buildings className="w-10 h-10 text-gray-300 mx-auto mb-4" />
+                    <p className="font-bold text-gray-900 mb-1">No requests yet</p>
+                    <p className="text-sm text-gray-500 font-light">Share legitgrinder.com/corporate with businesses.</p>
+                  </div>
+                )}
+                {corpQuotes.map(q => (
+                  <div key={q.id} className={`bg-white rounded-[1.5rem] border p-5 ${q.leadQuality === 'priority' ? 'border-neutral-100' : 'border-dashed border-neutral-200 opacity-70'}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-black text-gray-900">{q.businessName}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${q.leadQuality === 'priority' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                            {q.leadQuality}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-bold text-gray-500">
+                          {q.fullName} · {q.email}{q.whatsapp ? ` · ${q.whatsapp}` : ''}{q.location ? ` · ${q.location}` : ''}
+                        </p>
+                        <p className="text-xs text-gray-600 font-medium mt-2">
+                          {q.categories.join(' · ') || '—'} · <strong>{q.quantityBand || '?'}</strong>
+                          {q.timeline ? ` · ${q.timeline}` : ''}{q.budgetBand ? ` · ${q.budgetBand}` : ''}
+                        </p>
+                        {q.estimateLow ? (
+                          <p className="text-[11px] font-bold text-[#3D8593] mt-1">
+                            Estimate shown: KES {q.estimateLow.toLocaleString()} – {q.estimateHigh?.toLocaleString()}
+                          </p>
+                        ) : null}
+                        {q.notes && <p className="text-xs text-gray-500 font-light mt-2 whitespace-pre-line border-l-2 border-neutral-100 pl-3">{q.notes}</p>}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <select
+                          value={q.status}
+                          onChange={async (e) => {
+                            const s = e.target.value as CorporateQuote['status'];
+                            setCorpQuotes(prev => prev.map(x => x.id === q.id ? { ...x, status: s } : x));
+                            await setCorporateQuoteStatus(q.id, s);
+                          }}
+                          className="bg-neutral-50 border border-neutral-100 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest outline-none focus:border-[#3D8593]"
+                        >
+                          {(['new', 'quoted', 'won', 'lost'] as const).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                        <button onClick={() => qualifyLead(q)}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#25D366]/10 text-[#1eb955] text-[10px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-all">
+                          <MessageCircle className="w-3.5 h-3.5" /> Qualify
+                        </button>
+                        <span className="text-[10px] font-bold text-gray-300">{new Date(q.createdAt).toLocaleDateString('en-KE')}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </main >
 
       {/* AI Catalog Agent */}
