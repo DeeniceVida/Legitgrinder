@@ -19,6 +19,7 @@ import ResetPassword from './pages/ResetPassword';
 import PayInvoice from './pages/PayInvoice';
 import GroupBuy from './pages/GroupBuy';
 import GroupBalancePay from './pages/GroupBalancePay';
+import Corporate from './pages/Corporate';
 import HowItWorks from './pages/HowItWorks';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import SafeImage from './components/SafeImage';
@@ -52,6 +53,8 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
+  // /corporate is a standalone B2B page — it brings its own header and footer.
+  const isStandalone = location.pathname.startsWith('/corporate');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -213,11 +216,13 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen flex flex-col selection:bg-[#3D8593] selection:text-white">
       <ValentineTheme />
       <EidTheme />
-      <Navbar
-        isAdmin={isAdmin}
-        isLoggedIn={isLoggedIn}
-        onLogout={handleLogout}
-      />
+      {!isStandalone && (
+        <Navbar
+          isAdmin={isAdmin}
+          isLoggedIn={isLoggedIn}
+          onLogout={handleLogout}
+        />
+      )}
 
       <main className="flex-1 bg-white">
         <Routes>
@@ -235,6 +240,7 @@ const AppContent: React.FC = () => {
           <Route path="/history" element={<OrderHistory invoices={invoices.filter(inv => inv.userId === user?.id)} />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/pay/:invoiceNumber" element={<PayInvoice />} />
+          <Route path="/corporate" element={<Corporate />} />
           <Route path="/group/pay/:orderCode" element={<GroupBalancePay />} />
           <Route path="/group/:slug" element={<GroupBuy />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
@@ -275,6 +281,7 @@ const AppContent: React.FC = () => {
         </Routes>
       </main>
 
+      {!isStandalone && (
       <footer className="px-4 md:px-6 pb-6 bg-white">
         <div className="bg-[#0f1a1c] text-white rounded-[2.5rem] md:rounded-[3rem] px-8 md:px-14 pt-16 md:pt-20 pb-10 relative overflow-hidden">
           {/* Ambient glow */}
@@ -375,8 +382,9 @@ const AppContent: React.FC = () => {
           </div>
         </div>
       </footer>
+      )}
       {/* Hidden on the admin dashboard — the Manager lives there instead */}
-      {!isAdminRoute && <WhatsAppWidget />}
+      {!isAdminRoute && !isStandalone && <WhatsAppWidget />}
     </div>
   );
 };

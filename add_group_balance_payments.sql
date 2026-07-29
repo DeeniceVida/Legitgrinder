@@ -55,27 +55,31 @@ grant execute on function public.get_group_order(text) to anon, authenticated;
 
 -- ── Public: record a balance payment against the buyer's own order ──────────
 -- Adds to amount_paid_kes and never lets it exceed the order total.
+-- NOTE: the OUT column names below deliberately avoid matching real column
+-- names (code / paid_kes, not order_code / amount_paid_kes). Reusing a column
+-- name as an OUT parameter makes every unqualified reference to it ambiguous
+-- inside the function body, and Postgres refuses to run it.
 create or replace function public.record_group_balance_payment(
   p_code text, p_amount numeric, p_reference text
 )
-returns table (order_code text, amount_paid_kes numeric, balance_kes numeric, fully_paid boolean)
+returns table (code text, paid_kes numeric, balance_kes numeric, fully_paid boolean)
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare v public.group_orders%rowtype;
 begin
-  select * into v from public.group_orders
-   where lower(order_code) = lower(btrim(coalesce(p_code,''))) limit 1;
+  select o.* into v from public.group_orders o
+   where lower(o.order_code) = lower(btrim(coalesce(p_code,''))) limit 1;
   if not found then return; end if;
 
-  update public.group_orders set
-    amount_paid_kes   = least(coalesce(amount_paid_kes,0) + greatest(coalesce(p_amount,0),0), coalesce(total_kes,0)),
-    balance_reference = coalesce(p_reference, balance_reference),
+  update public.group_orders o set
+    amount_paid_kes   = least(coalesce(o.amount_paid_kes,0) + greatest(coalesce(p_amount,0),0), coalesce(o.total_kes,0)),
+    balance_reference = coalesce(p_reference, o.balance_reference),
     balance_paid_at   = case
-                          when coalesce(amount_paid_kes,0) + greatest(coalesce(p_amount,0),0) >= coalesce(total_kes,0)
-                          then now() else balance_paid_at end
-  where id = v.id;
+                          when coalesce(o.amount_paid_kes,0) + greatest(coalesce(p_amount,0),0) >= coalesce(o.total_kes,0)
+                          then now() else o.balance_paid_at end
+  where o.id = v.id;
 
   return query
     select o.order_code, o.amount_paid_kes,
