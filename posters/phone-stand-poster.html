@@ -1,0 +1,198 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #e9ecec; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  /* Toolbar — never part of the exported image (html2canvas only captures .poster) */
+  .bar { width: 1080px; max-width: 100%; display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; margin-bottom: 16px; font-family: 'Plus Jakarta Sans', Arial, sans-serif; }
+  .bar p { font-size: 13px; color: #5b6666; }
+  .bar button { background: #0f1a1c; color: #fff; border: 0; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase;
+    padding: 14px 26px; border-radius: 999px; }
+  .bar button:hover { background: #3D8593; }
+  .bar button:disabled { opacity: .5; cursor: default; }
+  @media print { .bar { display: none; } }
+  .poster {
+    width: 1080px; height: 1080px; position: relative; overflow: hidden;
+    background: #0f1a1c; color: #fff;
+    font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .glow-a { position: absolute; top: -180px; right: -140px; width: 620px; height: 620px;
+    background: rgba(255,153,0,.16); border-radius: 50%; filter: blur(90px); }
+  .glow-b { position: absolute; bottom: -220px; left: -120px; width: 560px; height: 560px;
+    background: rgba(61,133,147,.28); border-radius: 50%; filter: blur(90px); }
+  .inner { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; padding: 40px 46px 0; }
+
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 46px; height: 46px; border-radius: 11px; object-fit: cover; }
+  .brand b { font-size: 22px; font-weight: 800; letter-spacing: -.4px; }
+  .pill { background: #FF9900; color: #0f1a1c; font-size: 13px; font-weight: 800;
+    letter-spacing: 2.6px; text-transform: uppercase; padding: 10px 20px; border-radius: 999px; }
+
+  .body { display: grid; grid-template-columns: 470px 1fr; gap: 38px; align-items: center; margin-top: 30px; }
+  .shot { width: 470px; height: 470px; border-radius: 30px; overflow: hidden; background: #fff;
+    border: 1px solid rgba(255,255,255,.12); position: relative; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; }
+
+  h1 { font-size: 52px; line-height: 1.02; font-weight: 800; letter-spacing: -1.4px; margin-bottom: 12px; }
+  .sub { font-size: 18px; line-height: 1.45; color: rgba(255,255,255,.62); font-weight: 400; margin-bottom: 18px; }
+
+  .price { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; }
+  .price .amt { font-size: 58px; font-weight: 800; color: #FF9900; letter-spacing: -2px; }
+  .price .per { font-size: 15px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,.45); }
+  .allin { font-size: 14px; color: rgba(255,255,255,.55); margin-bottom: 16px; }
+
+  .swatches { display: flex; gap: 14px; }
+  .sw { text-align: center; }
+  .sw img { width: 74px; height: 74px; border-radius: 16px; object-fit: cover; border: 2px solid rgba(255,255,255,.18); display: block; }
+  .sw span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: rgba(255,255,255,.6); margin-top: 8px; }
+
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 30px; }
+  .fact { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 18px; padding: 18px 20px; }
+  .fact .k { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+    color: #7fc2ce; margin-bottom: 7px; }
+  .fact .v { font-size: 19px; font-weight: 800; }
+  .fact .n { font-size: 13px; color: rgba(255,255,255,.5); margin-top: 3px; }
+
+  .how { margin-top: 26px; background: #fff; color: #0f1a1c; border-radius: 24px; padding: 26px 30px; }
+  .how h2 { font-size: 13px; font-weight: 800; letter-spacing: 2.6px; text-transform: uppercase;
+    color: #3D8593; margin-bottom: 16px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; }
+  .num { width: 30px; height: 30px; border-radius: 50%; background: #0f1a1c; color: #fff;
+    font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: 0 0 30px; }
+  .step p { font-size: 15px; line-height: 1.4; font-weight: 600; }
+  .step p em { display: block; font-style: normal; font-weight: 400; color: #6b7677; font-size: 13.5px; margin-top: 3px; }
+
+  .foot { margin-top: auto; background: #3D8593; padding: 26px 46px;
+    margin-left: -46px; margin-right: -46px; display: flex; align-items: center; justify-content: space-between; }
+  .link { font-size: 25px; font-weight: 800; letter-spacing: -.4px; }
+  .contact { text-align: right; font-size: 14px; font-weight: 600; line-height: 1.5; }
+  .contact b { display: block; font-size: 19px; font-weight: 800; }
+</style>
+
+<div class="bar">
+  <p><strong>LegitGrinder poster</strong> — 1080 × 1080, ready for Instagram, WhatsApp Status or Facebook.</p>
+  <button id="dl" onclick="savePoster()">⬇ Download PNG</button>
+</div>
+
+<div class="poster">
+  <div class="glow-a"></div>
+  <div class="glow-b"></div>
+
+  <div class="inner">
+    <div class="top">
+      <div class="brand">
+        <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg" alt="">
+        <b>LegitGrinder</b>
+      </div>
+      <span class="pill">Group Buy · Closes 3 Aug</span>
+    </div>
+
+    <div class="body">
+      <div class="shot">
+        <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1785243165/H846cc2e7f9d448c381aeea8bea2a6a5d8_bih17w.png" alt="">
+      </div>
+
+      <div>
+        <h1>Multi-Angle<br>Magnetic Phone Stand</h1>
+        <p class="sub">Foldable, rock-solid and pocket-sized. Holds your phone or tablet at any angle — desk, kitchen, bedside, anywhere.</p>
+
+        <div class="price">
+          <span class="amt">KES 2,150</span>
+          <span class="per">each</span>
+        </div>
+        <p class="allin">All-inclusive · shipping &amp; clearing covered</p>
+
+        <div class="swatches">
+          <div class="sw">
+            <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1785242032/O1CN01aFdAoQ266oOYZbSF6__2222516937613-0-cib_h2ju4g.jpg" alt="">
+            <span>Gray</span>
+          </div>
+          <div class="sw">
+            <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1785242032/O1CN010B4ndS266oOYUDZg8__2222516937613-0-cib_ww1wru.jpg" alt="">
+            <span>Orange</span>
+          </div>
+          <div class="sw">
+            <img src="https://res.cloudinary.com/dsthpp4oj/image/upload/v1785242032/O1CN01akx716266oOTuKJc9__2222516937613-0-cib_uncuig.jpg" alt="">
+            <span>Black</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="facts">
+      <div class="fact">
+        <div class="k">Reserve with</div>
+        <div class="v">KES 1,100</div>
+        <div class="n">Balance on arrival</div>
+      </div>
+      <div class="fact">
+        <div class="k">Arrives in</div>
+        <div class="v">2 – 3 weeks</div>
+        <div class="n">By air freight</div>
+      </div>
+      <div class="fact">
+        <div class="k">Orders close</div>
+        <div class="v">Mon 3 Aug</div>
+        <div class="n">9:30 PM sharp</div>
+      </div>
+    </div>
+
+    <div class="how">
+      <h2>How to order</h2>
+      <div class="steps">
+        <div class="step">
+          <span class="num">1</span>
+          <p>Tap the link<em>Pick your colour &amp; quantity</em></p>
+        </div>
+        <div class="step">
+          <span class="num">2</span>
+          <p>Pay KES 1,100 deposit<em>M-Pesa or card, on the page</em></p>
+        </div>
+        <div class="step">
+          <span class="num">3</span>
+          <p>Join the group<em>We update you till it lands</em></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;opacity:.7;margin-bottom:5px;">Order here</div>
+        <div class="link">legitgrinder.com/group/phone-stand</div>
+      </div>
+      <div class="contact">
+        Questions? WhatsApp
+        <b>0791 873 538</b>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+  // One click → a crisp 1080×1080 PNG in your Downloads folder.
+  async function savePoster() {
+    const btn = document.getElementById('dl');
+    btn.disabled = true; btn.textContent = 'Rendering…';
+    try {
+      const canvas = await html2canvas(document.querySelector('.poster'), {
+        scale: 1, useCORS: true, backgroundColor: '#0f1a1c', logging: false
+      });
+      const a = document.createElement('a');
+      a.download = 'legitgrinder-phone-stand-group-buy.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      btn.textContent = '✓ Saved to Downloads';
+    } catch (e) {
+      btn.textContent = 'Failed — screenshot instead';
+      console.error(e);
+    }
+    setTimeout(() => { btn.disabled = false; btn.textContent = '⬇ Download PNG'; }, 2500);
+  }
+</script>
