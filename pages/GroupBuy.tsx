@@ -7,9 +7,10 @@ import {
   MagnifyingGlassPlus, X, CaretLeft, CaretRight
 } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER, WHATSAPP_GROUP_LINK } from '../constants';
-import { verifyPaystackPayment } from '../services/supabaseData';
+import { verifyPaystackPayment, sendInvoiceEmail } from '../services/supabaseData';
 import { fetchGroupCampaign, recordGroupOrder, markGroupJoined, GroupCampaign } from '../services/groupBuys';
 import { normalizeKenyanPhone } from '../utils/phone';
+import { generateDocumentAttachment, DocumentData } from '../utils/receiptDocument';
 import Countdown from '../components/Countdown';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
@@ -81,6 +82,37 @@ const GroupBuy: React.FC = () => {
     });
     setOrderCode(res.orderCode || '');
     setPaid(true);
+
+    // The form promises "Email (for your receipt)", so send one — same branded
+    // receipt + PDF the pay links produce. Best-effort and fire-and-forget: the
+    // reservation is already banked, so a mail failure must never look to the
+    // buyer like a payment failure.
+    const code = res.orderCode || response.reference;
+    const doc: DocumentData = {
+      kind: 'receipt',
+      invoiceNumber: code,
+      clientName: name.trim(),
+      productName: `${campaign!.title}${selectedColor ? ` · ${selectedColor}` : ''}`,
+      items: [{
+        name: `${campaign!.title}${selectedColor ? ` (${selectedColor})` : ''}`,
+        quantity: units,
+        priceKES: total,
+      }],
+      totalKES: total,
+      amountPaidKES: amountToCharge,
+      balanceKES: balanceAfter,
+      reference: response.reference,
+    };
+    generateDocumentAttachment(doc)
+      .catch(() => undefined)
+      .then(attachment => sendInvoiceEmail({
+        ...doc,
+        to: email.trim(),
+        // Group buyers settle the balance on the campaign's own pay page.
+        payUrl: balanceAfter > 0 ? `${window.location.origin}/group/pay/${code}` : undefined,
+        attachment,
+      }))
+      .catch(() => {});
 
     // Ping the admin on WhatsApp so they see it even while asleep.
     const adminMsg = encodeURIComponent(
