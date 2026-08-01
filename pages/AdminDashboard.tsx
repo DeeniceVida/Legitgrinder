@@ -31,6 +31,7 @@ import CatalogAgentPanel from '../components/CatalogAgentPanel';
 import MessageAgentPanel from '../components/MessageAgentPanel';
 import LogisticsPanel from '../components/LogisticsPanel';
 import GroupBuysTab from '../components/GroupBuysTab';
+import ReportsTab from '../components/ReportsTab';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
@@ -108,7 +109,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'products' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'invoices' | 'products' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -295,6 +296,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Leads and Ad Banners tabs removed 2026-07 (unused per owner)
   const tabs = [
     { id: 'overview', name: 'Dashboard', group: 'Main', icon: <BarChart3 className="w-4 h-4" /> },
+    { id: 'reports', name: 'Reports', group: 'Main', icon: <Calendar className="w-4 h-4" /> },
     { id: 'clients', name: 'Clients', group: 'Main', icon: <Users className="w-4 h-4" /> },
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
@@ -2851,6 +2853,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <BusinessCard />
           </div>
         )}
+        {activeTab === 'reports' && <ReportsTab invoices={invoices} clients={clients} />}
+
         {activeTab === 'groupbuys' && <GroupBuysTab />}
 
         {activeTab === 'corporate' && (
