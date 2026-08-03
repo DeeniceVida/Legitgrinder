@@ -28,35 +28,42 @@ export interface MonitorModel {
 export interface MonitorSettings {
   usdToKes: number;
   alibabaPct: number;
+  /** Crate carries $5 of the owner's cut; freight carries the other $10. */
   crateUsd: number;
+  freightUsd: number;
   marginUsd: number;
   speakersLowUsd: number;
   speakersHighUsd: number;
   rgbUsd: number;
   adjBaseUsd: number;
   certAdapterUsd: number;
-  altConfigKes: number;
+  /** Added on top of the factory's own upcharge for a non-standard layout. */
+  configMarkupKes: number;
   serviceFeePct: number;
 }
 
-export interface PortConfig {
+export interface PortOption {
   id: string;
+  sizeGroup: string;
   label: string;
+  /** What the factory charges for this layout — varies by size. */
+  upchargeUsd: number;
   isStandard: boolean;
   sortOrder: number;
 }
 
 export const DEFAULT_SETTINGS: MonitorSettings = {
-  usdToKes: 130,
+  usdToKes: 135,
   alibabaPct: 3,
-  crateUsd: 25,
-  marginUsd: 15,
+  crateUsd: 30,
+  freightUsd: 10,
+  marginUsd: 0,
   speakersLowUsd: 3,
   speakersHighUsd: 1.5,
   rgbUsd: 2,
   adjBaseUsd: 7,
   certAdapterUsd: 2,
-  altConfigKes: 1900,
+  configMarkupKes: 1900,
   serviceFeePct: 0,
 };
 
@@ -107,13 +114,14 @@ export const fetchMonitorSettings = async (): Promise<MonitorSettings> => {
       usdToKes: Number(data.usd_to_kes),
       alibabaPct: Number(data.alibaba_pct),
       crateUsd: Number(data.crate_usd),
+      freightUsd: Number(data.freight_usd ?? DEFAULT_SETTINGS.freightUsd),
       marginUsd: Number(data.margin_usd),
       speakersLowUsd: Number(data.speakers_low_usd),
       speakersHighUsd: Number(data.speakers_high_usd),
       rgbUsd: Number(data.rgb_usd),
       adjBaseUsd: Number(data.adj_base_usd),
       certAdapterUsd: Number(data.cert_adapter_usd),
-      altConfigKes: Number(data.alt_config_kes),
+      configMarkupKes: Number(data.config_markup_kes ?? DEFAULT_SETTINGS.configMarkupKes),
       serviceFeePct: Number(data.service_fee_pct),
     };
   } catch {
@@ -136,17 +144,28 @@ export const fetchMonitorShipping = async (): Promise<Record<string, number | nu
   }
 };
 
-export const fetchPortConfigs = async (): Promise<PortConfig[]> => {
+export const fetchPortOptions = async (): Promise<PortOption[]> => {
   try {
-    const { data, error } = await supabase.from('monitor_port_configs').select('*').order('sort_order');
+    const { data, error } = await supabase
+      .from('monitor_port_options').select('*').order('size_group').order('sort_order');
     if (error || !data) return [];
     return data.map((d: any) => ({
-      id: d.id, label: d.label, isStandard: !!d.is_standard, sortOrder: d.sort_order ?? 0,
+      id: d.id,
+      sizeGroup: d.size_group,
+      label: d.label,
+      upchargeUsd: Number(d.upcharge_usd || 0),
+      isStandard: !!d.is_standard,
+      sortOrder: d.sort_order ?? 0,
     }));
   } catch {
     return [];
   }
 };
+
+/** The layouts available for one monitor, standard first. */
+export const optionsForModel = (m: MonitorModel, all: PortOption[]): PortOption[] =>
+  all.filter(o => o.sizeGroup === sizeGroup(m.sizeInches))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
 export interface PriceResult {
   /** null when we have no shipping figure for this size — never invent one. */
@@ -156,11 +175,12 @@ export interface PriceResult {
     factoryUsd: number;
     alibabaUsd: number;
     crateUsd: number;
+    freightUsd: number;
     inclusionsUsd: number;
     marginUsd: number;
     goodsKES: number;
     shippingKES: number | null;
-    altConfigKES: number;
+    configKES: number;
     serviceFeeKES: number;
   };
 }
@@ -171,12 +191,15 @@ export interface PriceResult {
  * Every monitor ships fully specced — speakers, RGB, height-adjustable base and
  * a certified adapter — so the supplier's upcharges for those are costs baked
  * into the price rather than options presented to the buyer.
+ *
+ * `port` is the layout chosen. A non-standard one costs the factory's own
+ * upcharge for that size (which is sometimes zero) plus the owner's markup.
  */
 export const priceMonitor = (
   m: MonitorModel,
   s: MonitorSettings,
   shipping: Record<string, number | null>,
-  altConfig = false
+  port?: PortOption
 ): PriceResult => {
   const factoryUsd = m.factoryUsd;
   const alibabaUsd = factoryUsd * (s.alibabaPct / 100);
@@ -186,18 +209,20 @@ export const priceMonitor = (
   const adjBase = m.baseType === 'Fixed' ? s.adjBaseUsd : 0;
   const inclusionsUsd = speakers + s.rgbUsd + adjBase + s.certAdapterUsd;
 
-  const goodsKES = (factoryUsd + alibabaUsd + s.crateUsd + inclusionsUsd + s.marginUsd) * s.usdToKes;
+  const portUsd = port && !port.isStandard ? port.upchargeUsd : 0;
+  const goodsKES =
+    (factoryUsd + alibabaUsd + s.crateUsd + s.freightUsd + inclusionsUsd + s.marginUsd + portUsd) * s.usdToKes;
   const shippingKES = shipping[sizeGroup(m.sizeInches)] ?? null;
-  const altConfigKES = altConfig ? s.altConfigKes : 0;
+  const configKES = port && !port.isStandard ? s.configMarkupKes : 0;
 
   const breakdown = {
-    factoryUsd, alibabaUsd, crateUsd: s.crateUsd, inclusionsUsd,
-    marginUsd: s.marginUsd, goodsKES, shippingKES, altConfigKES, serviceFeeKES: 0,
+    factoryUsd, alibabaUsd, crateUsd: s.crateUsd, freightUsd: s.freightUsd, inclusionsUsd,
+    marginUsd: s.marginUsd, goodsKES, shippingKES, configKES, serviceFeeKES: 0,
   };
 
   if (shippingKES == null) return { unitKES: null, breakdown };
 
-  const sub = goodsKES + shippingKES + altConfigKES;
+  const sub = goodsKES + shippingKES + configKES;
   const serviceFeeKES = sub * (s.serviceFeePct / 100);
   breakdown.serviceFeeKES = serviceFeeKES;
 

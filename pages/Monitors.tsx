@@ -7,17 +7,16 @@ import {
 import { Reveal } from '../components/Motion';
 import { WHATSAPP_NUMBER } from '../constants';
 import {
-  MonitorModel, MonitorSettings, PortConfig, DEFAULT_SETTINGS,
-  fetchMonitorModels, fetchMonitorSettings, fetchMonitorShipping, fetchPortConfigs,
-  priceMonitor, money, modelTitle,
+  MonitorModel, MonitorSettings, PortOption, DEFAULT_SETTINGS,
+  fetchMonitorModels, fetchMonitorSettings, fetchMonitorShipping, fetchPortOptions,
+  optionsForModel, priceMonitor, money, modelTitle,
 } from '../services/monitors';
 
 interface Line {
   model: MonitorModel;
   qty: number;
-  /** Port configuration label; the standard one carries no surcharge. */
-  portLabel: string;
-  portIsStandard: boolean;
+  /** The chosen port layout — options and their cost vary by size. */
+  port?: PortOption;
   unitKES: number;
 }
 
@@ -27,14 +26,14 @@ const Monitors: React.FC = () => {
   const [models, setModels] = useState<MonitorModel[]>([]);
   const [settings, setSettings] = useState<MonitorSettings>(DEFAULT_SETTINGS);
   const [shipping, setShipping] = useState<Record<string, number | null>>({});
-  const [ports, setPorts] = useState<PortConfig[]>([]);
+  const [ports, setPorts] = useState<PortOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [size, setSize] = useState<number | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
 
   useEffect(() => {
-    Promise.all([fetchMonitorModels(), fetchMonitorSettings(), fetchMonitorShipping(), fetchPortConfigs()])
+    Promise.all([fetchMonitorModels(), fetchMonitorSettings(), fetchMonitorShipping(), fetchPortOptions()])
       .then(([m, s, sh, p]) => { setModels(m); setSettings(s); setShipping(sh); setPorts(p); })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -51,8 +50,9 @@ const Monitors: React.FC = () => {
     if (size === null && sizes.length) setSize(sizes.includes(27) ? 27 : sizes[0]);
   }, [sizes, size]);
 
-  const standardPort = ports.find(p => p.isStandard);
-  const altPorts = ports.filter(p => !p.isStandard);
+  /** Cost of a layout to the buyer, over the standard one — factory + markup. */
+  const portDeltaKES = (o: PortOption) =>
+    o.isStandard ? 0 : Math.round(o.upchargeUsd * settings.usdToKes + settings.configMarkupKes);
 
   /** Models of the chosen size, grouped by resolution so the price ladder reads clearly. */
   const groups = useMemo(() => {
@@ -69,30 +69,26 @@ const Monitors: React.FC = () => {
   }, [models, size]);
 
   const addLine = (m: MonitorModel) => {
-    const p = priceMonitor(m, settings, shipping, false);
+    const std = optionsForModel(m, ports).find(o => o.isStandard);
+    const p = priceMonitor(m, settings, shipping, std);
     if (p.unitKES == null) return;
     setLines(prev => {
-      const i = prev.findIndex(l => l.model.id === m.id && l.portIsStandard);
+      const i = prev.findIndex(l => l.model.id === m.id && (l.port?.isStandard ?? true));
       if (i >= 0) {
         const next = [...prev];
         next[i] = { ...next[i], qty: next[i].qty + 1 };
         return next;
       }
-      return [...prev, {
-        model: m, qty: 1,
-        portLabel: standardPort?.label || 'Standard',
-        portIsStandard: true,
-        unitKES: p.unitKES!,
-      }];
+      return [...prev, { model: m, qty: 1, port: std, unitKES: p.unitKES! }];
     });
   };
 
-  const setPort = (idx: number, label: string) => {
+  const setPort = (idx: number, optionId: string) => {
     setLines(prev => prev.map((l, i) => {
       if (i !== idx) return l;
-      const isStd = label === (standardPort?.label || 'Standard');
-      const p = priceMonitor(l.model, settings, shipping, !isStd);
-      return { ...l, portLabel: label, portIsStandard: isStd, unitKES: p.unitKES ?? l.unitKES };
+      const opt = optionsForModel(l.model, ports).find(o => o.id === optionId);
+      const p = priceMonitor(l.model, settings, shipping, opt);
+      return { ...l, port: opt, unitKES: p.unitKES ?? l.unitKES };
     }));
   };
 
@@ -114,7 +110,7 @@ const Monitors: React.FC = () => {
       lines.map(l =>
         `${l.qty} × ${modelTitle(l.model)}${l.model.curved ? ' Curved' : ''}\n` +
         `   Model: ${l.model.modelCode}${l.model.series ? ` (${l.model.series})` : ''}\n` +
-        `   Ports: ${l.portLabel}\n` +
+        `   Ports: ${l.port?.label || 'Standard'}\n` +
         `   ${money(l.unitKES)} each → ${money(l.unitKES * l.qty)}`
       ).join('\n\n') +
       `\n\nTOTAL: ${money(total)} for ${totalUnits} unit${totalUnits === 1 ? '' : 's'}` +
@@ -124,7 +120,7 @@ const Monitors: React.FC = () => {
 
   const noShippingSizes = sizes.filter(s => {
     const m = models.find(x => x.sizeInches === s);
-    return m && priceMonitor(m, settings, shipping, false).unitKES == null;
+    return m && priceMonitor(m, settings, shipping).unitKES == null;
   });
 
   return (
@@ -194,7 +190,7 @@ const Monitors: React.FC = () => {
                     </div>
                     <div className="divide-y divide-gray-50">
                       {list.map(m => {
-                        const p = priceMonitor(m, settings, shipping, false);
+                        const p = priceMonitor(m, settings, shipping);
                         return (
                           <div key={m.id} className="px-5 py-4 flex items-center justify-between gap-4 hover:bg-neutral-50/60 transition-colors">
                             <div className="min-w-0">
@@ -277,18 +273,26 @@ const Monitors: React.FC = () => {
                               </button>
                             </div>
 
-                            {altPorts.length > 0 && (
-                              <select
-                                value={l.portLabel}
-                                onChange={e => setPort(i, e.target.value)}
-                                className="w-full mb-2.5 bg-neutral-50 border border-gray-100 rounded-lg px-3 py-2 text-[11px] font-bold text-gray-700 outline-none focus:border-[#3D8593]"
-                              >
-                                {standardPort && <option value={standardPort.label}>{standardPort.label} — standard</option>}
-                                {altPorts.map(p => (
-                                  <option key={p.id} value={p.label}>{p.label} — +{money(settings.altConfigKes)}</option>
-                                ))}
-                              </select>
-                            )}
+                            {(() => {
+                              const opts = optionsForModel(l.model, ports);
+                              if (opts.length < 2) return null;
+                              return (
+                                <select
+                                  value={l.port?.id || ''}
+                                  onChange={e => setPort(i, e.target.value)}
+                                  className="w-full mb-2.5 bg-neutral-50 border border-gray-100 rounded-lg px-3 py-2 text-[11px] font-bold text-gray-700 outline-none focus:border-[#3D8593]"
+                                >
+                                  {opts.map(o => {
+                                    const d = portDeltaKES(o);
+                                    return (
+                                      <option key={o.id} value={o.id}>
+                                        {o.label}{o.isStandard ? ' — standard' : ` — +${money(d)}`}
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              );
+                            })()}
 
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-1">

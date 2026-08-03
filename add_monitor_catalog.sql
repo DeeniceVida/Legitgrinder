@@ -8,24 +8,39 @@
 -- ── One editable row of rates: change a number here, the whole list reprices ──
 create table if not exists public.monitor_settings (
   id                  int primary key default 1,
-  usd_to_kes          numeric not null default 130,
+  usd_to_kes          numeric not null default 135,
   alibaba_pct         numeric not null default 3,      -- Alibaba's cut of the factory price
-  crate_usd           numeric not null default 25,     -- wooden crate, per unit
-  margin_usd          numeric not null default 15,     -- the owner's cut (never shown)
-  -- Standard inclusions. The owner sells every monitor fully specced, so these
-  -- supplier upcharges are costs, not buyer choices.
+  -- The owner's $15 cut is deliberately DISTRIBUTED rather than shown as margin:
+  -- $5 rides inside the crate (25 -> 30) and $10 inside freight. The total a
+  -- buyer pays is identical either way; there is simply no line called "margin".
+  crate_usd           numeric not null default 30,
+  freight_usd         numeric not null default 10,
+  margin_usd          numeric not null default 0,      -- kept so an explicit cut can return
+  -- Standard inclusions. Every monitor sells fully specced, so these supplier
+  -- upcharges are costs, not buyer choices.
   speakers_low_usd    numeric not null default 3,      -- under 165Hz
   speakers_high_usd   numeric not null default 1.5,    -- 165Hz and above
   rgb_usd             numeric not null default 2,
   adj_base_usd        numeric not null default 7,      -- only where the base is Fixed
   cert_adapter_usd    numeric not null default 2,
-  alt_config_kes      numeric not null default 1900,   -- non-standard port config
+  -- What the owner adds on top of the supplier's own interface upcharge when a
+  -- buyer picks a non-standard port layout.
+  config_markup_kes   numeric not null default 1900,
   service_fee_pct     numeric not null default 0,      -- retail service fee, if any
   updated_at          timestamptz not null default now(),
   constraint monitor_settings_single_row check (id = 1)
 );
 
+-- Safe for anyone who ran an earlier version of this file.
+alter table public.monitor_settings add column if not exists freight_usd       numeric not null default 10;
+alter table public.monitor_settings add column if not exists config_markup_kes numeric not null default 1900;
+
 insert into public.monitor_settings (id) values (1) on conflict (id) do nothing;
+
+-- If you ran an EARLIER version of this file, uncomment the next line to adopt
+-- the current rates. It overwrites anything you've since edited, so leave it
+-- commented on a fresh install (the defaults above already apply).
+-- update public.monitor_settings set usd_to_kes = 135, crate_usd = 30, freight_usd = 10, margin_usd = 0 where id = 1;
 
 -- ── Shipping is quoted per size, in KES, per unit ────────────────────────────
 create table if not exists public.monitor_shipping (
@@ -40,25 +55,59 @@ insert into public.monitor_shipping (size_group, shipping_kes) values
   ('27', 7300),
   ('32', 10100),
   ('34', 11700),
-  ('40', null),   -- not yet supplied by the owner
-  ('49', null)    -- not yet supplied by the owner
+  ('40', 14200),
+  ('49', 18700)
 on conflict (size_group) do nothing;
 
--- ── Port configurations offered ──────────────────────────────────────────────
-create table if not exists public.monitor_port_configs (
-  id          uuid primary key default gen_random_uuid(),
-  label       text not null,
-  is_standard boolean not null default false,
-  sort_order  int not null default 0
+-- ── Port configurations ──────────────────────────────────────────────────────
+-- The supplier's interface upcharge is NOT one flat figure: it depends on the
+-- size and on which layout is asked for (note 2 of the quotation, in red), and
+-- on a 27" HDMI+DP+Audio it costs nothing at all. So options are scoped to a
+-- size band and carry their own true cost; the owner's markup sits on top of it.
+create table if not exists public.monitor_port_options (
+  id           uuid primary key default gen_random_uuid(),
+  size_group   text not null,                  -- matches monitor_shipping.size_group
+  label        text not null,
+  upcharge_usd numeric not null default 0,      -- what the FACTORY charges
+  is_standard  boolean not null default false,
+  sort_order   int not null default 0
 );
 
-insert into public.monitor_port_configs (label, is_standard, sort_order)
+create index if not exists monitor_port_options_size_idx
+  on public.monitor_port_options (size_group, sort_order);
+
+insert into public.monitor_port_options (size_group, label, upcharge_usd, is_standard, sort_order)
 select * from (values
-  ('2x HDMI + 2x DP + Audio + DC', true, 1),
-  ('HDMI + DP + USB-A + USB-B + Type-C + Audio + DC', false, 2),
-  ('2x HDMI + DP + Type-C + Audio + DC', false, 3)
-) as v(label, is_standard, sort_order)
-where not exists (select 1 from public.monitor_port_configs);
+  -- Standard on every size, and the only layout the owner quoted for the 49".
+  ('21', '2x HDMI + 2x DP + Audio + DC',                        0,    true,  1),
+  ('24', '2x HDMI + 2x DP + Audio + DC',                        0,    true,  1),
+  ('27', '2x HDMI + 2x DP + Audio + DC',                        0,    true,  1),
+  ('32', '2x HDMI + 2x DP + Audio + DC',                        0,    true,  1),
+  ('34', '2x HDMI + 2x DP + Audio + DC',                        0,    true,  1),
+  ('40', '2x HDMI + 2x DP + Audio + DC',                        0,    true,  1),
+  ('49', '2x HDMI + 2x DP + Audio + DC',                        0,    true,  1),
+
+  -- 21.5 / 23.8 / 24.5 inch
+  ('21', 'HDMI + VGA + DP + Audio In + Audio Out',              3,    false, 2),
+  ('21', 'HDMI + DVI + VGA + Audio In + Audio Out',             5,    false, 3),
+  ('21', 'HDMI + DP + Audio',                                   1,    false, 4),
+  ('24', 'HDMI + VGA + DP + Audio In + Audio Out',              3,    false, 2),
+  ('24', 'HDMI + DVI + VGA + Audio In + Audio Out',             5,    false, 3),
+  ('24', 'HDMI + DP + Audio',                                   1,    false, 4),
+
+  -- 27 inch: cheaper on the first layout, and HDMI+DP+Audio is free
+  ('27', 'HDMI + VGA + DP + Audio In + Audio Out',              1,    false, 2),
+  ('27', 'HDMI + DVI + VGA + Audio In + Audio Out',             5,    false, 3),
+  ('27', 'HDMI + DP + Audio',                                   0,    false, 4),
+
+  -- 32 / 34 inch: the full USB-C dock layout
+  ('32', 'HDMI + DP + Type-C + USB-B + 2x USB-A + Audio',       8,    false, 2),
+  ('34', 'HDMI + DP + Type-C + USB-B + 2x USB-A + Audio',       8,    false, 2),
+
+  -- 40 inch: priced from the sheet's own two variants ($299 vs $306)
+  ('40', 'HDMI 2.1 + DP 1.4 + Type-C + USB-B + 2x USB-A + Audio', 7,  false, 2)
+) as v(size_group, label, upcharge_usd, is_standard, sort_order)
+where not exists (select 1 from public.monitor_port_options);
 
 -- ── The catalogue ───────────────────────────────────────────────────────────
 create table if not exists public.monitor_models (
@@ -86,7 +135,7 @@ create index if not exists monitor_models_size_idx on public.monitor_models (siz
 alter table public.monitor_models      enable row level security;
 alter table public.monitor_settings    enable row level security;
 alter table public.monitor_shipping    enable row level security;
-alter table public.monitor_port_configs enable row level security;
+alter table public.monitor_port_options enable row level security;
 
 -- Anyone may read the catalogue (the storefront needs it); only an admin writes.
 drop policy if exists "public reads monitor_models" on public.monitor_models;
@@ -110,11 +159,11 @@ drop policy if exists "admin writes monitor_shipping" on public.monitor_shipping
 create policy "admin writes monitor_shipping" on public.monitor_shipping
   for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
-drop policy if exists "public reads monitor_port_configs" on public.monitor_port_configs;
-create policy "public reads monitor_port_configs" on public.monitor_port_configs
+drop policy if exists "public reads monitor_port_options" on public.monitor_port_options;
+create policy "public reads monitor_port_options" on public.monitor_port_options
   for select using (true);
-drop policy if exists "admin writes monitor_port_configs" on public.monitor_port_configs;
-create policy "admin writes monitor_port_configs" on public.monitor_port_configs
+drop policy if exists "admin writes monitor_port_options" on public.monitor_port_options;
+create policy "admin writes monitor_port_options" on public.monitor_port_options
   for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 -- ── Seed: 99 models ─────────────────────────────────────────────
