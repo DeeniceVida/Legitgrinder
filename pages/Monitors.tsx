@@ -109,6 +109,7 @@ const Monitors: React.FC = () => {
       `🖥️ MONITOR ENQUIRY\n\n` +
       lines.map(l =>
         `${l.qty} × ${modelTitle(l.model)}${l.model.curved ? ' Curved' : ''}\n` +
+        // The series IS useful to the owner, so it rides in the WhatsApp brief.
         `   Model: ${l.model.modelCode}${l.model.series ? ` (${l.model.series})` : ''}\n` +
         `   Ports: ${l.port?.label || 'Standard'}\n` +
         `   ${money(l.unitKES)} each → ${money(l.unitKES * l.qty)}`
@@ -199,8 +200,10 @@ const Monitors: React.FC = () => {
                                 {m.curved && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-1.5 py-0.5 rounded">Curved</span>}
                                 {m.baseType === 'Lifting' && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 px-1.5 py-0.5 rounded">Lifting base</span>}
                               </p>
+                              {/* Series (Victory / Golden Cudgel / MX) stays internal —
+                                  it means nothing to a buyer. Model code only. */}
                               <p className="text-[11px] text-gray-400 font-medium mt-0.5 truncate">
-                                {m.modelCode}{m.series ? ` · ${m.series}` : ''}
+                                {m.modelCode}
                               </p>
                             </div>
                             <div className="flex items-center gap-4 shrink-0">
