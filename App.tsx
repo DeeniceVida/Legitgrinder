@@ -20,6 +20,7 @@ import PayInvoice from './pages/PayInvoice';
 import GroupBuy from './pages/GroupBuy';
 import GroupBalancePay from './pages/GroupBalancePay';
 import Corporate from './pages/Corporate';
+import Monitors from './pages/Monitors';
 import HowItWorks from './pages/HowItWorks';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import SafeImage from './components/SafeImage';
@@ -241,6 +242,7 @@ const AppContent: React.FC = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/pay/:invoiceNumber" element={<PayInvoice />} />
           <Route path="/corporate" element={<Corporate />} />
+          <Route path="/monitors" element={<Monitors />} />
           <Route path="/group/pay/:orderCode" element={<GroupBalancePay />} />
           <Route path="/group/:slug" element={<GroupBuy />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
