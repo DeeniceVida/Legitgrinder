@@ -217,6 +217,43 @@
     transform: translateY(0);
 }
 
+/* ============================================================
+   TRADE / BULK PROCUREMENT (/corporate)
+   A deliberately more utilitarian dialect of the same palette:
+   spec-sheet density, tabular figures and hairline rules in place
+   of the consumer site's serif accents and soft aurora.
+   ============================================================ */
+
+/* Tabular figures — prices, CBM and quantities must align in columns */
+.tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+}
+
+/* Blueprint grid — structural rather than decorative */
+.bg-blueprint {
+    background-color: var(--ink);
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        radial-gradient(at 88% 6%, rgba(255, 153, 0, 0.14) 0, transparent 42%),
+        radial-gradient(at 2% 96%, rgba(61, 133, 147, 0.24) 0, transparent 48%);
+    background-size: 56px 56px, 56px 56px, 100% 100%, 100% 100%;
+}
+
+/* Numbered section rule — "01 ─── HOW VOLUME PRICING WORKS" */
+.trade-rule {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.trade-rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
 /* Accessible focus states */
 a:focus-visible,
 button:focus-visible,
