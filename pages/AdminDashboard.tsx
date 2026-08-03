@@ -32,6 +32,7 @@ import MessageAgentPanel from '../components/MessageAgentPanel';
 import LogisticsPanel from '../components/LogisticsPanel';
 import GroupBuysTab from '../components/GroupBuysTab';
 import ReportsTab from '../components/ReportsTab';
+import MonitorsTab from '../components/MonitorsTab';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
@@ -109,7 +110,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'invoices' | 'products' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'monitors' | 'invoices' | 'products' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -301,6 +302,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
+    { id: 'monitors', name: 'Monitors', group: 'Main', icon: <Smartphone className="w-4 h-4" /> },
     { id: 'corporate', name: 'Corporate', group: 'Main', badge: newCorporateCount || undefined, icon: <Buildings className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
@@ -2854,6 +2856,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
         {activeTab === 'reports' && <ReportsTab invoices={invoices} clients={clients} />}
+
+        {activeTab === 'monitors' && <MonitorsTab />}
 
         {activeTab === 'groupbuys' && <GroupBuysTab />}
 

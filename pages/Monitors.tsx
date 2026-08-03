@@ -9,7 +9,7 @@ import { WHATSAPP_NUMBER } from '../constants';
 import {
   MonitorModel, MonitorSettings, PortOption, DEFAULT_SETTINGS,
   fetchMonitorModels, fetchMonitorSettings, fetchMonitorShipping, fetchPortOptions,
-  optionsForModel, priceMonitor, money, modelTitle,
+  optionsForModel, priceMonitor, money, modelTitle, displayCode,
 } from '../services/monitors';
 
 interface Line {
@@ -194,16 +194,25 @@ const Monitors: React.FC = () => {
                         const p = priceMonitor(m, settings, shipping);
                         return (
                           <div key={m.id} className="px-5 py-4 flex items-center justify-between gap-4 hover:bg-neutral-50/60 transition-colors">
-                            <div className="min-w-0">
+                            {m.imageUrl && (
+                              <img
+                                src={m.imageUrl}
+                                alt={modelTitle(m)}
+                                loading="lazy"
+                                className="w-16 h-12 object-contain rounded-lg bg-neutral-50 shrink-0"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
                               <p className="text-sm font-bold text-gray-900">
                                 {m.refreshHz}Hz
                                 {m.curved && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-1.5 py-0.5 rounded">Curved</span>}
                                 {m.baseType === 'Lifting' && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 px-1.5 py-0.5 rounded">Lifting base</span>}
                               </p>
                               {/* Series (Victory / Golden Cudgel / MX) stays internal —
-                                  it means nothing to a buyer. Model code only. */}
+                                  it means nothing to a buyer. Model reference only,
+                                  with the factory's "HP-" prefix stripped. */}
                               <p className="text-[11px] text-gray-400 font-medium mt-0.5 truncate">
-                                {m.modelCode}
+                                Ref {displayCode(m)}
                               </p>
                             </div>
                             <div className="flex items-center gap-4 shrink-0">
@@ -214,7 +223,7 @@ const Monitors: React.FC = () => {
                               )}
                               {p.unitKES == null ? (
                                 <a
-                                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi, I'd like a quote for the ${modelTitle(m)} monitor (${m.modelCode}).`)}`}
+                                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi, I'd like a quote for the ${modelTitle(m)} monitor (ref ${displayCode(m)}).`)}`}
                                   target="_blank" rel="noopener noreferrer"
                                   className="px-3.5 py-2 rounded-lg bg-neutral-100 text-gray-600 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-200 transition-colors"
                                 >
@@ -269,7 +278,7 @@ const Monitors: React.FC = () => {
                             <div className="flex items-start justify-between gap-3 mb-2.5">
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-gray-900">{modelTitle(l.model)}</p>
-                                <p className="text-[11px] text-gray-400 font-medium">{l.model.modelCode}</p>
+                                <p className="text-[11px] text-gray-400 font-medium">Ref {displayCode(l.model)}</p>
                               </div>
                               <button onClick={() => removeLine(i)} aria-label="Remove" className="text-gray-300 hover:text-rose-500 transition-colors shrink-0">
                                 <Trash size={15} weight="bold" />

@@ -167,6 +167,55 @@ export const optionsForModel = (m: MonitorModel, all: PortOption[]): PortOption[
   all.filter(o => o.sizeGroup === sizeGroup(m.sizeInches))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
+// ── Admin writes ────────────────────────────────────────────────────────────
+
+/** Save any subset of the rates. One edit reprices the whole catalogue. */
+export const updateMonitorSettings = async (
+  p: Partial<MonitorSettings>
+): Promise<{ success: boolean; error?: string }> => {
+  const row: any = { updated_at: new Date().toISOString() };
+  const map: Record<keyof MonitorSettings, string> = {
+    usdToKes: 'usd_to_kes', alibabaPct: 'alibaba_pct', crateUsd: 'crate_usd',
+    freightUsd: 'freight_usd', marginUsd: 'margin_usd',
+    speakersLowUsd: 'speakers_low_usd', speakersHighUsd: 'speakers_high_usd',
+    rgbUsd: 'rgb_usd', adjBaseUsd: 'adj_base_usd', certAdapterUsd: 'cert_adapter_usd',
+    configMarkupKes: 'config_markup_kes', serviceFeePct: 'service_fee_pct',
+  };
+  (Object.keys(p) as (keyof MonitorSettings)[]).forEach(k => {
+    if (p[k] !== undefined && map[k]) row[map[k]] = p[k];
+  });
+  const { error } = await supabase.from('monitor_settings').update(row).eq('id', 1);
+  return { success: !error, error: error?.message };
+};
+
+/** null clears the figure, which makes that size read "quote on request". */
+export const updateMonitorShipping = async (
+  sizeGroup: string,
+  shippingKes: number | null
+): Promise<{ success: boolean; error?: string }> => {
+  const { error } = await supabase
+    .from('monitor_shipping')
+    .update({ shipping_kes: shippingKes, updated_at: new Date().toISOString() })
+    .eq('size_group', sizeGroup);
+  return { success: !error, error: error?.message };
+};
+
+export const updateMonitorModel = async (
+  id: string,
+  p: { factoryUsd?: number; imageUrl?: string | null; isActive?: boolean }
+): Promise<{ success: boolean; error?: string }> => {
+  const row: any = {};
+  if (p.factoryUsd !== undefined) row.factory_usd = p.factoryUsd;
+  if (p.imageUrl !== undefined) row.image_url = p.imageUrl || null;
+  if (p.isActive !== undefined) row.is_active = p.isActive;
+  const { error } = await supabase.from('monitor_models').update(row).eq('id', id);
+  return { success: !error, error: error?.message };
+};
+
+/** Photos carved out of the supplier's PDF, served from public/monitors. */
+export const STOCK_PHOTOS = Array.from({ length: 13 }, (_, i) =>
+  `/monitors/photo-${String(i + 1).padStart(2, '0')}.jpg`);
+
 export interface PriceResult {
   /** null when we have no shipping figure for this size — never invent one. */
   unitKES: number | null;
@@ -235,3 +284,10 @@ export const money = (n: number) => `KES ${Math.round(n).toLocaleString('en-US')
 /** "27\" 2K 180Hz" — the buyer-facing name for a model. */
 export const modelTitle = (m: MonitorModel) =>
   `${m.sizeInches}" ${m.resLabel || ''} ${m.refreshHz ? m.refreshHz + 'Hz' : ''}`.replace(/\s+/g, ' ').trim();
+
+/**
+ * The reference a buyer sees. The factory's "HP-" prefix is stripped, because
+ * these are not Hewlett-Packard monitors and nobody should be able to read them
+ * that way. The full code stays in the database for ordering.
+ */
+export const displayCode = (m: MonitorModel) => m.modelCode.replace(/^HP-/i, '');

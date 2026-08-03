@@ -336,6 +336,7 @@ const AppContent: React.FC = () => {
                 <ul className="space-y-3.5 text-white/60 font-light">
                   <li><Link to="/how-it-works" className="hover:text-[#FF9900] transition-colors">How It Works</Link></li>
                   <li><Link to="/shop" className="hover:text-[#FF9900] transition-colors">Shop</Link></li>
+                  <li><Link to="/monitors" className="hover:text-[#FF9900] transition-colors">Monitors</Link></li>
                   <li><Link to="/pricelist" className="hover:text-[#FF9900] transition-colors">Market Prices</Link></li>
                   <li><Link to="/calculators" className="hover:text-[#FF9900] transition-colors">Calculators</Link></li>
                   <li><Link to="/tracking" className="hover:text-[#FF9900] transition-colors">Order Tracking</Link></li>
