@@ -169,6 +169,49 @@ const MonitorsTab: React.FC = () => {
         </div>
       </div>
 
+      {/* ── Crate photo ───────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-neutral-50 flex items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-black text-gray-900 tracking-tight">Wooden crate photo</h3>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              Shown on every monitor as “how it’s packed”
+            </p>
+          </div>
+          <button
+            onClick={saveRates}
+            disabled={saving === 'rates'}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40"
+          >
+            <Save className="w-3.5 h-3.5" /> Save
+          </button>
+        </div>
+        <div className="p-6 flex flex-wrap items-start gap-5">
+          <div className="flex-1 min-w-[16rem]">
+            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+              Image URL
+            </label>
+            <input
+              value={settings.cratePhotoUrl}
+              onChange={e => setSettings(s => ({ ...s, cratePhotoUrl: e.target.value }))}
+              placeholder="https://res.cloudinary.com/…  or  /monitors/packaging.jpg"
+              className="w-full bg-neutral-50 border border-neutral-100 rounded-lg px-3 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-[#3D8593] transition-colors"
+            />
+            <p className="text-[10px] text-gray-400 font-medium mt-1.5 leading-snug">
+              A Cloudinary link, or a path to a file committed under <code>public/</code>.
+              Leave blank and the prompt is hidden entirely.
+            </p>
+          </div>
+          {settings.cratePhotoUrl && (
+            <img
+              src={settings.cratePhotoUrl}
+              alt="Crate preview"
+              className="w-32 h-24 object-cover rounded-xl bg-neutral-50 border border-neutral-100"
+            />
+          )}
+        </div>
+      </div>
+
       {/* ── Freight per size ──────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-neutral-50">
@@ -300,19 +343,26 @@ const MonitorsTab: React.FC = () => {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <select
-                          value={m.imageUrl || ''}
-                          onChange={e => patchModel(m.id, { imageUrl: e.target.value })}
-                          className="bg-neutral-50 border border-neutral-100 rounded-lg px-2.5 py-2 text-[11px] font-bold text-gray-700 outline-none focus:border-[#3D8593] max-w-[11rem]"
-                        >
-                          <option value="">No photo</option>
-                          {STOCK_PHOTOS.map((src, i) => (
-                            <option key={src} value={src}>Photo {i + 1}</option>
-                          ))}
-                          {m.imageUrl && !STOCK_PHOTOS.includes(m.imageUrl) && (
-                            <option value={m.imageUrl}>Custom (Cloudinary)</option>
-                          )}
-                        </select>
+                        {/* Pick a bundled photo, or paste any URL — a Cloudinary
+                            link works exactly the same as a bundled path. */}
+                        <div className="flex flex-col gap-1.5 min-w-[13rem]">
+                          <select
+                            value={STOCK_PHOTOS.includes(m.imageUrl || '') ? m.imageUrl : ''}
+                            onChange={e => patchModel(m.id, { imageUrl: e.target.value })}
+                            className="bg-neutral-50 border border-neutral-100 rounded-lg px-2.5 py-2 text-[11px] font-bold text-gray-700 outline-none focus:border-[#3D8593]"
+                          >
+                            <option value="">— pick a photo —</option>
+                            {STOCK_PHOTOS.map((src, i) => (
+                              <option key={src} value={src}>Photo {i + 1}</option>
+                            ))}
+                          </select>
+                          <input
+                            value={m.imageUrl || ''}
+                            onChange={e => patchModel(m.id, { imageUrl: e.target.value })}
+                            placeholder="or paste a URL"
+                            className="bg-neutral-50 border border-neutral-100 rounded-lg px-2.5 py-1.5 text-[10px] font-medium text-gray-600 outline-none focus:border-[#3D8593]"
+                          />
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <button

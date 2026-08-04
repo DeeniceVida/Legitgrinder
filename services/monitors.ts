@@ -56,6 +56,9 @@ export interface MonitorSettings {
   serviceFeeKes: number;
   serviceFeePctOver: number;
   serviceFeeThresholdKes: number;
+  /** Photo of the shipping crate. Any URL — a Cloudinary link or a path in
+   *  public/. Blank hides the "how it's packed" prompt entirely. */
+  cratePhotoUrl: string;
 }
 
 export interface PortOption {
@@ -84,6 +87,7 @@ export const DEFAULT_SETTINGS: MonitorSettings = {
   serviceFeeKes: 3000,
   serviceFeePctOver: 4,
   serviceFeeThresholdKes: 100000,
+  cratePhotoUrl: '',
 };
 
 /** Shipping is quoted per size band, not per model. */
@@ -150,6 +154,7 @@ export const fetchMonitorSettings = async (): Promise<MonitorSettings> => {
       serviceFeeKes: Number(data.service_fee_kes ?? DEFAULT_SETTINGS.serviceFeeKes),
       serviceFeePctOver: Number(data.service_fee_pct_over ?? DEFAULT_SETTINGS.serviceFeePctOver),
       serviceFeeThresholdKes: Number(data.service_fee_threshold_kes ?? DEFAULT_SETTINGS.serviceFeeThresholdKes),
+      cratePhotoUrl: data.crate_photo_url || '',
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -230,6 +235,7 @@ export const updateMonitorSettings = async (
     configMarkupKes: 'config_markup_kes', serviceFeePct: 'service_fee_pct',
     serviceFeeKes: 'service_fee_kes', serviceFeePctOver: 'service_fee_pct_over',
     serviceFeeThresholdKes: 'service_fee_threshold_kes',
+    cratePhotoUrl: 'crate_photo_url',
   };
   (Object.keys(p) as (keyof MonitorSettings)[]).forEach(k => {
     if (p[k] !== undefined && map[k]) row[map[k]] = p[k];

@@ -13,8 +13,8 @@ import {
   priceMonitor, serviceFeeFor, money, modelTitle, displayCode,
 } from '../services/monitors';
 
-/** Photo of the crate the monitors ship in. Drop the file at this path. */
-const CRATE_PHOTO = '/monitors/packaging.jpg';
+/** Used when the dashboard's crate photo field is left blank. */
+const CRATE_PHOTO_FALLBACK = '/monitors/packaging.jpg';
 
 interface Line {
   model: MonitorModel;
@@ -45,6 +45,8 @@ const Monitors: React.FC = () => {
   const [dQty, setDQty] = useState(1);
   const [crateOpen, setCrateOpen] = useState(false);
   const [crateOk, setCrateOk] = useState(true);
+  // Set from the dashboard; a Cloudinary URL or a path under public/.
+  const crateSrc = settings.cratePhotoUrl || CRATE_PHOTO_FALLBACK;
 
   const openDetail = (m: MonitorModel) => {
     const opts = optionsForModel(m, ports);
@@ -525,7 +527,7 @@ const Monitors: React.FC = () => {
                       className="w-full flex items-center gap-3 mt-3 p-3 rounded-xl border border-gray-100 hover:border-[#3D8593]/40 transition-colors text-left group"
                     >
                       <img
-                        src={CRATE_PHOTO}
+                        src={crateSrc}
                         alt=""
                         onError={() => setCrateOk(false)}
                         className="w-14 h-11 object-cover rounded-lg bg-neutral-50 shrink-0"
@@ -658,7 +660,7 @@ const Monitors: React.FC = () => {
                 <X size={20} weight="bold" />
               </button>
             </div>
-            <img src={CRATE_PHOTO} alt="Wooden shipping crate" className="w-full rounded-2xl bg-white" />
+            <img src={crateSrc} alt="Wooden shipping crate" className="w-full rounded-2xl bg-white" />
             <p className="text-white/70 text-[12px] font-light leading-relaxed mt-3">
               Every monitor travels in a purpose-built wooden crate — the cost is already inside the buying price.
               It is why our screens arrive intact when boxed ones don't.

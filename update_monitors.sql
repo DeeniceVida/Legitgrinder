@@ -26,6 +26,11 @@ alter table public.monitor_settings add column if not exists service_fee_kes    
 alter table public.monitor_settings add column if not exists service_fee_pct_over      numeric not null default 4;
 alter table public.monitor_settings add column if not exists service_fee_threshold_kes numeric not null default 100000;
 
+-- Photo of the shipping crate, set from the dashboard. Any URL works: a
+-- Cloudinary link, or a path like /monitors/packaging.jpg for a file committed
+-- to public/. Left blank, the "how it's packed" prompt simply doesn't appear.
+alter table public.monitor_settings add column if not exists crate_photo_url text;
+
 -- ── 2. The agreed rates ─────────────────────────────────────────────────────
 -- The $15 cut is distributed so no line ever reads as margin: $5 rides inside
 -- the crate (25 -> 30) and $10 inside freight. The buyer's total is unchanged.
