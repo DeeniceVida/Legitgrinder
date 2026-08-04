@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Monitor as MonitorIcon, WhatsappLogo, Plus, Minus, Trash, CircleNotch,
-  ArrowRight, Info, CheckCircle
+  ArrowRight, Info, CheckCircle, X, ShieldCheck, Package, MagnifyingGlassPlus
 } from '@phosphor-icons/react';
 import { Reveal } from '../components/Motion';
 import { WHATSAPP_NUMBER } from '../constants';
@@ -10,8 +10,11 @@ import {
   MonitorModel, MonitorSettings, PortOption, MonitorColor, DEFAULT_SETTINGS,
   fetchMonitorModels, fetchMonitorSettings, fetchMonitorShipping, fetchPortOptions,
   fetchMonitorColors, optionsForModel, colorsForModel,
-  priceMonitor, money, modelTitle, displayCode,
+  priceMonitor, serviceFeeFor, money, modelTitle, displayCode,
 } from '../services/monitors';
+
+/** Photo of the crate the monitors ship in. Drop the file at this path. */
+const CRATE_PHOTO = '/monitors/packaging.jpg';
 
 interface Line {
   model: MonitorModel;
@@ -34,6 +37,23 @@ const Monitors: React.FC = () => {
 
   const [size, setSize] = useState<number | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
+
+  /** The monitor being examined before it's added, and its chosen options. */
+  const [detail, setDetail] = useState<MonitorModel | null>(null);
+  const [dPort, setDPort] = useState<PortOption | undefined>();
+  const [dColor, setDColor] = useState<MonitorColor | undefined>();
+  const [dQty, setDQty] = useState(1);
+  const [crateOpen, setCrateOpen] = useState(false);
+  const [crateOk, setCrateOk] = useState(true);
+
+  const openDetail = (m: MonitorModel) => {
+    const opts = optionsForModel(m, ports);
+    const cols = colorsForModel(m, colors);
+    setDetail(m);
+    setDPort(opts.find(o => o.isStandard) || opts[0]);
+    setDColor(cols.find(c => c.isDefault) || cols[0]);
+    setDQty(1);
+  };
 
   useEffect(() => {
     Promise.all([
@@ -76,21 +96,22 @@ const Monitors: React.FC = () => {
     );
   }, [models, size]);
 
-  const addLine = (m: MonitorModel) => {
-    const std = optionsForModel(m, ports).find(o => o.isStandard);
-    const avail = colorsForModel(m, colors);
-    const defColor = avail.find(c => c.isDefault) || avail[0];
-    const p = priceMonitor(m, settings, shipping, std, defColor);
+  /** Commit whatever is configured in the detail view to the selection. */
+  const addConfigured = () => {
+    if (!detail) return;
+    const p = priceMonitor(detail, settings, shipping, dPort, dColor);
     if (p.unitKES == null) return;
     setLines(prev => {
-      const i = prev.findIndex(l => l.model.id === m.id && (l.port?.isStandard ?? true));
+      const i = prev.findIndex(l =>
+        l.model.id === detail.id && l.port?.id === dPort?.id && l.color?.id === dColor?.id);
       if (i >= 0) {
         const next = [...prev];
-        next[i] = { ...next[i], qty: next[i].qty + 1 };
+        next[i] = { ...next[i], qty: next[i].qty + dQty };
         return next;
       }
-      return [...prev, { model: m, qty: 1, port: std, color: defColor, unitKES: p.unitKES! }];
+      return [...prev, { model: detail, qty: dQty, port: dPort, color: dColor, unitKES: p.unitKES! }];
     });
+    setDetail(null);
   };
 
   const setPort = (idx: number, optionId: string) => {
@@ -118,8 +139,21 @@ const Monitors: React.FC = () => {
 
   const removeLine = (idx: number) => setLines(prev => prev.filter((_, i) => i !== idx));
 
-  const total = lines.reduce((s, l) => s + l.unitKES * l.qty, 0);
   const totalUnits = lines.reduce((s, l) => s + l.qty, 0);
+
+  /** The three parts, for the whole order. Service fee applies once. */
+  const order = useMemo(() => {
+    let buying = 0, shippingTotal = 0;
+    lines.forEach(l => {
+      const p = priceMonitor(l.model, settings, shipping, l.port, l.color);
+      buying += p.parts.buyingKES * l.qty;
+      shippingTotal += p.parts.shippingKES * l.qty;
+    });
+    const service = serviceFeeFor(buying, settings);
+    return { buying, shipping: shippingTotal, service, total: buying + shippingTotal + service };
+  }, [lines, settings, shipping]);
+
+  const total = order.total;
 
   /** The message the buyer sends across — it has to stand alone in the owner's inbox. */
   const whatsappHref = useMemo(() => {
@@ -134,7 +168,10 @@ const Monitors: React.FC = () => {
         `   Ports: ${l.port?.label || 'Standard'}\n` +
         `   ${money(l.unitKES)} each → ${money(l.unitKES * l.qty)}`
       ).join('\n\n') +
-      `\n\nTOTAL: ${money(total)} for ${totalUnits} unit${totalUnits === 1 ? '' : 's'}` +
+      `\n\nBuying price: ${money(order.buying)}` +
+      `\nShipping fee: ${money(order.shipping)}` +
+      `\nService fee: ${money(order.service)}` +
+      `\nTOTAL: ${money(total)} for ${totalUnits} unit${totalUnits === 1 ? '' : 's'}` +
       `\n\nPlease confirm availability and lead time.`;
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(body)}`;
   }, [lines, total, totalUnits]);
@@ -251,10 +288,10 @@ const Monitors: React.FC = () => {
                                 </a>
                               ) : (
                                 <button
-                                  onClick={() => addLine(m)}
+                                  onClick={() => openDetail(m)}
                                   className="px-3.5 py-2 rounded-lg bg-[#3D8593] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#0f1a1c] transition-colors"
                                 >
-                                  Select
+                                  View
                                 </button>
                               )}
                             </div>
@@ -370,7 +407,23 @@ const Monitors: React.FC = () => {
                       </div>
 
                       <div className="px-5 py-4 border-t border-gray-100 bg-neutral-50/60">
-                        <div className="flex items-baseline justify-between mb-4">
+                        {/* The three parts, exactly as the How It Works page promises */}
+                        <div className="space-y-2 mb-3.5">
+                          {[
+                            { label: 'Buying price', val: order.buying, note: 'Item, options & wooden crate' },
+                            { label: 'Shipping fee', val: order.shipping, note: 'Freight & clearing to Nairobi' },
+                            { label: 'Service fee', val: order.service, note: 'Our sourcing fee, once per order' },
+                          ].map(r => (
+                            <div key={r.label} className="flex items-baseline justify-between gap-3">
+                              <span className="text-[11px] font-bold text-gray-500">
+                                {r.label}
+                                <span className="block text-[9px] font-medium text-gray-400">{r.note}</span>
+                              </span>
+                              <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{money(r.val)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-baseline justify-between mb-4 pt-3 border-t border-gray-200">
                           <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Total landed</span>
                           <span className="text-xl font-black text-gray-900 tracking-tight">{money(total)}</span>
                         </div>
@@ -410,6 +463,209 @@ const Monitors: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* ── Detail view: the photo, the specs, the options, the maths ───── */}
+      {detail && (() => {
+        const p = priceMonitor(detail, settings, shipping, dPort, dColor);
+        const opts = optionsForModel(detail, ports);
+        const cols = colorsForModel(detail, colors);
+        const specs: [string, string][] = [
+          ['Screen size', `${detail.sizeInches} inches`],
+          ['Resolution', `${detail.resLabel || ''} ${detail.widthPx && detail.heightPx ? `· ${detail.widthPx} × ${detail.heightPx}` : ''}`.trim()],
+          ['Refresh rate', detail.refreshHz ? `${detail.refreshHz} Hz` : '—'],
+          ['Screen', detail.curved ? 'Curved' : 'Flat'],
+          ['Stand', detail.baseType === 'Lifting' ? 'Height-adjustable lifting base' : 'Height-adjustable base'],
+          ['Sound', 'Built-in speakers'],
+          ['Lighting', 'RGB backlighting'],
+          ['Power', 'Certified adapter'],
+        ];
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-6"
+            onClick={() => setDetail(null)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="bg-white w-full sm:max-w-3xl max-h-[92vh] overflow-y-auto rounded-t-[1.75rem] sm:rounded-[1.75rem]"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="sticky top-0 bg-white/95 backdrop-blur px-5 sm:px-7 py-4 border-b border-gray-100 flex items-start justify-between gap-4 z-10">
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">{modelTitle(detail)}</h2>
+                  <p className="text-[11px] font-medium text-gray-400">Ref {displayCode(detail)}</p>
+                </div>
+                <button onClick={() => setDetail(null)} aria-label="Close" className="text-gray-300 hover:text-gray-900 transition-colors shrink-0">
+                  <X size={20} weight="bold" />
+                </button>
+              </div>
+
+              <div className="p-5 sm:p-7 grid md:grid-cols-2 gap-6">
+                {/* Photo + trust */}
+                <div>
+                  {detail.imageUrl ? (
+                    <img src={detail.imageUrl} alt={modelTitle(detail)} className="w-full h-56 object-contain rounded-2xl bg-neutral-50" />
+                  ) : (
+                    <div className="w-full h-56 rounded-2xl bg-neutral-50 flex items-center justify-center">
+                      <MonitorIcon size={40} weight="duotone" className="text-gray-200" />
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2.5 mt-4 p-3.5 rounded-xl bg-teal-50/70 border border-teal-100">
+                    <ShieldCheck size={20} weight="duotone" className="text-[#3D8593] shrink-0" />
+                    <p className="text-[12px] font-bold text-gray-700 leading-snug">
+                      1 year manufacturer's warranty
+                      <span className="block text-[10px] font-medium text-gray-500">Provided by the manufacturer, not by us</span>
+                    </p>
+                  </div>
+
+                  {crateOk && (
+                    <button
+                      onClick={() => setCrateOpen(true)}
+                      className="w-full flex items-center gap-3 mt-3 p-3 rounded-xl border border-gray-100 hover:border-[#3D8593]/40 transition-colors text-left group"
+                    >
+                      <img
+                        src={CRATE_PHOTO}
+                        alt=""
+                        onError={() => setCrateOk(false)}
+                        className="w-14 h-11 object-cover rounded-lg bg-neutral-50 shrink-0"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-bold text-gray-700">Ships in a wooden crate</span>
+                        <span className="block text-[10px] font-medium text-gray-400 group-hover:text-[#3D8593] transition-colors">
+                          Tap to see how it's packed
+                        </span>
+                      </span>
+                      <MagnifyingGlassPlus size={16} weight="bold" className="text-gray-300 ml-auto shrink-0" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Specs + options + price */}
+                <div>
+                  <p className="eyebrow text-gray-400 mb-3">Specifications</p>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 mb-6">
+                    {specs.map(([k, v]) => (
+                      <div key={k}>
+                        <dt className="text-[9px] font-black uppercase tracking-widest text-gray-400">{k}</dt>
+                        <dd className="text-[12px] font-bold text-gray-800">{v || '—'}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {cols.length > 1 && (
+                    <>
+                      <p className="eyebrow text-gray-400 mb-2">Colour</p>
+                      <div className="flex flex-wrap gap-1.5 mb-5">
+                        {cols.map(c => {
+                          const on = dColor?.id === c.id;
+                          const extra = c.upchargeUsd > 0 ? Math.round(c.upchargeUsd * settings.usdToKes) : 0;
+                          return (
+                            <button
+                              key={c.id}
+                              onClick={() => setDColor(c)}
+                              aria-pressed={on}
+                              className={`px-3 py-2 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${on
+                                ? 'border-[#3D8593] bg-teal-50 text-[#3D8593]'
+                                : 'border-gray-100 text-gray-400 hover:border-gray-300'}`}
+                            >
+                              {c.label}{extra ? ` +${money(extra).replace('KES ', '')}` : ''}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {opts.length > 1 && (
+                    <>
+                      <p className="eyebrow text-gray-400 mb-2">Ports</p>
+                      <select
+                        value={dPort?.id || ''}
+                        onChange={e => setDPort(opts.find(o => o.id === e.target.value))}
+                        className="w-full mb-5 bg-neutral-50 border border-gray-100 rounded-lg px-3 py-2.5 text-[11px] font-bold text-gray-700 outline-none focus:border-[#3D8593]"
+                      >
+                        {opts.map(o => {
+                          const d = o.isStandard ? 0
+                            : Math.round(o.upchargeUsd * settings.usdToKes + settings.configMarkupKes);
+                          return (
+                            <option key={o.id} value={o.id}>
+                              {o.label}{o.isStandard ? ' — standard' : ` — +${money(d)}`}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </>
+                  )}
+
+                  {/* The two per-unit parts, then the fee that applies once */}
+                  <div className="rounded-xl bg-neutral-50 p-4 mb-4">
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-[11px] font-bold text-gray-500">Buying price</span>
+                      <span className="text-sm font-bold text-gray-900">{money(p.parts.buyingKES)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between mb-2.5">
+                      <span className="text-[11px] font-bold text-gray-500">Shipping fee</span>
+                      <span className="text-sm font-bold text-gray-900">{money(p.parts.shippingKES)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between pt-2.5 border-t border-gray-200">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Per unit</span>
+                      <span className="text-lg font-black text-gray-900 tracking-tight">{money(p.unitKES || 0)}</span>
+                    </div>
+                    <p className="text-[10px] font-medium text-gray-400 mt-2.5 leading-relaxed">
+                      A service fee of {money(settings.serviceFeeKes)} is added once per order — not per unit.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setDQty(q => Math.max(1, q - 1))} aria-label="Fewer" className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:border-[#3D8593] transition-colors">
+                        <Minus size={12} weight="bold" />
+                      </button>
+                      <span className="w-9 text-center text-sm font-black text-gray-900">{dQty}</span>
+                      <button onClick={() => setDQty(q => q + 1)} aria-label="More" className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:border-[#3D8593] transition-colors">
+                        <Plus size={12} weight="bold" />
+                      </button>
+                    </div>
+                    <button
+                      onClick={addConfigured}
+                      className="flex-1 py-3.5 rounded-full bg-[#3D8593] text-white font-black uppercase text-[11px] tracking-widest hover:bg-[#0f1a1c] transition-colors"
+                    >
+                      Add to selection
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Crate photo, full size ─────────────────────────────────────── */}
+      {crateOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-5"
+          onClick={() => setCrateOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="flex items-center gap-2 text-white font-bold text-sm">
+                <Package size={18} weight="duotone" className="text-[#FF9900]" /> How your monitor is packed
+              </p>
+              <button onClick={() => setCrateOpen(false)} aria-label="Close" className="text-white/60 hover:text-white transition-colors">
+                <X size={20} weight="bold" />
+              </button>
+            </div>
+            <img src={CRATE_PHOTO} alt="Wooden shipping crate" className="w-full rounded-2xl bg-white" />
+            <p className="text-white/70 text-[12px] font-light leading-relaxed mt-3">
+              Every monitor travels in a purpose-built wooden crate — the cost is already inside the buying price.
+              It is why our screens arrive intact when boxed ones don't.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

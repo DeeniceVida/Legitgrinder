@@ -26,7 +26,10 @@ const RATE_FIELDS: { key: keyof MonitorSettings; label: string; hint?: string; s
   { key: 'adjBaseUsd', label: 'Adjustable base', suffix: 'USD', hint: 'Only charged where the base is Fixed' },
   { key: 'certAdapterUsd', label: 'Certified adapter', suffix: 'USD' },
   { key: 'configMarkupKes', label: 'Port-change markup', suffix: 'KES', hint: 'On top of the factory upcharge' },
-  { key: 'serviceFeePct', label: 'Service fee', suffix: '%', hint: 'Applied to the landed subtotal' },
+  { key: 'serviceFeeKes', label: 'Service fee', suffix: 'KES', hint: 'Once per order, not per unit' },
+  { key: 'serviceFeeThresholdKes', label: 'Service fee switches at', suffix: 'KES', hint: 'Above this, the % below applies instead' },
+  { key: 'serviceFeePctOver', label: 'Service fee above that', suffix: '%', hint: 'Of the buying price' },
+  { key: 'serviceFeePct', label: 'Legacy % on unit', suffix: '%', hint: 'Leave at 0 — superseded by the fee above' },
 ];
 
 const SIZE_LABEL: Record<string, string> = {

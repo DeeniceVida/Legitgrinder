@@ -51,6 +51,11 @@ export interface MonitorSettings {
   /** Added on top of the factory's own upcharge for a non-standard layout. */
   configMarkupKes: number;
   serviceFeePct: number;
+  /** Service fee, per the How It Works page: from KES 3,000, becoming a
+   *  percentage of the buying price once that passes the threshold. */
+  serviceFeeKes: number;
+  serviceFeePctOver: number;
+  serviceFeeThresholdKes: number;
 }
 
 export interface PortOption {
@@ -76,6 +81,9 @@ export const DEFAULT_SETTINGS: MonitorSettings = {
   certAdapterUsd: 2,
   configMarkupKes: 1900,
   serviceFeePct: 0,
+  serviceFeeKes: 3000,
+  serviceFeePctOver: 4,
+  serviceFeeThresholdKes: 100000,
 };
 
 /** Shipping is quoted per size band, not per model. */
@@ -139,6 +147,9 @@ export const fetchMonitorSettings = async (): Promise<MonitorSettings> => {
       certAdapterUsd: Number(data.cert_adapter_usd),
       configMarkupKes: Number(data.config_markup_kes ?? DEFAULT_SETTINGS.configMarkupKes),
       serviceFeePct: Number(data.service_fee_pct),
+      serviceFeeKes: Number(data.service_fee_kes ?? DEFAULT_SETTINGS.serviceFeeKes),
+      serviceFeePctOver: Number(data.service_fee_pct_over ?? DEFAULT_SETTINGS.serviceFeePctOver),
+      serviceFeeThresholdKes: Number(data.service_fee_threshold_kes ?? DEFAULT_SETTINGS.serviceFeeThresholdKes),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -217,6 +228,8 @@ export const updateMonitorSettings = async (
     speakersLowUsd: 'speakers_low_usd', speakersHighUsd: 'speakers_high_usd',
     rgbUsd: 'rgb_usd', adjBaseUsd: 'adj_base_usd', certAdapterUsd: 'cert_adapter_usd',
     configMarkupKes: 'config_markup_kes', serviceFeePct: 'service_fee_pct',
+    serviceFeeKes: 'service_fee_kes', serviceFeePctOver: 'service_fee_pct_over',
+    serviceFeeThresholdKes: 'service_fee_threshold_kes',
   };
   (Object.keys(p) as (keyof MonitorSettings)[]).forEach(k => {
     if (p[k] !== undefined && map[k]) row[map[k]] = p[k];
@@ -257,6 +270,16 @@ export const STOCK_PHOTOS = Array.from({ length: 13 }, (_, i) =>
 export interface PriceResult {
   /** null when we have no shipping figure for this size — never invent one. */
   unitKES: number | null;
+  /**
+   * The two per-unit lines a buyer is shown. Buying price is everything about
+   * the item itself, wooden crate included; shipping is what it costs to land
+   * it. The third line — the service fee — is charged once per order, not per
+   * unit, so it lives on the order total rather than here.
+   */
+  parts: {
+    buyingKES: number;
+    shippingKES: number;
+  };
   /** Internal only. Never render this to a buyer: it exposes cost and margin. */
   breakdown: {
     factoryUsd: number;
@@ -303,25 +326,50 @@ export const priceMonitor = (
 
   const portUsd = port && !port.isStandard ? port.upchargeUsd : 0;
   const colorUsd = color?.upchargeUsd || 0;
-  const goodsKES =
-    (factoryUsd + alibabaUsd + s.crateUsd + s.freightUsd + inclusionsUsd + s.marginUsd + portUsd + colorUsd)
-    * s.usdToKes;
-  const shippingKES = shipping[sizeGroup(m.sizeInches)] ?? null;
   const configKES = port && !port.isStandard ? s.configMarkupKes : 0;
+
+  // Buying price: the item, its crate, its options. The owner's cut is already
+  // folded into the crate figure, so nothing here reads as margin.
+  const goodsKES =
+    (factoryUsd + alibabaUsd + s.crateUsd + inclusionsUsd + s.marginUsd + portUsd + colorUsd) * s.usdToKes
+    + configKES;
+  // Shipping: the per-size freight plus the USD freight component.
+  const freightPartKES = s.freightUsd * s.usdToKes;
+  const sizeFreight = shipping[sizeGroup(m.sizeInches)] ?? null;
 
   const breakdown = {
     factoryUsd, alibabaUsd, crateUsd: s.crateUsd, freightUsd: s.freightUsd, inclusionsUsd,
-    marginUsd: s.marginUsd, colorUsd, goodsKES, shippingKES, configKES, serviceFeeKES: 0,
+    marginUsd: s.marginUsd, colorUsd, goodsKES, shippingKES: sizeFreight, configKES, serviceFeeKES: 0,
   };
 
-  if (shippingKES == null) return { unitKES: null, breakdown };
+  if (sizeFreight == null) {
+    return { unitKES: null, parts: { buyingKES: 0, shippingKES: 0 }, breakdown };
+  }
 
-  const sub = goodsKES + shippingKES + configKES;
-  const serviceFeeKES = sub * (s.serviceFeePct / 100);
-  breakdown.serviceFeeKES = serviceFeeKES;
+  // Each line is rounded to the hundred so the parts always add up to the total
+  // a buyer is quoted — a breakdown that doesn't reconcile destroys trust.
+  const buyingKES = Math.ceil(goodsKES / 100) * 100;
+  const shippingKES = Math.ceil((sizeFreight + freightPartKES) / 100) * 100;
+  const legacyPct = (buyingKES + shippingKES) * (s.serviceFeePct / 100);
 
-  // Rounded up to the nearest 100 — retail prices shouldn't end in odd shillings.
-  return { unitKES: Math.ceil((sub + serviceFeeKES) / 100) * 100, breakdown };
+  return {
+    unitKES: buyingKES + shippingKES + legacyPct,
+    parts: { buyingKES, shippingKES },
+    breakdown,
+  };
+};
+
+/**
+ * The service fee for an order, per the How It Works page: a flat figure, which
+ * becomes a percentage of the buying price once the order passes the threshold.
+ * Charged once per order — never per unit.
+ */
+export const serviceFeeFor = (buyingSubtotalKES: number, s: MonitorSettings): number => {
+  if (buyingSubtotalKES <= 0) return 0;
+  const fee = buyingSubtotalKES > s.serviceFeeThresholdKes
+    ? buyingSubtotalKES * (s.serviceFeePctOver / 100)
+    : s.serviceFeeKes;
+  return Math.ceil(fee / 100) * 100;
 };
 
 export const money = (n: number) => `KES ${Math.round(n).toLocaleString('en-US')}`;

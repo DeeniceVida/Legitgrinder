@@ -19,6 +19,13 @@
 alter table public.monitor_settings add column if not exists freight_usd       numeric not null default 10;
 alter table public.monitor_settings add column if not exists config_markup_kes numeric not null default 1900;
 
+-- Service fee, worded exactly as the How It Works page already promises:
+-- "From KES 3,000 … above KES 100,000 it becomes 4% of the buying price."
+-- Charged once per order, never per unit.
+alter table public.monitor_settings add column if not exists service_fee_kes           numeric not null default 3000;
+alter table public.monitor_settings add column if not exists service_fee_pct_over      numeric not null default 4;
+alter table public.monitor_settings add column if not exists service_fee_threshold_kes numeric not null default 100000;
+
 -- ── 2. The agreed rates ─────────────────────────────────────────────────────
 -- The $15 cut is distributed so no line ever reads as margin: $5 rides inside
 -- the crate (25 -> 30) and $10 inside freight. The buyer's total is unchanged.
