@@ -5,6 +5,7 @@ import {
   ArrowRight, Info, CheckCircle, X, ShieldCheck, Package, MagnifyingGlassPlus
 } from '@phosphor-icons/react';
 import { Reveal } from '../components/Motion';
+import SafeImage from '../components/SafeImage';
 import { WHATSAPP_NUMBER } from '../constants';
 import {
   MonitorModel, MonitorSettings, PortOption, MonitorColor, DEFAULT_SETTINGS,
@@ -254,10 +255,10 @@ const Monitors: React.FC = () => {
                         return (
                           <div key={m.id} className="px-5 py-4 flex items-center justify-between gap-4 hover:bg-neutral-50/60 transition-colors">
                             {m.imageUrl && (
-                              <img
+                              <SafeImage
                                 src={m.imageUrl}
                                 alt={modelTitle(m)}
-                                loading="lazy"
+                                showPlaceholder={false}
                                 className="w-16 h-12 object-contain rounded-lg bg-neutral-50 shrink-0"
                               />
                             )}
@@ -506,7 +507,11 @@ const Monitors: React.FC = () => {
                 {/* Photo + trust */}
                 <div>
                   {detail.imageUrl ? (
-                    <img src={detail.imageUrl} alt={modelTitle(detail)} className="w-full h-56 object-contain rounded-2xl bg-neutral-50" />
+                    <SafeImage
+                      src={detail.imageUrl}
+                      alt={modelTitle(detail)}
+                      className="w-full h-56 object-contain rounded-2xl bg-neutral-50"
+                    />
                   ) : (
                     <div className="w-full h-56 rounded-2xl bg-neutral-50 flex items-center justify-center">
                       <MonitorIcon size={40} weight="duotone" className="text-gray-200" />
@@ -660,7 +665,7 @@ const Monitors: React.FC = () => {
                 <X size={20} weight="bold" />
               </button>
             </div>
-            <img src={crateSrc} alt="Wooden shipping crate" className="w-full rounded-2xl bg-white" />
+            <SafeImage src={crateSrc} alt="Wooden shipping crate" className="w-full rounded-2xl bg-white" />
             <p className="text-white/70 text-[12px] font-light leading-relaxed mt-3">
               Every monitor travels in a purpose-built wooden crate — the cost is already inside the buying price.
               It is why our screens arrive intact when boxed ones don't.

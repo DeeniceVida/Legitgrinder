@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Save, Check, AlertTriangle, Search, RefreshCcw } from 'lucide-react';
+import SafeImage from './SafeImage';
 import {
   MonitorModel, MonitorSettings, PortOption, DEFAULT_SETTINGS, STOCK_PHOTOS,
   fetchMonitorModels, fetchMonitorSettings, fetchMonitorShipping, fetchPortOptions,
@@ -203,7 +204,7 @@ const MonitorsTab: React.FC = () => {
             </p>
           </div>
           {settings.cratePhotoUrl && (
-            <img
+            <SafeImage
               src={settings.cratePhotoUrl}
               alt="Crate preview"
               className="w-32 h-24 object-cover rounded-xl bg-neutral-50 border border-neutral-100"
@@ -303,7 +304,8 @@ const MonitorsTab: React.FC = () => {
                     <tr key={m.id} className="hover:bg-neutral-50/50 transition-colors">
                       <td className="px-4 py-3">
                         {m.imageUrl ? (
-                          <img src={m.imageUrl} alt="" className="w-12 h-9 object-contain rounded bg-neutral-50" />
+                          <SafeImage src={m.imageUrl} alt="" showPlaceholder={false}
+                            className="w-12 h-9 object-contain rounded bg-neutral-50" />
                         ) : (
                           <div className="w-12 h-9 rounded bg-neutral-100" />
                         )}
@@ -391,7 +393,7 @@ const MonitorsTab: React.FC = () => {
         <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-7 gap-3">
           {STOCK_PHOTOS.map((src, i) => (
             <div key={src} className="text-center">
-              <img src={src} alt={`Photo ${i + 1}`} className="w-full h-20 object-contain rounded-lg bg-neutral-50 border border-neutral-100" />
+              <SafeImage src={src} alt={`Photo ${i + 1}`} className="w-full h-20 object-contain rounded-lg bg-neutral-50 border border-neutral-100" />
               <p className="text-[10px] font-black text-gray-400 mt-1.5">Photo {i + 1}</p>
             </div>
           ))}
