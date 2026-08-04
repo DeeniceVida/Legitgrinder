@@ -39,9 +39,11 @@ export interface MonitorColor {
 export interface MonitorSettings {
   usdToKes: number;
   alibabaPct: number;
-  /** Crate carries $5 of the owner's cut; freight carries the other $10. */
+  /** True supplier costs — the crate and the USD freight component. */
   crateUsd: number;
   freightUsd: number;
+  /** The owner's cut. Internal only: it is never shown as a line, and it is
+   *  excluded from Alibaba's 3% because Alibaba isn't paid on it. */
   marginUsd: number;
   speakersLowUsd: number;
   speakersHighUsd: number;
@@ -74,9 +76,9 @@ export interface PortOption {
 export const DEFAULT_SETTINGS: MonitorSettings = {
   usdToKes: 135,
   alibabaPct: 3,
-  crateUsd: 30,
+  crateUsd: 25,
   freightUsd: 10,
-  marginUsd: 0,
+  marginUsd: 15,
   speakersLowUsd: 3,
   speakersHighUsd: 1.5,
   rgbUsd: 2,

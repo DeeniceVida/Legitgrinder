@@ -5,7 +5,7 @@
 --  already run, and safe to run twice. It:
 --
 --    1. adds the two settings columns introduced after the first version
---    2. sets the agreed rates (rate 135, the $15 cut distributed)
+--    2. sets the agreed rates (rate 135, crate 25, freight 10, cut 15)
 --    3. fills in 40" and 49" freight
 --    4. creates monitor_port_options with the factory's REAL per-size interface
 --       upcharges (the old monitor_port_configs table had one flat figure)
@@ -35,13 +35,14 @@ alter table public.monitor_settings add column if not exists service_fee_thresho
 alter table public.monitor_settings add column if not exists crate_photo_url text;
 
 -- ── 2. The agreed rates ─────────────────────────────────────────────────────
--- The $15 cut is distributed so no line ever reads as margin: $5 rides inside
--- the crate (25 -> 30) and $10 inside freight. The buyer's total is unchanged.
+-- Crate and freight are the factory's real charges; the $15 is the owner's cut,
+-- held separately so Alibaba's 3% is not charged on it. None of the three is
+-- ever shown to a buyer — they see only buying price, shipping and service fee.
 update public.monitor_settings set
   usd_to_kes           = 135,
-  crate_usd            = 30,
+  crate_usd            = 25,
   freight_usd          = 10,
-  margin_usd           = 0,
+  margin_usd           = 15,
   -- Service fee is a flat KES 3,000. Both percentage routes off.
   service_fee_kes      = 3000,
   service_fee_pct_over = 0,
@@ -142,11 +143,30 @@ update public.monitor_models
   set available_colors = '{Black,White,Pink}'
   where model_code = 'HP-MX2381CQ';       -- the 23.8" 2K 100Hz
 
+-- ── 6. Photos ───────────────────────────────────────────────────────────────
+-- Assigned from the shots carved out of the supplier's own PDF, matched on how
+-- the monitor actually looks:
+--   photo-04  graphite, thin cross-foot stand — the business sizes
+--   photo-03  black, cross-foot stand         — the 23.8/24.5 gaming panels
+--   photo-06  black, V-stand                  — the 27" range
+--   photo-02  WHITE, white stand              — the 32", and the white option
+-- 34", 40" and 49" are left blank on purpose: every usable photo in the PDF is
+-- 16:9, and putting one against a 32:9 ultrawide would misrepresent the product.
+-- Those three need real shots from the Alibaba listing or from the supplier.
+update public.monitor_models set image_url = '/monitors/photo-04.jpg' where size_inches < 22;
+update public.monitor_models set image_url = '/monitors/photo-03.jpg' where size_inches >= 22 and size_inches < 26;
+update public.monitor_models set image_url = '/monitors/photo-06.jpg' where size_inches >= 26 and size_inches < 30;
+update public.monitor_models set image_url = '/monitors/photo-02.jpg' where size_inches >= 30 and size_inches < 33;
+
 -- ============================================================================
---  CHECKS — the four things below tell you it worked
+--  CHECKS — the sections below tell you it worked
 -- ============================================================================
 
--- Expect: 135 | 3 | 30 | 10 | 0 | 1900
+-- Expect photos on the 21.5-32" sizes and none on 34/40/49.
+select size_inches, count(*) as models, coalesce(max(image_url), '(none)') as photo
+from public.monitor_models group by size_inches order by size_inches;
+
+-- Expect: 135 | 3 | 25 | 10 | 15 | 1900
 select usd_to_kes, alibaba_pct, crate_usd, freight_usd, margin_usd, config_markup_kes
 from public.monitor_settings where id = 1;
 
@@ -160,17 +180,40 @@ select size_group, count(*) as layouts from public.monitor_port_options group by
 select model_code, size_inches, res_label, refresh_hz, available_colors
 from public.monitor_models where 'Pink' = any(available_colors);
 
--- Expect KES 24,000 for the 27" 1080p 100Hz.
-select m.model_code, m.factory_usd,
-  ceil((
-    (m.factory_usd + m.factory_usd * s.alibaba_pct / 100
-      + s.crate_usd + s.freight_usd + s.margin_usd
-      + case when m.refresh_hz >= 165 then s.speakers_high_usd else s.speakers_low_usd end
+-- The three parts, computed the same way the site does. Alibaba's 3% is charged
+-- on everything the supplier is paid (factory + crate + freight + inclusions),
+-- but NOT on the owner's cut. Freight sits in the shipping line, not the buying
+-- line. Expect the 34" 180Hz at 25,800 + 13,100 = 38,900 per unit.
+with parts as (
+  select
+    m.model_code,
+    m.size_inches,
+    m.refresh_hz,
+    m.factory_usd,
+    (case when m.refresh_hz >= 165 then s.speakers_high_usd else s.speakers_low_usd end
       + s.rgb_usd
       + case when m.base_type = 'Fixed' then s.adj_base_usd else 0 end
-      + s.cert_adapter_usd
-    ) * s.usd_to_kes + sh.shipping_kes) / 100) * 100 as expected_kes
-from public.monitor_models m
-cross join public.monitor_settings s
-join public.monitor_shipping sh on sh.size_group = '27'
-where m.model_code = 'HP-Z2701CF';
+      + s.cert_adapter_usd) as inclusions_usd,
+    s.crate_usd, s.freight_usd, s.margin_usd, s.alibaba_pct, s.usd_to_kes,
+    sh.shipping_kes
+  from public.monitor_models m
+  cross join public.monitor_settings s
+  join public.monitor_shipping sh
+    on sh.size_group = case
+         when m.size_inches < 22 then '21' when m.size_inches < 26 then '24'
+         when m.size_inches < 30 then '27' when m.size_inches < 33 then '32'
+         when m.size_inches < 36 then '34' when m.size_inches < 45 then '40'
+         else '49' end
+  where m.model_code in ('HP-MX342GU', 'HP-Z2701CF')
+)
+select
+  model_code, size_inches, refresh_hz, factory_usd,
+  ceil(((factory_usd
+        + (factory_usd + crate_usd + freight_usd + inclusions_usd) * alibaba_pct / 100
+        + crate_usd + inclusions_usd + margin_usd) * usd_to_kes) / 100) * 100 as buying_kes,
+  ceil((shipping_kes + freight_usd * usd_to_kes) / 100) * 100 as shipping_kes,
+  ceil(((factory_usd
+        + (factory_usd + crate_usd + freight_usd + inclusions_usd) * alibaba_pct / 100
+        + crate_usd + inclusions_usd + margin_usd) * usd_to_kes) / 100) * 100
+  + ceil((shipping_kes + freight_usd * usd_to_kes) / 100) * 100 as unit_kes
+from parts;

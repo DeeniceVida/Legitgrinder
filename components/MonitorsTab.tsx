@@ -18,9 +18,9 @@ import {
 const RATE_FIELDS: { key: keyof MonitorSettings; label: string; hint?: string; suffix: string }[] = [
   { key: 'usdToKes', label: 'USD → KES', suffix: 'KES', hint: 'Repricing the whole catalogue starts here' },
   { key: 'alibabaPct', label: 'Alibaba cut', suffix: '%' },
-  { key: 'crateUsd', label: 'Wooden crate', suffix: 'USD', hint: 'Carries $5 of your cut' },
-  { key: 'freightUsd', label: 'Freight (USD part)', suffix: 'USD', hint: 'Carries $10 of your cut' },
-  { key: 'marginUsd', label: 'Explicit margin', suffix: 'USD', hint: 'Normally 0 — it is distributed above' },
+  { key: 'crateUsd', label: 'Wooden crate', suffix: 'USD', hint: 'What the factory charges to crate it' },
+  { key: 'freightUsd', label: 'Freight (USD part)', suffix: 'USD', hint: 'On top of the per-size freight below' },
+  { key: 'marginUsd', label: 'Your cut', suffix: 'USD', hint: 'Never shown, and no Alibaba 3% on it' },
   { key: 'speakersLowUsd', label: 'Speakers under 165Hz', suffix: 'USD' },
   { key: 'speakersHighUsd', label: 'Speakers 165Hz+', suffix: 'USD' },
   { key: 'rgbUsd', label: 'RGB lighting', suffix: 'USD' },
