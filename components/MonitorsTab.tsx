@@ -86,6 +86,18 @@ const MonitorsTab: React.FC = () => {
     res.success ? flash(m.id) : setError(res.error || 'Could not save the model');
   };
 
+  /** Publish or hide a model. Saved immediately — a toggle you have to
+   *  remember to save is a toggle that lies about the site's state. */
+  const toggleActive = async (m: MonitorModel) => {
+    const next = !m.isActive;
+    patchModel(m.id, { isActive: next });
+    setSaving(m.id); setError(null);
+    const res = await updateMonitorModel(m.id, { isActive: next });
+    setSaving(null);
+    if (res.success) flash(m.id);
+    else { patchModel(m.id, { isActive: m.isActive }); setError(res.error || 'Could not change visibility'); }
+  };
+
   const patchModel = (id: string, patch: Partial<MonitorModel>) =>
     setModels(prev => prev.map(m => (m.id === id ? { ...m, ...patch } : m)));
 
@@ -291,7 +303,7 @@ const MonitorsTab: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-neutral-50/60">
                 <tr>
-                  {['Photo', 'Model', 'Spec', 'Factory USD', 'Landed KES', 'Colours', 'Image', ''].map(h => (
+                  {['Live', 'Photo', 'Model', 'Spec', 'Factory USD', 'Landed KES', 'Colours', 'Image', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -301,7 +313,19 @@ const MonitorsTab: React.FC = () => {
                   const std = optionsForModel(m, ports).find(o => o.isStandard);
                   const p = priceMonitor(m, settings, shipping, std);
                   return (
-                    <tr key={m.id} className="hover:bg-neutral-50/50 transition-colors">
+                    <tr key={m.id} className={`transition-colors ${m.isActive ? 'hover:bg-neutral-50/50' : 'bg-neutral-50/60 opacity-60 hover:opacity-100'}`}>
+                      {/* On/off. Off keeps the model out of the storefront entirely. */}
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => toggleActive(m)}
+                          disabled={saving === m.id}
+                          aria-pressed={m.isActive}
+                          title={m.isActive ? 'Live on the site — click to hide' : 'Hidden — click to publish'}
+                          className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${m.isActive ? 'bg-[#3D8593]' : 'bg-neutral-300'} disabled:opacity-40`}
+                        >
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${m.isActive ? 'left-[1.375rem]' : 'left-0.5'}`} />
+                        </button>
+                      </td>
                       <td className="px-4 py-3">
                         {m.imageUrl ? (
                           <SafeImage src={m.imageUrl} alt="" showPlaceholder={false}

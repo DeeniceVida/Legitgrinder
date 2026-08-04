@@ -476,7 +476,7 @@ const Monitors: React.FC = () => {
           ['Screen size', `${detail.sizeInches} inches`],
           ['Resolution', `${detail.resLabel || ''} ${detail.widthPx && detail.heightPx ? `· ${detail.widthPx} × ${detail.heightPx}` : ''}`.trim()],
           ['Refresh rate', detail.refreshHz ? `${detail.refreshHz} Hz` : '—'],
-          ['Screen', detail.curved ? 'Curved' : 'Flat'],
+          ['Screen', `${detail.curved ? 'Curved' : 'Flat'}${detail.panelType ? ` · ${detail.panelType} panel` : ''}`],
           ['Stand', detail.baseType === 'Lifting' ? 'Height-adjustable lifting base' : 'Height-adjustable base'],
           ['Sound', 'Built-in speakers'],
           ['Lighting', 'RGB backlighting'],
