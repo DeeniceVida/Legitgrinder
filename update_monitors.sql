@@ -38,17 +38,23 @@ alter table public.monitor_settings add column if not exists crate_photo_url tex
 -- Crate and freight are the factory's real charges; the $15 is the owner's cut,
 -- held separately so Alibaba's 3% is not charged on it. None of the three is
 -- ever shown to a buyer — they see only buying price, shipping and service fee.
-update public.monitor_settings set
-  usd_to_kes           = 135,
-  crate_usd            = 25,
-  freight_usd          = 10,
-  margin_usd           = 15,
-  -- Service fee is a flat KES 3,000. Both percentage routes off.
-  service_fee_kes      = 3000,
-  service_fee_pct_over = 0,
-  service_fee_pct      = 0,
-  updated_at           = now()
-where id = 1;
+--
+-- IMPORTANT: every update below is CONDITIONAL. It corrects only the specific
+-- stale value an earlier version of this file left behind, so re-running this
+-- can never wipe a figure you have deliberately set in the dashboard. An
+-- earlier version did overwrite them unconditionally — that is why a
+-- large-order percentage set in the dashboard came back as 0.
+update public.monitor_settings set usd_to_kes  = 135, updated_at = now() where id = 1 and usd_to_kes  = 130;
+update public.monitor_settings set crate_usd   = 25,  updated_at = now() where id = 1 and crate_usd   = 30;
+update public.monitor_settings set margin_usd  = 15,  updated_at = now() where id = 1 and margin_usd  = 0;
+update public.monitor_settings set freight_usd = 10,  updated_at = now() where id = 1 and freight_usd = 20;
+
+-- The service fee is a flat KES 3,000. Only corrected if it is still 0.
+update public.monitor_settings set service_fee_kes = 3000, updated_at = now()
+  where id = 1 and coalesce(service_fee_kes, 0) = 0;
+
+-- service_fee_pct_over and service_fee_threshold_kes are LEFT ALONE on purpose.
+-- They are yours to set; nothing here touches them.
 
 -- ── 3. Freight for the two large sizes ──────────────────────────────────────
 update public.monitor_shipping set shipping_kes = 14200, updated_at = now() where size_group = '40';
@@ -153,10 +159,15 @@ update public.monitor_models
 -- 34", 40" and 49" are left blank on purpose: every usable photo in the PDF is
 -- 16:9, and putting one against a 32:9 ultrawide would misrepresent the product.
 -- Those three need real shots from the Alibaba listing or from the supplier.
-update public.monitor_models set image_url = '/monitors/photo-04.jpg' where size_inches < 22;
-update public.monitor_models set image_url = '/monitors/photo-03.jpg' where size_inches >= 22 and size_inches < 26;
-update public.monitor_models set image_url = '/monitors/photo-06.jpg' where size_inches >= 26 and size_inches < 30;
-update public.monitor_models set image_url = '/monitors/photo-02.jpg' where size_inches >= 30 and size_inches < 33;
+-- Only fills a gap — never replaces a photo you have already chosen.
+update public.monitor_models set image_url = '/monitors/photo-04.jpg'
+  where image_url is null and size_inches < 22;
+update public.monitor_models set image_url = '/monitors/photo-03.jpg'
+  where image_url is null and size_inches >= 22 and size_inches < 26;
+update public.monitor_models set image_url = '/monitors/photo-06.jpg'
+  where image_url is null and size_inches >= 26 and size_inches < 30;
+update public.monitor_models set image_url = '/monitors/photo-02.jpg'
+  where image_url is null and size_inches >= 30 and size_inches < 33;
 
 -- ============================================================================
 --  CHECKS — the sections below tell you it worked
