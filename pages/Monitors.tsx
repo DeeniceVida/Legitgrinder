@@ -7,9 +7,10 @@ import {
 import { Reveal } from '../components/Motion';
 import { WHATSAPP_NUMBER } from '../constants';
 import {
-  MonitorModel, MonitorSettings, PortOption, DEFAULT_SETTINGS,
+  MonitorModel, MonitorSettings, PortOption, MonitorColor, DEFAULT_SETTINGS,
   fetchMonitorModels, fetchMonitorSettings, fetchMonitorShipping, fetchPortOptions,
-  optionsForModel, priceMonitor, money, modelTitle, displayCode,
+  fetchMonitorColors, optionsForModel, colorsForModel,
+  priceMonitor, money, modelTitle, displayCode,
 } from '../services/monitors';
 
 interface Line {
@@ -17,6 +18,7 @@ interface Line {
   qty: number;
   /** The chosen port layout — options and their cost vary by size. */
   port?: PortOption;
+  color?: MonitorColor;
   unitKES: number;
 }
 
@@ -27,14 +29,20 @@ const Monitors: React.FC = () => {
   const [settings, setSettings] = useState<MonitorSettings>(DEFAULT_SETTINGS);
   const [shipping, setShipping] = useState<Record<string, number | null>>({});
   const [ports, setPorts] = useState<PortOption[]>([]);
+  const [colors, setColors] = useState<MonitorColor[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [size, setSize] = useState<number | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
 
   useEffect(() => {
-    Promise.all([fetchMonitorModels(), fetchMonitorSettings(), fetchMonitorShipping(), fetchPortOptions()])
-      .then(([m, s, sh, p]) => { setModels(m); setSettings(s); setShipping(sh); setPorts(p); })
+    Promise.all([
+      fetchMonitorModels(), fetchMonitorSettings(), fetchMonitorShipping(),
+      fetchPortOptions(), fetchMonitorColors(),
+    ])
+      .then(([m, s, sh, p, c]) => {
+        setModels(m); setSettings(s); setShipping(sh); setPorts(p); setColors(c);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -70,7 +78,9 @@ const Monitors: React.FC = () => {
 
   const addLine = (m: MonitorModel) => {
     const std = optionsForModel(m, ports).find(o => o.isStandard);
-    const p = priceMonitor(m, settings, shipping, std);
+    const avail = colorsForModel(m, colors);
+    const defColor = avail.find(c => c.isDefault) || avail[0];
+    const p = priceMonitor(m, settings, shipping, std, defColor);
     if (p.unitKES == null) return;
     setLines(prev => {
       const i = prev.findIndex(l => l.model.id === m.id && (l.port?.isStandard ?? true));
@@ -79,7 +89,7 @@ const Monitors: React.FC = () => {
         next[i] = { ...next[i], qty: next[i].qty + 1 };
         return next;
       }
-      return [...prev, { model: m, qty: 1, port: std, unitKES: p.unitKES! }];
+      return [...prev, { model: m, qty: 1, port: std, color: defColor, unitKES: p.unitKES! }];
     });
   };
 
@@ -87,8 +97,17 @@ const Monitors: React.FC = () => {
     setLines(prev => prev.map((l, i) => {
       if (i !== idx) return l;
       const opt = optionsForModel(l.model, ports).find(o => o.id === optionId);
-      const p = priceMonitor(l.model, settings, shipping, opt);
+      const p = priceMonitor(l.model, settings, shipping, opt, l.color);
       return { ...l, port: opt, unitKES: p.unitKES ?? l.unitKES };
+    }));
+  };
+
+  const setColor = (idx: number, colorId: string) => {
+    setLines(prev => prev.map((l, i) => {
+      if (i !== idx) return l;
+      const col = colorsForModel(l.model, colors).find(c => c.id === colorId);
+      const p = priceMonitor(l.model, settings, shipping, l.port, col);
+      return { ...l, color: col, unitKES: p.unitKES ?? l.unitKES };
     }));
   };
 
@@ -111,6 +130,7 @@ const Monitors: React.FC = () => {
         `${l.qty} × ${modelTitle(l.model)}${l.model.curved ? ' Curved' : ''}\n` +
         // The series IS useful to the owner, so it rides in the WhatsApp brief.
         `   Model: ${l.model.modelCode}${l.model.series ? ` (${l.model.series})` : ''}\n` +
+        (l.color ? `   Colour: ${l.color.label}\n` : '') +
         `   Ports: ${l.port?.label || 'Standard'}\n` +
         `   ${money(l.unitKES)} each → ${money(l.unitKES * l.qty)}`
       ).join('\n\n') +
@@ -284,6 +304,33 @@ const Monitors: React.FC = () => {
                                 <Trash size={15} weight="bold" />
                               </button>
                             </div>
+
+                            {(() => {
+                              const cols = colorsForModel(l.model, colors);
+                              if (cols.length < 2) return null;
+                              return (
+                                <div className="flex items-center gap-1.5 mb-2.5">
+                                  {cols.map(c => {
+                                    const on = l.color?.id === c.id;
+                                    const extra = c.upchargeUsd > 0
+                                      ? Math.round(c.upchargeUsd * settings.usdToKes) : 0;
+                                    return (
+                                      <button
+                                        key={c.id}
+                                        onClick={() => setColor(i, c.id)}
+                                        aria-pressed={on}
+                                        title={extra ? `${c.label} · +${money(extra)}` : c.label}
+                                        className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest transition-all ${on
+                                          ? 'border-[#3D8593] bg-teal-50 text-[#3D8593]'
+                                          : 'border-gray-100 text-gray-400 hover:border-gray-300'}`}
+                                      >
+                                        {c.label}{extra ? ` +${(extra / 1000).toFixed(1)}k` : ''}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
 
                             {(() => {
                               const opts = optionsForModel(l.model, ports);

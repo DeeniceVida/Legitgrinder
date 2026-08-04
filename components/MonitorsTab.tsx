@@ -76,6 +76,7 @@ const MonitorsTab: React.FC = () => {
     setSaving(m.id); setError(null);
     const res = await updateMonitorModel(m.id, {
       factoryUsd: m.factoryUsd, imageUrl: m.imageUrl ?? null,
+      availableColors: m.availableColors,
     });
     setSaving(null);
     res.success ? flash(m.id) : setError(res.error || 'Could not save the model');
@@ -243,7 +244,7 @@ const MonitorsTab: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-neutral-50/60">
                 <tr>
-                  {['Photo', 'Model', 'Spec', 'Factory USD', 'Landed KES', 'Image', ''].map(h => (
+                  {['Photo', 'Model', 'Spec', 'Factory USD', 'Landed KES', 'Colours', 'Image', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -283,6 +284,17 @@ const MonitorsTab: React.FC = () => {
                         {p.unitKES == null
                           ? <span className="text-[10px] font-black uppercase tracking-widest text-[#FF9900]">No freight</span>
                           : <span className="text-sm font-black text-gray-900">{money(p.unitKES)}</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <input
+                          value={m.availableColors.join(', ')}
+                          onChange={e => patchModel(m.id, {
+                            availableColors: e.target.value.split(',').map(s => s.trim()).filter(Boolean),
+                          })}
+                          placeholder="Black, White"
+                          title="Comma separated. Must match the labels in monitor_colors."
+                          className="w-32 bg-neutral-50 border border-neutral-100 rounded-lg px-2.5 py-2 text-[11px] font-bold text-gray-700 outline-none focus:border-[#3D8593]"
+                        />
                       </td>
                       <td className="px-4 py-3">
                         <select

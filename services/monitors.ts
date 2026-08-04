@@ -22,6 +22,17 @@ export interface MonitorModel {
   baseType: 'Fixed' | 'Lifting';
   factoryUsd: number;
   imageUrl?: string;
+  /** Which colours this model can be had in. Black + White on nearly all. */
+  availableColors: string[];
+  sortOrder: number;
+}
+
+export interface MonitorColor {
+  id: string;
+  label: string;
+  /** What the factory charges for the shell — pink is +USD 2. */
+  upchargeUsd: number;
+  isDefault: boolean;
   sortOrder: number;
 }
 
@@ -91,6 +102,11 @@ const toModel = (d: any): MonitorModel => ({
   baseType: d.base_type === 'Lifting' ? 'Lifting' : 'Fixed',
   factoryUsd: Number(d.factory_usd),
   imageUrl: d.image_url || undefined,
+  // Falls back to black/white so the page still works before the colour
+  // migration has been run.
+  availableColors: Array.isArray(d.available_colors) && d.available_colors.length
+    ? d.available_colors
+    : ['Black', 'White'],
   sortOrder: d.sort_order ?? 0,
 });
 
@@ -162,6 +178,27 @@ export const fetchPortOptions = async (): Promise<PortOption[]> => {
   }
 };
 
+export const fetchMonitorColors = async (): Promise<MonitorColor[]> => {
+  try {
+    const { data, error } = await supabase.from('monitor_colors').select('*').order('sort_order');
+    if (error || !data) return [];
+    return data.map((d: any) => ({
+      id: d.id,
+      label: d.label,
+      upchargeUsd: Number(d.upcharge_usd || 0),
+      isDefault: !!d.is_default,
+      sortOrder: d.sort_order ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+};
+
+/** The colours one model can be had in, in catalogue order. */
+export const colorsForModel = (m: MonitorModel, all: MonitorColor[]): MonitorColor[] =>
+  all.filter(c => m.availableColors.includes(c.label))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
 /** The layouts available for one monitor, standard first. */
 export const optionsForModel = (m: MonitorModel, all: PortOption[]): PortOption[] =>
   all.filter(o => o.sizeGroup === sizeGroup(m.sizeInches))
@@ -202,12 +239,13 @@ export const updateMonitorShipping = async (
 
 export const updateMonitorModel = async (
   id: string,
-  p: { factoryUsd?: number; imageUrl?: string | null; isActive?: boolean }
+  p: { factoryUsd?: number; imageUrl?: string | null; isActive?: boolean; availableColors?: string[] }
 ): Promise<{ success: boolean; error?: string }> => {
   const row: any = {};
   if (p.factoryUsd !== undefined) row.factory_usd = p.factoryUsd;
   if (p.imageUrl !== undefined) row.image_url = p.imageUrl || null;
   if (p.isActive !== undefined) row.is_active = p.isActive;
+  if (p.availableColors !== undefined) row.available_colors = p.availableColors;
   const { error } = await supabase.from('monitor_models').update(row).eq('id', id);
   return { success: !error, error: error?.message };
 };
@@ -227,6 +265,7 @@ export interface PriceResult {
     freightUsd: number;
     inclusionsUsd: number;
     marginUsd: number;
+    colorUsd: number;
     goodsKES: number;
     shippingKES: number | null;
     configKES: number;
@@ -243,12 +282,16 @@ export interface PriceResult {
  *
  * `port` is the layout chosen. A non-standard one costs the factory's own
  * upcharge for that size (which is sometimes zero) plus the owner's markup.
+ *
+ * `color` is passed through at the factory's own cost with no markup — black
+ * and white are free, pink is the supplier's USD 2.
  */
 export const priceMonitor = (
   m: MonitorModel,
   s: MonitorSettings,
   shipping: Record<string, number | null>,
-  port?: PortOption
+  port?: PortOption,
+  color?: MonitorColor
 ): PriceResult => {
   const factoryUsd = m.factoryUsd;
   const alibabaUsd = factoryUsd * (s.alibabaPct / 100);
@@ -259,14 +302,16 @@ export const priceMonitor = (
   const inclusionsUsd = speakers + s.rgbUsd + adjBase + s.certAdapterUsd;
 
   const portUsd = port && !port.isStandard ? port.upchargeUsd : 0;
+  const colorUsd = color?.upchargeUsd || 0;
   const goodsKES =
-    (factoryUsd + alibabaUsd + s.crateUsd + s.freightUsd + inclusionsUsd + s.marginUsd + portUsd) * s.usdToKes;
+    (factoryUsd + alibabaUsd + s.crateUsd + s.freightUsd + inclusionsUsd + s.marginUsd + portUsd + colorUsd)
+    * s.usdToKes;
   const shippingKES = shipping[sizeGroup(m.sizeInches)] ?? null;
   const configKES = port && !port.isStandard ? s.configMarkupKes : 0;
 
   const breakdown = {
     factoryUsd, alibabaUsd, crateUsd: s.crateUsd, freightUsd: s.freightUsd, inclusionsUsd,
-    marginUsd: s.marginUsd, goodsKES, shippingKES, configKES, serviceFeeKES: 0,
+    marginUsd: s.marginUsd, colorUsd, goodsKES, shippingKES, configKES, serviceFeeKES: 0,
   };
 
   if (shippingKES == null) return { unitKES: null, breakdown };
