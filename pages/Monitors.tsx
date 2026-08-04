@@ -526,17 +526,17 @@ const Monitors: React.FC = () => {
                     </p>
                   </div>
 
+                  {/* Deliberately an icon, not a thumbnail: the crate photo is a
+                      full-resolution shot, and nobody should pay to download it
+                      on mobile unless they actually ask to see it. */}
                   {crateOk && (
                     <button
                       onClick={() => setCrateOpen(true)}
                       className="w-full flex items-center gap-3 mt-3 p-3 rounded-xl border border-gray-100 hover:border-[#3D8593]/40 transition-colors text-left group"
                     >
-                      <img
-                        src={crateSrc}
-                        alt=""
-                        onError={() => setCrateOk(false)}
-                        className="w-14 h-11 object-cover rounded-lg bg-neutral-50 shrink-0"
-                      />
+                      <span className="w-11 h-11 rounded-lg bg-orange-50 text-[#FF9900] flex items-center justify-center shrink-0">
+                        <Package size={22} weight="duotone" />
+                      </span>
                       <span className="min-w-0">
                         <span className="block text-[11px] font-bold text-gray-700">Ships in a wooden crate</span>
                         <span className="block text-[10px] font-medium text-gray-400 group-hover:text-[#3D8593] transition-colors">

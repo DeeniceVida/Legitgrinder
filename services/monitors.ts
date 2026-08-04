@@ -85,7 +85,9 @@ export const DEFAULT_SETTINGS: MonitorSettings = {
   configMarkupKes: 1900,
   serviceFeePct: 0,
   serviceFeeKes: 3000,
-  serviceFeePctOver: 4,
+  // Zero on purpose: the fee is a flat 3,000. Set this above zero only if the
+  // percentage rule should kick in for large orders.
+  serviceFeePctOver: 0,
   serviceFeeThresholdKes: 100000,
   cratePhotoUrl: '',
 };
@@ -323,7 +325,6 @@ export const priceMonitor = (
   color?: MonitorColor
 ): PriceResult => {
   const factoryUsd = m.factoryUsd;
-  const alibabaUsd = factoryUsd * (s.alibabaPct / 100);
 
   const speakers = (m.refreshHz || 0) >= 165 ? s.speakersHighUsd : s.speakersLowUsd;
   // A lifting base is already height-adjustable, so there's nothing to add.
@@ -333,6 +334,13 @@ export const priceMonitor = (
   const portUsd = port && !port.isStandard ? port.upchargeUsd : 0;
   const colorUsd = color?.upchargeUsd || 0;
   const configKES = port && !port.isStandard ? s.configMarkupKes : 0;
+
+  // Alibaba's cut is charged on the whole payment to the supplier, not just the
+  // factory price — the crate, the freight, the speakers, the RGB, the base, the
+  // adapter and any port or colour upcharge all go through the same invoice.
+  const supplierUsd =
+    factoryUsd + s.crateUsd + s.freightUsd + inclusionsUsd + portUsd + colorUsd;
+  const alibabaUsd = supplierUsd * (s.alibabaPct / 100);
 
   // Buying price: the item, its crate, its options. The owner's cut is already
   // folded into the crate figure, so nothing here reads as margin.
@@ -366,15 +374,18 @@ export const priceMonitor = (
 };
 
 /**
- * The service fee for an order, per the How It Works page: a flat figure, which
- * becomes a percentage of the buying price once the order passes the threshold.
- * Charged once per order — never per unit.
+ * The service fee for an order. A flat figure — KES 3,000 — charged once per
+ * order, never per unit and never a percentage.
+ *
+ * The percentage rule is opt-in: it only applies if serviceFeePctOver is set
+ * above zero, which it isn't by default. (The How It Works page mentions 4%
+ * above KES 100,000 for large orders — if that should apply here, set the
+ * percentage in the dashboard and it takes over above the threshold.)
  */
 export const serviceFeeFor = (buyingSubtotalKES: number, s: MonitorSettings): number => {
   if (buyingSubtotalKES <= 0) return 0;
-  const fee = buyingSubtotalKES > s.serviceFeeThresholdKes
-    ? buyingSubtotalKES * (s.serviceFeePctOver / 100)
-    : s.serviceFeeKes;
+  const usePct = s.serviceFeePctOver > 0 && buyingSubtotalKES > s.serviceFeeThresholdKes;
+  const fee = usePct ? buyingSubtotalKES * (s.serviceFeePctOver / 100) : s.serviceFeeKes;
   return Math.ceil(fee / 100) * 100;
 };
 

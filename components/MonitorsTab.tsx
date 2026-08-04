@@ -27,10 +27,10 @@ const RATE_FIELDS: { key: keyof MonitorSettings; label: string; hint?: string; s
   { key: 'adjBaseUsd', label: 'Adjustable base', suffix: 'USD', hint: 'Only charged where the base is Fixed' },
   { key: 'certAdapterUsd', label: 'Certified adapter', suffix: 'USD' },
   { key: 'configMarkupKes', label: 'Port-change markup', suffix: 'KES', hint: 'On top of the factory upcharge' },
-  { key: 'serviceFeeKes', label: 'Service fee', suffix: 'KES', hint: 'Once per order, not per unit' },
-  { key: 'serviceFeeThresholdKes', label: 'Service fee switches at', suffix: 'KES', hint: 'Above this, the % below applies instead' },
-  { key: 'serviceFeePctOver', label: 'Service fee above that', suffix: '%', hint: 'Of the buying price' },
-  { key: 'serviceFeePct', label: 'Legacy % on unit', suffix: '%', hint: 'Leave at 0 — superseded by the fee above' },
+  { key: 'serviceFeeKes', label: 'Service fee', suffix: 'KES', hint: 'Flat, once per order — not per unit' },
+  { key: 'serviceFeePctOver', label: 'Large-order %', suffix: '%', hint: 'Leave 0 to keep the flat fee always' },
+  { key: 'serviceFeeThresholdKes', label: '…applies above', suffix: 'KES', hint: 'Only used if the % above is set' },
+  { key: 'serviceFeePct', label: 'Legacy % on unit', suffix: '%', hint: 'Leave at 0' },
 ];
 
 const SIZE_LABEL: Record<string, string> = {

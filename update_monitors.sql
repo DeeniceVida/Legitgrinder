@@ -23,7 +23,10 @@ alter table public.monitor_settings add column if not exists config_markup_kes n
 -- "From KES 3,000 … above KES 100,000 it becomes 4% of the buying price."
 -- Charged once per order, never per unit.
 alter table public.monitor_settings add column if not exists service_fee_kes           numeric not null default 3000;
-alter table public.monitor_settings add column if not exists service_fee_pct_over      numeric not null default 4;
+-- Flat KES 3,000, not a percentage. The percentage below is opt-in: at 0 the
+-- flat fee always applies. Set it above 0 only if large orders should switch
+-- to a percentage of the buying price.
+alter table public.monitor_settings add column if not exists service_fee_pct_over      numeric not null default 0;
 alter table public.monitor_settings add column if not exists service_fee_threshold_kes numeric not null default 100000;
 
 -- Photo of the shipping crate, set from the dashboard. Any URL works: a
@@ -35,11 +38,15 @@ alter table public.monitor_settings add column if not exists crate_photo_url tex
 -- The $15 cut is distributed so no line ever reads as margin: $5 rides inside
 -- the crate (25 -> 30) and $10 inside freight. The buyer's total is unchanged.
 update public.monitor_settings set
-  usd_to_kes  = 135,
-  crate_usd   = 30,
-  freight_usd = 10,
-  margin_usd  = 0,
-  updated_at  = now()
+  usd_to_kes           = 135,
+  crate_usd            = 30,
+  freight_usd          = 10,
+  margin_usd           = 0,
+  -- Service fee is a flat KES 3,000. Both percentage routes off.
+  service_fee_kes      = 3000,
+  service_fee_pct_over = 0,
+  service_fee_pct      = 0,
+  updated_at           = now()
 where id = 1;
 
 -- ── 3. Freight for the two large sizes ──────────────────────────────────────
