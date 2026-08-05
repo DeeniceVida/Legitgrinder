@@ -268,10 +268,13 @@ const Monitors: React.FC = () => {
                                 {m.curved && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-[#3D8593] bg-teal-50 px-1.5 py-0.5 rounded">Curved</span>}
                                 {m.baseType === 'Lifting' && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-gray-400 bg-neutral-50 px-1.5 py-0.5 rounded">Lifting base</span>}
                               </p>
-                              {/* Series (Victory / Golden Cudgel / MX) stays internal —
-                                  it means nothing to a buyer. Model reference only,
-                                  with the factory's "HP-" prefix stripped. */}
+                              {/* The factory's own line names (Victory, Golden Cudgel,
+                                  MX) stay internal — they mean nothing to a buyer.
+                                  A series flagged series_public is shown. */}
                               <p className="text-[11px] text-gray-400 font-medium mt-0.5 truncate">
+                                {m.seriesPublic && m.series && (
+                                  <span className="font-black text-[#3D8593] mr-1.5">{m.series}</span>
+                                )}
                                 Ref {displayCode(m)}
                               </p>
                             </div>
@@ -495,7 +498,12 @@ const Monitors: React.FC = () => {
             >
               <div className="sticky top-0 bg-white/95 backdrop-blur px-5 sm:px-7 py-4 border-b border-gray-100 flex items-start justify-between gap-4 z-10">
                 <div className="min-w-0">
-                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">{modelTitle(detail)}</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">
+                    {detail.seriesPublic && detail.series && (
+                      <span className="text-[#3D8593]">{detail.series} </span>
+                    )}
+                    {modelTitle(detail)}
+                  </h2>
                   <p className="text-[11px] font-medium text-gray-400">Ref {displayCode(detail)}</p>
                 </div>
                 <button onClick={() => setDetail(null)} aria-label="Close" className="text-gray-300 hover:text-gray-900 transition-colors shrink-0">

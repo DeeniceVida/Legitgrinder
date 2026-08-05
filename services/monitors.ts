@@ -23,6 +23,9 @@ export interface MonitorModel {
   factoryUsd: number;
   /** IPS or VA, where the supplier states it. */
   panelType?: string;
+  /** Whether the series name is shown to buyers. False for the factory's own
+   *  line names (Victory, Golden Cudgel, MX), which mean nothing to a customer. */
+  seriesPublic: boolean;
   /** Off keeps a model out of the storefront entirely. */
   isActive: boolean;
   imageUrl?: string;
@@ -122,6 +125,7 @@ const toModel = (d: any): MonitorModel => ({
   baseType: d.base_type === 'Lifting' ? 'Lifting' : 'Fixed',
   factoryUsd: Number(d.factory_usd),
   panelType: d.panel_type || undefined,
+  seriesPublic: d.series_public === true,
   isActive: d.is_active !== false,
   imageUrl: d.image_url || undefined,
   // Falls back to black/white so the page still works before the colour
