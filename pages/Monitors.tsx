@@ -37,6 +37,8 @@ const Monitors: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [size, setSize] = useState<number | null>(null);
+  /** null = every monitor; otherwise a named series such as Dell. */
+  const [series, setSeries] = useState<string | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
 
   /** The monitor being examined before it's added, and its chosen options. */
@@ -70,15 +72,34 @@ const Monitors: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  /** Series the owner has chosen to name publicly — Dell today, possibly more. */
+  const publicSeries = useMemo(() => {
+    const seen: string[] = [];
+    models.forEach(m => {
+      if (m.seriesPublic && m.series && !seen.includes(m.series)) seen.push(m.series);
+    });
+    return seen.sort();
+  }, [models]);
+
+  const shortlist = useMemo(
+    () => (series ? models.filter(m => m.series === series) : models),
+    [models, series]
+  );
+
   // Built by hand rather than via Set: under this tsconfig, Array.from(new Set())
   // widens to unknown[], which breaks the numeric sort.
   const sizes = useMemo(() => {
     const seen: number[] = [];
-    models.forEach(m => { if (!seen.includes(m.sizeInches)) seen.push(m.sizeInches); });
+    shortlist.forEach(m => { if (!seen.includes(m.sizeInches)) seen.push(m.sizeInches); });
     return seen.sort((a, b) => a - b);
-  }, [models]);
+  }, [shortlist]);
+
+  // Keep the chosen size valid: filtering to a series can remove it entirely.
   useEffect(() => {
-    if (size === null && sizes.length) setSize(sizes.includes(27) ? 27 : sizes[0]);
+    if (!sizes.length) return;
+    if (size === null || !sizes.includes(size)) {
+      setSize(sizes.includes(27) ? 27 : sizes[0]);
+    }
   }, [sizes, size]);
 
   /** Cost of a layout to the buyer, over the standard one — factory + markup. */
@@ -87,7 +108,7 @@ const Monitors: React.FC = () => {
 
   /** Models of the chosen size, grouped by resolution so the price ladder reads clearly. */
   const groups = useMemo(() => {
-    const forSize = models.filter(m => m.sizeInches === size);
+    const forSize = shortlist.filter(m => m.sizeInches === size);
     const by: Record<string, MonitorModel[]> = {};
     forSize.forEach(m => {
       const k = m.resLabel || 'Other';
@@ -97,7 +118,7 @@ const Monitors: React.FC = () => {
     return Object.entries(by).sort(
       (a, b) => (RES_ORDER.indexOf(a[0]) + 1 || 99) - (RES_ORDER.indexOf(b[0]) + 1 || 99)
     );
-  }, [models, size]);
+  }, [shortlist, size]);
 
   /** Commit whatever is configured in the detail view to the selection. */
   const addConfigured = () => {
@@ -180,7 +201,7 @@ const Monitors: React.FC = () => {
   }, [lines, total, totalUnits]);
 
   const noShippingSizes = sizes.filter(s => {
-    const m = models.find(x => x.sizeInches === s);
+    const m = shortlist.find(x => x.sizeInches === s);
     return m && priceMonitor(m, settings, shipping).unitKES == null;
   });
 
@@ -218,11 +239,45 @@ const Monitors: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* ── Series filter — only appears once a series is named publicly ── */}
+            {publicSeries.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="eyebrow text-gray-400 mr-1">Range</span>
+                <button
+                  onClick={() => setSeries(null)}
+                  aria-pressed={series === null}
+                  className={`px-4 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${series === null
+                    ? 'bg-[#3D8593] text-white'
+                    : 'bg-white text-gray-500 border border-gray-100 hover:border-gray-300'}`}
+                >
+                  All monitors
+                  <span className={`ml-2 ${series === null ? 'text-white/60' : 'text-gray-400'}`}>{models.length}</span>
+                </button>
+                {publicSeries.map(s => {
+                  const on = series === s;
+                  const count = models.filter(m => m.series === s).length;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setSeries(on ? null : s)}
+                      aria-pressed={on}
+                      className={`px-4 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${on
+                        ? 'bg-[#3D8593] text-white'
+                        : 'bg-white text-gray-500 border border-gray-100 hover:border-gray-300'}`}
+                    >
+                      {s}
+                      <span className={`ml-2 ${on ? 'text-white/60' : 'text-gray-400'}`}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* ── Size selector ──────────────────────────────── */}
             <div className="flex flex-wrap gap-2 mb-8">
               {sizes.map(s => {
                 const on = s === size;
-                const count = models.filter(m => m.sizeInches === s).length;
+                const count = shortlist.filter(m => m.sizeInches === s).length;
                 return (
                   <button
                     key={s}
