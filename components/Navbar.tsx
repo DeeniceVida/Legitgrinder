@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, User, ArrowRight, ChevronDown, History, LayoutDashboard, LogOut, PackageSearch, ShoppingBag, BookOpen, Tag, Calculator, Newspaper, MessageSquare, Info } from 'lucide-react';
+import { Menu, X, User, ArrowRight, ChevronDown, History, LayoutDashboard, LogOut, PackageSearch, ShoppingBag, BookOpen, Tag, Calculator, Newspaper, MessageSquare, Info, Monitor } from 'lucide-react';
 import SafeImage from './SafeImage';
 
 interface NavbarProps {
@@ -33,6 +33,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, isLoggedIn, onLogout }) => {
 
   const navLinks = [
     { name: 'Shop', path: '/shop' },
+    { name: 'Monitors', path: '/monitors' },
     { name: 'eBooks', path: '/books' },
     { name: 'Pricelist', path: '/pricelist' },
     { name: 'Calculators', path: '/calculators' },
@@ -44,6 +45,7 @@ const Navbar: React.FC<NavbarProps> = ({ isAdmin, isLoggedIn, onLogout }) => {
   // Icons for the mobile menu (keyed by path)
   const mobileIcons: Record<string, React.ReactNode> = {
     '/shop': <ShoppingBag className="w-5 h-5" />,
+    '/monitors': <Monitor className="w-5 h-5" />,
     '/books': <BookOpen className="w-5 h-5" />,
     '/pricelist': <Tag className="w-5 h-5" />,
     '/calculators': <Calculator className="w-5 h-5" />,

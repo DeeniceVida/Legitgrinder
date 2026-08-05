@@ -585,7 +585,7 @@ const Monitors: React.FC = () => {
                     <ShieldCheck size={20} weight="duotone" className="text-[#3D8593] shrink-0" />
                     <p className="text-[12px] font-bold text-gray-700 leading-snug">
                       1 year manufacturer's warranty
-                      <span className="block text-[10px] font-medium text-gray-500">Provided by the manufacturer, not by us</span>
+                      <span className="block text-[10px] font-medium text-gray-500">Included on every monitor</span>
                     </p>
                   </div>
 
