@@ -6,7 +6,8 @@ import {
   Info, ChevronRight, X, FileText, BarChart3, TrendingUp, Save, Search,
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
-  ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText, Star, Building2 as Buildings
+  ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText, Star, Building2 as Buildings, Armchair,
+  AlertTriangle
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -17,11 +18,11 @@ import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
-import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceBreakdown, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock, fetchWaitlistCounts,
+import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceDetails, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock, fetchWaitlistCounts,
   ShippingAgent, fetchShippingAgents, createShippingAgent, deleteShippingAgent, setInvoiceShippingAgent } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
-  Consultation, ConsultationStatus, Availability, Invoice, PaymentStatus,
+  Consultation, ConsultationStatus, Availability, Invoice, InvoiceItem, PaymentStatus,
   BlogPost, FAQItem, Client, ProductVariation, SourcingRequest, EBook, AdBanner
 } from '../types';
 import { fetchBanners, addBanner, updateBanner, deleteBanner } from '../services/adBanners';
@@ -33,11 +34,13 @@ import LogisticsPanel from '../components/LogisticsPanel';
 import GroupBuysTab from '../components/GroupBuysTab';
 import ReportsTab from '../components/ReportsTab';
 import MonitorsTab from '../components/MonitorsTab';
+import ChairsTab from '../components/ChairsTab';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
 import { generateDocumentAttachment } from '../utils/receiptDocument';
 import { normalizeKenyanPhone } from '../utils/phone';
+import { amountFieldInWords } from '../utils/numberToWords';
 import {
   CorporateQuote, CorporateCategory, fetchCorporateQuotes, fetchCorporateCategories,
   upsertCorporateCategory, setCorporateQuoteStatus
@@ -303,6 +306,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
     { id: 'monitors', name: 'Monitors', group: 'Main', icon: <Smartphone className="w-4 h-4" /> },
+    { id: 'chairs', name: 'Chairs', group: 'Main', icon: <Armchair className="w-4 h-4" /> },
     { id: 'corporate', name: 'Corporate', group: 'Main', badge: newCorporateCount || undefined, icon: <Buildings className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
@@ -329,9 +333,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   const [manualOrderCurrency, setManualOrderCurrency] = useState<'KES' | 'USD'>('KES');
-  const [receiptData, setReceiptData] = useState<{ sumInWords: string; amountReceived: string } | null>(null);
+  // Receipt form. "Sum in words" writes itself from the amount received, but
+  // stays fully editable — once it's been hand-edited we stop overwriting it.
+  const [receiptAmount, setReceiptAmount] = useState('');
+  const [receiptBalance, setReceiptBalance] = useState('0');
+  const [receiptWords, setReceiptWords] = useState('');
+  const [receiptWordsEdited, setReceiptWordsEdited] = useState(false);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
-  const [editingBreakdownInvoice, setEditingBreakdownInvoice] = useState<Invoice | null>(null);
+  // Full invoice amendment — a mistyped figure, a changed price or an extra
+  // fee, without deleting and re-issuing the order.
+  const [amendingInvoice, setAmendingInvoice] = useState<Invoice | null>(null);
+  const [amendItems, setAmendItems] = useState<InvoiceItem[]>([]);
+  const [amendCurrency, setAmendCurrency] = useState<'KES' | 'USD'>('KES');
+  const [amendSaving, setAmendSaving] = useState(false);
+  const [amendError, setAmendError] = useState<string | null>(null);
+
+  /** Load the invoice's lines into the form each time it opens. */
+  useEffect(() => {
+    if (!amendingInvoice) return;
+    setAmendItems(
+      amendingInvoice.items?.length
+        ? amendingInvoice.items.map(i => ({ ...i }))
+        : [{ name: amendingInvoice.productName || '', quantity: amendingInvoice.quantity || 1, priceKES: amendingInvoice.totalKES || 0 }]
+    );
+    setAmendCurrency(amendingInvoice.currency || 'KES');
+    setAmendError(null);
+  }, [amendingInvoice]);
+
+  /** Seed the receipt form each time it opens, words included. */
+  useEffect(() => {
+    const inv = printingReceiptInvoice;
+    if (!inv) return;
+    const amount = inv.totalKES === 0 ? 'TBD' : String(inv.totalKES ?? '');
+    setReceiptAmount(amount);
+    setReceiptBalance('0');
+    setReceiptWordsEdited(false);
+    setReceiptWords(amountFieldInWords(amount, inv.currency));
+  }, [printingReceiptInvoice]);
 
   // Security & MFA State
   const [securityLoading, setSecurityLoading] = useState(false);
@@ -2055,9 +2093,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <FileText className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => setEditingBreakdownInvoice(inv)}
+                            onClick={() => setAmendingInvoice(inv)}
                             className="p-2 bg-sky-50 text-sky-600 rounded-2xl hover:bg-sky-600 hover:text-white transition-all"
-                            title="Edit Invoice Breakdown"
+                            title="Amend this invoice — client, items, totals, fees"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
@@ -2859,6 +2897,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === 'monitors' && <MonitorsTab />}
 
+        {activeTab === 'chairs' && <ChairsTab />}
+
         {activeTab === 'groupbuys' && <GroupBuysTab />}
 
         {activeTab === 'corporate' && (
@@ -2979,7 +3019,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <p className="text-xs text-gray-600 font-medium mt-2">
                           {q.categories.join(' · ') || '—'} · <strong>{q.quantityBand || '?'}</strong>
                           {q.timeline ? ` · ${q.timeline}` : ''}{q.budgetBand ? ` · ${q.budgetBand}` : ''}
+                          {q.buyerType ? ` · ${q.buyerType}` : ''}
                         </p>
+                        {/* The schedule they actually configured — this is the brief */}
+                        {q.lineItems?.length ? (
+                          <div className="mt-2 rounded-xl bg-neutral-50 border border-neutral-100 p-3 space-y-1">
+                            {q.lineItems.map((l, i) => (
+                              <p key={`${l.code}-${i}`} className="text-[11px] font-bold text-gray-700">
+                                {l.qty} × {l.name} <span className="text-gray-400">({l.code}{l.color ? ` · ${l.color}` : ''})</span>
+                                {l.unitKES ? <span className="text-[#3D8593]"> · KES {l.unitKES.toLocaleString()}/ea</span> : null}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
                         {q.estimateLow ? (
                           <p className="text-[11px] font-bold text-[#3D8593] mt-1">
                             Estimate shown: KES {q.estimateLow.toLocaleString()} – {q.estimateHigh?.toLocaleString()}
@@ -4718,8 +4770,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               }, 500);
             }} className="space-y-6">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Sum in Words</label>
-                <input required name="sumInWords" placeholder="e.g. Fifty thousand three hundred only" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" />
+                <div className="flex items-baseline justify-between mb-2 ml-2 mr-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Sum in Words</label>
+                  {receiptWordsEdited && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReceiptWordsEdited(false);
+                        setReceiptWords(amountFieldInWords(receiptAmount, printingReceiptInvoice.currency));
+                      }}
+                      className="text-[9px] font-black uppercase tracking-widest text-rose-400 hover:text-rose-600 transition-colors"
+                    >
+                      Rewrite from amount
+                    </button>
+                  )}
+                </div>
+                <input
+                  required
+                  name="sumInWords"
+                  value={receiptWords}
+                  onChange={(e) => { setReceiptWords(e.target.value); setReceiptWordsEdited(true); }}
+                  placeholder="Fills itself from the amount below"
+                  className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200"
+                />
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Transaction Reference (e.g. M-Pesa Code)</label>
@@ -4728,11 +4801,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Amount Received</label>
-                  <input required name="amountReceived" type="text" defaultValue={printingReceiptInvoice.totalKES === 0 ? "TBD" : printingReceiptInvoice.totalKES} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
+                  <input
+                    required
+                    name="amountReceived"
+                    type="text"
+                    value={receiptAmount}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setReceiptAmount(next);
+                      // Typing 7300 writes the words for you; a wording you've
+                      // already edited by hand is left alone.
+                      if (!receiptWordsEdited) {
+                        setReceiptWords(amountFieldInWords(next, printingReceiptInvoice.currency));
+                      }
+                    }}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all"
+                  />
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Balance Due</label>
-                  <input required name="balance" type="text" defaultValue="0" className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all" />
+                  <input
+                    required
+                    name="balance"
+                    type="text"
+                    value={receiptBalance}
+                    onChange={(e) => setReceiptBalance(e.target.value)}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all"
+                  />
                 </div>
               </div>
               <button
@@ -4859,79 +4954,234 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Edit Invoice Breakdown Modal */}
-      {editingBreakdownInvoice && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3rem] p-10 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 relative border border-white/20">
-            <button
-              onClick={() => setEditingBreakdownInvoice(null)}
-              className="absolute top-8 right-8 p-3 bg-neutral-100 rounded-2xl hover:bg-neutral-200 transition-all shadow-sm"
-            >
-              <X className="w-5 h-5 text-gray-400" />
-            </button>
-            <div className="mb-8">
-              <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Edit <span className="text-[#3D8593]">Breakdown</span></h3>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: {editingBreakdownInvoice.invoiceNumber}</p>
-            </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              const formData = new FormData(e.currentTarget);
-              const createdAtRaw = formData.get('createdAt') as string;
-              
-              const breakdown = {
-                buyingPriceKES: parseFloat(formData.get('buyingPriceKES') as string) || 0,
-                shippingFeeKES: parseFloat(formData.get('shippingFeeKES') as string) || 0,
-                logisticsCostKES: parseFloat(formData.get('logisticsCostKES') as string) || 0,
-                serviceFeeKES: parseFloat(formData.get('serviceFeeKES') as string) || 0,
-                createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined,
-                paystackReference: formData.get('paystackReference') as string || undefined
-              };
-              
-              const result = await updateInvoiceBreakdown(editingBreakdownInvoice.id, breakdown);
-              if (result.success) {
-                setEditingBreakdownInvoice(null);
-                window.location.reload();
-              } else {
-                alert('Failed to update breakdown details.');
-              }
-            }} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+      {/* Amend Invoice Modal */}
+      {amendingInvoice && (() => {
+        const inputCls = "w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 font-semibold text-sm text-gray-900 outline-none focus:border-[#3D8593] focus:bg-white transition-colors placeholder:text-neutral-300 placeholder:font-medium";
+        const labelCls = "text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5";
+        const itemsTotal = amendItems.reduce((acc, i) => acc + (i.priceKES || 0) * (i.quantity || 1), 0);
+        const patchItem = (idx: number, patch: Partial<InvoiceItem>) =>
+          setAmendItems(prev => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+
+        return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 relative max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-7 py-5 border-b border-neutral-100">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center"><Edit3 className="w-5 h-5" /></span>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Order Date (Defaults to current)</label>
-                  <input name="createdAt" type="date" defaultValue={editingBreakdownInvoice.createdAt ? new Date(editingBreakdownInvoice.createdAt).toISOString().split('T')[0] : (editingBreakdownInvoice.date ? new Date(editingBreakdownInvoice.date).toISOString().split('T')[0] : '')} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all text-gray-500" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Transactional Code / REF</label>
-                  <input name="paystackReference" type="text" defaultValue={editingBreakdownInvoice.paystackReference || ''} placeholder="e.g. QWX9..." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all text-gray-800 placeholder:text-neutral-300" />
-                </div>
-                <div className="col-span-2 border-t border-neutral-100 my-4" />
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Buying Price (KES)</label>
-                  <input required name="buyingPriceKES" type="number" defaultValue={editingBreakdownInvoice.buyingPriceKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Shipping Fee (KES)</label>
-                  <input required name="shippingFeeKES" type="number" defaultValue={editingBreakdownInvoice.shippingFeeKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Logistics / Riders Cost (KES)</label>
-                  <input required name="logisticsCostKES" type="number" defaultValue={editingBreakdownInvoice.logisticsCostKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Service Fee (KES)</label>
-                  <input required name="serviceFeeKES" type="number" defaultValue={editingBreakdownInvoice.serviceFeeKES || 0} className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-sky-100 transition-all" />
+                  <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">Amend Invoice</h3>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{amendingInvoice.invoiceNumber} · {amendingInvoice.clientName}</p>
                 </div>
               </div>
+              <button onClick={() => setAmendingInvoice(null)} className="p-2 rounded-lg hover:bg-neutral-100 transition-colors">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (amendSaving) return;
+                setAmendSaving(true);
+                setAmendError(null);
+
+                const fd = new FormData(e.currentTarget);
+                const num = (k: string) => parseFloat(fd.get(k) as string) || 0;
+                const createdAtRaw = fd.get('createdAt') as string;
+
+                // Blank total means "recalculate from the lines"; TBD keeps it at
+                // zero, which is how this system already marks an unpriced order.
+                const rawTotal = ((fd.get('totalKES') as string) || '').trim();
+                const totalKES = !rawTotal
+                  ? itemsTotal
+                  : rawTotal.toUpperCase() === 'TBD' ? 0 : (parseFloat(rawTotal.replace(/,/g, '')) || 0);
+
+                const cleanItems = amendItems
+                  .filter(i => i.name.trim())
+                  .map(i => ({ name: i.name.trim(), quantity: i.quantity || 1, priceKES: i.priceKES || 0 }));
+
+                const paymentStatus = fd.get('paymentStatus') as PaymentStatus;
+                const customTitle = ((fd.get('productName') as string) || '').trim();
+
+                const result = await updateInvoiceDetails(amendingInvoice.id, {
+                  clientName: (fd.get('clientName') as string).trim(),
+                  clientWhatsapp: ((fd.get('clientWhatsapp') as string) || '').trim(),
+                  clientEmail: ((fd.get('clientEmail') as string) || '').trim(),
+                  productName: customTitle || cleanItems.map(i => `${i.quantity}x ${i.name}`).join(' + '),
+                  items: cleanItems,
+                  totalKES,
+                  amountPaidKES: num('amountPaidKES'),
+                  buyingPriceKES: num('buyingPriceKES'),
+                  shippingFeeKES: num('shippingFeeKES'),
+                  logisticsCostKES: num('logisticsCostKES'),
+                  serviceFeeKES: num('serviceFeeKES'),
+                  currency: amendCurrency,
+                  paymentStatus,
+                  isPaid: paymentStatus === PaymentStatus.PAID,
+                  createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined,
+                  paystackReference: ((fd.get('paystackReference') as string) || '').trim(),
+                });
+
+                setAmendSaving(false);
+                if (result.success) {
+                  setAmendingInvoice(null);
+                  window.location.reload();
+                } else {
+                  setAmendError(
+                    (result.error as any)?.message || 'Could not save the changes. Nothing on the invoice was altered.'
+                  );
+                }
+              }}
+              id="amendInvoiceForm"
+              className="flex-1 overflow-y-auto px-7 py-6 space-y-5"
+            >
+              {amendError && (
+                <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl p-4">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium text-rose-900">{amendError}</p>
+                </div>
+              )}
+
+              {/* Client */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className={labelCls}>Client Full Name</label>
+                  <input required name="clientName" defaultValue={amendingInvoice.clientName} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>WhatsApp Number</label>
+                  <input name="clientWhatsapp" defaultValue={amendingInvoice.clientWhatsapp || ''} className={inputCls} placeholder="254791873538" />
+                </div>
+                <div>
+                  <label className={labelCls}>Currency</label>
+                  <select value={amendCurrency} onChange={(e) => setAmendCurrency(e.target.value as 'KES' | 'USD')} className={inputCls}>
+                    <option value="KES">KES</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Client Email</label>
+                  <input type="email" name="clientEmail" defaultValue={amendingInvoice.clientEmail || ''} className={inputCls} placeholder="client@example.com" />
+                </div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Invoice Title <span className="text-neutral-300 normal-case font-medium">— blank rebuilds it from the items</span></label>
+                  <input name="productName" defaultValue={amendingInvoice.productName || ''} className={inputCls} />
+                </div>
+              </div>
+
+              {/* Items — this is where a corrected price or an extra fee goes */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className={labelCls + " mb-0"}>Items &amp; Charges</label>
+                  <button type="button" onClick={() => setAmendItems([...amendItems, { name: '', quantity: 1, priceKES: 0 }])} className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] hover:text-[#2d626c] flex items-center gap-1">
+                    <Plus className="w-3 h-3" /> Add line
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {amendItems.map((item, idx) => (
+                    <div key={idx} className="bg-neutral-50/60 border border-neutral-100 rounded-xl p-2.5 space-y-2 relative">
+                      <input
+                        value={item.name}
+                        onChange={(e) => patchItem(idx, { name: e.target.value })}
+                        className={inputCls + " w-full bg-white"}
+                        placeholder="Item or fee (e.g. Extra handling charge)"
+                      />
+                      <div className="flex gap-2">
+                        <div className="w-20">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 block mb-0.5 ml-1">Qty</span>
+                          <input type="number" min="1" value={item.quantity}
+                            onChange={(e) => patchItem(idx, { quantity: parseInt(e.target.value, 10) || 1 })}
+                            className={inputCls + " w-full text-center px-2 bg-white"} />
+                        </div>
+                        <div className="flex-1">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 block mb-0.5 ml-1">Unit Price ({amendCurrency})</span>
+                          <input type="number" min="0" value={item.priceKES}
+                            onChange={(e) => patchItem(idx, { priceKES: parseFloat(e.target.value) || 0 })}
+                            className={inputCls + " w-full text-right px-3 bg-white"} />
+                        </div>
+                      </div>
+                      {amendItems.length > 1 && (
+                        <button type="button" onClick={() => setAmendItems(amendItems.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-neutral-200 rounded-full flex items-center justify-center text-neutral-400 hover:text-rose-500 hover:border-rose-200 transition-colors shadow-sm">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2 text-right">
+                  Lines total · {amendCurrency} {itemsTotal.toLocaleString()}
+                </p>
+              </div>
+
+              {/* Money */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className={labelCls}>Total Amount <span className="text-neutral-300 normal-case font-medium">— blank = use the lines total</span></label>
+                  <input type="text" name="totalKES" defaultValue={amendingInvoice.totalKES ? String(amendingInvoice.totalKES) : ''} className={inputCls} placeholder={`Auto: ${amendCurrency} ${itemsTotal.toLocaleString()}`} />
+                </div>
+                <div>
+                  <label className={labelCls}>Amount Paid</label>
+                  <input type="number" name="amountPaidKES" defaultValue={amendingInvoice.amountPaidKES || 0} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Payment Status</label>
+                  <select name="paymentStatus" defaultValue={amendingInvoice.paymentStatus} className={inputCls}>
+                    {Object.values(PaymentStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Order Date</label>
+                  <input name="createdAt" type="date" className={inputCls + " text-gray-500"}
+                    defaultValue={amendingInvoice.createdAt ? new Date(amendingInvoice.createdAt).toISOString().split('T')[0] : (amendingInvoice.date ? new Date(amendingInvoice.date).toISOString().split('T')[0] : '')} />
+                </div>
+                <div>
+                  <label className={labelCls}>Receipt / M-Pesa Code</label>
+                  <input name="paystackReference" type="text" defaultValue={amendingInvoice.paystackReference || ''} placeholder="e.g. QWX982M21" className={inputCls} />
+                </div>
+              </div>
+
+              {/* Internal costs — never shown to the client */}
+              <details className="group" open>
+                <summary className="flex items-center gap-2 cursor-pointer text-[10px] font-black uppercase tracking-widest text-[#3D8593] list-none">
+                  <ChevronRight className="w-3.5 h-3.5 group-open:rotate-90 transition-transform" /> Internal Cost Breakdown
+                </summary>
+                <div className="grid grid-cols-2 gap-3 mt-3 pl-1">
+                  {([
+                    { name: 'buyingPriceKES', label: 'Buying Price', value: amendingInvoice.buyingPriceKES },
+                    { name: 'shippingFeeKES', label: 'Shipping Fee', value: amendingInvoice.shippingFeeKES },
+                    { name: 'logisticsCostKES', label: 'Logistics / Riders', value: amendingInvoice.logisticsCostKES },
+                    { name: 'serviceFeeKES', label: 'Service Fee', value: amendingInvoice.serviceFeeKES },
+                  ]).map(f => (
+                    <div key={f.name}>
+                      <label className={labelCls}>{f.label}</label>
+                      <input type="number" name={f.name} defaultValue={f.value || 0} className={inputCls} />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 font-medium mt-2 pl-1 leading-snug">
+                  These drive your profit reporting only — the client never sees them.
+                </p>
+              </details>
+            </form>
+
+            <div className="px-7 py-5 border-t border-neutral-100 flex items-center gap-3">
+              <button type="button" onClick={() => setAmendingInvoice(null)}
+                className="px-5 py-3 rounded-xl border border-neutral-200 text-gray-500 font-black uppercase tracking-widest text-[10px] hover:bg-neutral-50 transition-colors">
+                Cancel
+              </button>
               <button
                 type="submit"
-                className="w-full py-5 bg-sky-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl shadow-sky-100"
+                form="amendInvoiceForm"
+                disabled={amendSaving}
+                className="flex-1 py-3 bg-sky-500 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-colors disabled:opacity-40"
               >
-                Save Updates
+                {amendSaving ? 'Saving…' : 'Save Amendments'}
               </button>
-            </form>
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
     </div>
   );

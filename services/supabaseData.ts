@@ -619,6 +619,51 @@ export const updateInvoiceBreakdown = async (
     }
 };
 
+/**
+ * Amend an existing invoice — the client, what it's for, the lines on it, the
+ * total, and the internal cost breakdown.
+ *
+ * Only the keys actually passed are written, so this can never blank a field
+ * the caller didn't touch. The order number is deliberately NOT amendable: it
+ * is the reference on receipts and payment links already in customers' hands.
+ */
+export const updateInvoiceDetails = async (
+    id: string,
+    patch: Partial<Invoice>
+): Promise<{ success: boolean; error?: any }> => {
+    try {
+        const row: any = { last_update: new Date().toISOString() };
+        const set = (key: keyof Invoice, column: string, transform?: (v: any) => any) => {
+            if (patch[key] !== undefined) row[column] = transform ? transform(patch[key]) : patch[key];
+        };
+
+        set('clientName', 'client_name');
+        set('clientWhatsapp', 'client_whatsapp', v => v || null);
+        set('clientEmail', 'client_email', v => v || null);
+        set('productName', 'product_name');
+        set('quantity', 'quantity');
+        set('items', 'items', v => v || []);
+        set('totalKES', 'total_kes');
+        set('amountPaidKES', 'amount_paid_kes');
+        set('buyingPriceKES', 'buying_price_kes');
+        set('shippingFeeKES', 'shipping_fee_kes');
+        set('logisticsCostKES', 'logistics_cost_kes');
+        set('serviceFeeKES', 'service_fee_kes');
+        set('currency', 'currency');
+        set('createdAt', 'created_at');
+        set('paystackReference', 'paystack_reference', v => v || null);
+        set('paymentStatus', 'payment_status');
+        set('isPaid', 'is_paid');
+
+        const { error } = await supabase.from('invoices').update(row).eq('id', id);
+        if (error) throw error;
+        return { success: true };
+    } catch (error) {
+        console.error('Error amending invoice:', error);
+        return { success: false, error };
+    }
+};
+
 export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promise<{ success: boolean; error?: any; id?: string; invoiceNumber?: string }> => {
     try {
         // Order number is assigned by the database (LG100001, LG100002, …) via an
