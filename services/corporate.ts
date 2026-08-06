@@ -28,7 +28,20 @@ export interface CorporateQuote {
   leadQuality: 'priority' | 'low';
   status: 'new' | 'quoted' | 'won' | 'lost';
   adminNotes?: string;
+  /** 'business' | 'project'. Used to ride inside notes before it had a column. */
+  buyerType?: string;
+  /** The schedule they configured in the catalogue, if any. */
+  lineItems?: QuoteLine[];
   createdAt: string;
+}
+
+/** One configured catalogue line as stored on the quote. */
+export interface QuoteLine {
+  code: string;
+  name: string;
+  color?: string;
+  qty: number;
+  unitKES?: number | null;
 }
 
 const toCategory = (d: any): CorporateCategory => ({
@@ -84,6 +97,7 @@ export const submitCorporateQuote = async (q: {
   fullName: string; businessName: string; email: string; whatsapp?: string; location?: string;
   categories: string[]; quantityBand?: string; budgetBand?: string; timeline?: string;
   notes?: string; estimateLow?: number; estimateHigh?: number; leadQuality: 'priority' | 'low';
+  buyerType?: string; lineItems?: QuoteLine[];
 }): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase.from('corporate_quotes').insert({
@@ -100,14 +114,48 @@ export const submitCorporateQuote = async (q: {
       estimate_low: q.estimateLow ?? null,
       estimate_high: q.estimateHigh ?? null,
       lead_quality: q.leadQuality,
+      buyer_type: q.buyerType || null,
+      line_items: q.lineItems?.length ? q.lineItems : null,
     });
     if (error) throw error;
     return { success: true };
   } catch (e: any) {
-    const msg = /relation .* does not exist|schema cache/i.test(e.message || '')
-      ? 'The corporate_quotes table does not exist yet — run add_corporate_quotes.sql in Supabase.'
-      : (e.message || 'Could not submit your request.');
-    return { success: false, error: msg };
+    const msg = e.message || '';
+    // buyer_type / line_items arrive with add_chair_catalog.sql. If that hasn't
+    // been run yet, a real enquiry must still get through — so fold the schedule
+    // into notes and submit against the original columns.
+    if (/buyer_type|line_items/.test(msg)) {
+      const fallbackNotes = [
+        q.notes,
+        q.buyerType ? `Buying as: ${q.buyerType}` : '',
+        q.lineItems?.length
+          ? 'Schedule:\n' + q.lineItems.map(l => `  ${l.qty} × ${l.name}${l.color ? ` (${l.color})` : ''}`).join('\n')
+          : '',
+      ].filter(Boolean).join('\n');
+      const { error } = await supabase.from('corporate_quotes').insert({
+        full_name: q.fullName.trim(),
+        business_name: q.businessName.trim(),
+        email: q.email.trim().toLowerCase(),
+        whatsapp: q.whatsapp || null,
+        location: q.location || null,
+        categories: q.categories,
+        quantity_band: q.quantityBand || null,
+        budget_band: q.budgetBand || null,
+        timeline: q.timeline || null,
+        notes: fallbackNotes || null,
+        estimate_low: q.estimateLow ?? null,
+        estimate_high: q.estimateHigh ?? null,
+        lead_quality: q.leadQuality,
+      });
+      if (!error) return { success: true };
+      return { success: false, error: error.message };
+    }
+    return {
+      success: false,
+      error: /relation .* does not exist|schema cache/i.test(msg)
+        ? 'The corporate_quotes table does not exist yet — run add_corporate_quotes.sql in Supabase.'
+        : (msg || 'Could not submit your request.'),
+    };
   }
 };
 
@@ -134,6 +182,8 @@ export const fetchCorporateQuotes = async (): Promise<CorporateQuote[]> => {
       leadQuality: d.lead_quality === 'low' ? 'low' : 'priority',
       status: (['new', 'quoted', 'won', 'lost'].includes(d.status) ? d.status : 'new'),
       adminNotes: d.admin_notes || undefined,
+      buyerType: d.buyer_type || undefined,
+      lineItems: Array.isArray(d.line_items) ? d.line_items : undefined,
       createdAt: d.created_at,
     }));
   } catch {

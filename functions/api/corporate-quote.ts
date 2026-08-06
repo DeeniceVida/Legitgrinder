@@ -22,6 +22,9 @@ interface Payload {
   estimateLow?: number;
   estimateHigh?: number;
   leadQuality: 'priority' | 'low';
+  buyerType?: string;
+  /** The schedule they built in the catalogue, when they used it. */
+  lineItems?: { code: string; name: string; color?: string; qty: number; unitKES?: number | null }[];
   shopUrl?: string;
 }
 
@@ -31,6 +34,24 @@ const ADMIN_INBOX = 'orders@legitgrinder.com';
 
 const esc = (s: any) => String(s ?? '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string));
 const money = (n?: number) => (typeof n === 'number' && n > 0 ? `KES ${Math.round(n).toLocaleString('en-US')}` : '—');
+
+/** The configured schedule, as an email table. Empty string when they didn't
+ *  use the catalogue, so nothing renders. */
+function scheduleHtml(p: Payload, accent: string): string {
+  if (!p.lineItems?.length) return '';
+  const rows = p.lineItems.map(l =>
+    `<tr>
+       <td style="padding:7px 0;font-size:13px;color:#0f1a1c;font-weight:700;">${esc(l.qty)} × ${esc(l.name)}</td>
+       <td style="padding:7px 0;font-size:12px;color:#6b7677;text-align:right;white-space:nowrap;">
+         ${esc(l.code)}${l.color ? ` · ${esc(l.color)}` : ''}${l.unitKES ? ` · ${money(l.unitKES)}/ea` : ''}
+       </td>
+     </tr>`).join('');
+  const total = p.lineItems.reduce((n, l) => n + (l.qty || 0), 0);
+  return `<div style="margin-top:20px;background:#f8fafa;border:1px solid #eef0ef;border-radius:10px;padding:14px 16px;">
+    <p style="margin:0 0 6px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:${accent};">Configured schedule · ${total} units</p>
+    <table width="100%" style="border-collapse:collapse;">${rows}</table>
+  </div>`;
+}
 
 const QTY_LABEL: Record<string, string> = {
   '5-10': '5 – 10 units', '10-25': '10 – 25 units', '25-50': '25 – 50 units', '50+': '50+ units',
@@ -61,8 +82,10 @@ function adminHtml(p: Payload): string {
         ${row('Quantity', esc(QTY_LABEL[p.quantityBand || ''] || p.quantityBand || '—'))}
         ${row('Budget', esc(p.budgetBand || '—'))}
         ${row('Timeline', esc(TIME_LABEL[p.timeline || ''] || p.timeline || '—'))}
+        ${p.buyerType ? row('Buying as', esc(p.buyerType === 'project' ? 'Personal project' : 'Business')) : ''}
         ${row('Estimate shown', p.estimateLow ? `${money(p.estimateLow)} – ${money(p.estimateHigh)}` : '—')}
       </table>
+      ${scheduleHtml(p, '#9aa4a4')}
       ${p.notes ? `<div style="margin-top:20px;background:#f8fafa;border:1px solid #eef0ef;border-radius:10px;padding:14px 16px;">
         <p style="margin:0 0 6px;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9aa4a4;">Specifications</p>
         <p style="margin:0;font-size:13px;color:#3f4a4b;line-height:1.6;white-space:pre-line;">${esc(p.notes)}</p>
@@ -114,6 +137,7 @@ function buyerHtml(p: Payload): string {
           ${esc(QTY_LABEL[p.quantityBand || ''] || p.quantityBand || '')} ${p.timeline ? `· ${esc(TIME_LABEL[p.timeline] || p.timeline)}` : ''}
         </p>
       </div>
+      ${scheduleHtml(p, '#3D8593')}
       <p style="margin:18px 0 0;font-size:12px;color:#9aa4a4;">Reply to this email to add anything to your specification.</p>
     </div>
     <div style="padding:24px 36px 30px;margin-top:16px;border-top:1px solid #eef0ef;text-align:center;">

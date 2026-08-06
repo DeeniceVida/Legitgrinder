@@ -10,6 +10,10 @@ import {
 } from '../services/corporate';
 import { normalizeKenyanPhone } from '../utils/phone';
 import { Reveal, CountUp } from '../components/Motion';
+import ChairCatalog, { ChairOrder } from '../components/ChairCatalog';
+
+/** The catalogue line these quantities belong to. */
+const CHAIR_CATEGORY = 'Ergonomic Chairs';
 
 const WHATSAPP = '254791873538';
 
@@ -91,6 +95,14 @@ const Corporate: React.FC = () => {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const catalogRef = useRef<HTMLDivElement>(null);
+
+  /** What they configured in the chair catalogue. */
+  const [chairOrder, setChairOrder] = useState<ChairOrder | null>(null);
+  /** How many chair models exist. Zero before the migration is run. */
+  const [chairCount, setChairCount] = useState(0);
+  /** Prices unlock once they have told us who they are — specs never lock. */
+  const [identified, setIdentified] = useState(false);
 
   // Step 1 — who they are
   const [buyerType, setBuyerType] = useState<'business' | 'project'>('business');
@@ -117,17 +129,30 @@ const Corporate: React.FC = () => {
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const step1Valid = !!fullName.trim() && !!businessName.trim() && emailValid;
+
+  /** Chairs configured in the catalogue count as a line, and carry their own
+   *  quantity — so neither has to be re-entered in the form. */
+  const chairQty = chairOrder?.lines.reduce((n, l) => n + l.qty, 0) || 0;
+  const hasChairs = chairQty > 0;
+
   // A category is required only when there are categories to choose from — if
   // none are configured yet, the specifications box carries the request.
-  const step2Valid = (picked.length > 0 || (catsLoaded && categories.length === 0))
-    && !!qtyBand && !!timeline;
+  const step2Valid = (picked.length > 0 || hasChairs || (catsLoaded && categories.length === 0))
+    && (!!qtyBand || hasChairs) && !!timeline;
 
   const chosen = useMemo(() => categories.filter(c => picked.includes(c.name)), [categories, picked]);
   const band = QTY_BANDS.find(b => b.id === qtyBand);
 
+  /** The band their configured schedule falls into, when they used the catalogue. */
+  const effectiveBand = hasChairs
+    ? (chairQty >= 50 ? '50+' : chairQty >= 25 ? '25-50' : chairQty >= 10 ? '10-25' : '5-10')
+    : qtyBand;
+
   /** Highest MOQ among what they picked — the real "worth my time" threshold. */
   const requiredMoq = chosen.length ? Math.max(...chosen.map(c => c.moq || 0)) : 0;
-  const belowMoq = !!band && requiredMoq > 0 && band.high < requiredMoq;
+  const belowMoq = hasChairs
+    ? requiredMoq > 0 && chairQty < requiredMoq
+    : !!band && requiredMoq > 0 && band.high < requiredMoq;
 
   /** Indicative landed range — only from categories you've actually priced. */
   const estimate = useMemo(() => {
@@ -142,30 +167,36 @@ const Corporate: React.FC = () => {
   const leadQuality: 'priority' | 'low' = (timeline === 'researching' || belowMoq) ? 'low' : 'priority';
 
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const scrollToCatalog = () => catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const handleSubmit = async () => {
     if (!step2Valid || submitting) return;
     setSubmitting(true);
     setError(null);
 
-    // Buyer type rides in the notes until the catalogue migration gives it a
-    // column of its own — it must reach the roster either way.
-    const composedNotes = [
-      buyerType === 'business' ? 'Buying as: Business' : 'Buying as: Personal project',
-      notes.trim(),
-    ].filter(Boolean).join('\n');
+    // A configured schedule implies the chair line even if they never ticked it.
+    const categoriesOut = hasChairs && !picked.includes(CHAIR_CATEGORY)
+      ? [...picked, CHAIR_CATEGORY]
+      : picked;
+
+    // A priced schedule is an exact figure, so it beats the category band.
+    const exact = chairOrder?.priced ? chairOrder.totalKES : undefined;
 
     const payload = {
       fullName, businessName, email,
       whatsapp: whatsapp.trim() ? normalizeKenyanPhone(whatsapp) : undefined,
       location: location.trim() || undefined,
-      categories: picked,
-      quantityBand: qtyBand,
+      categories: categoriesOut,
+      quantityBand: effectiveBand || undefined,
       budgetBand: budget || undefined,
       timeline,
-      notes: composedNotes,
-      estimateLow: estimate?.totalLow,
-      estimateHigh: estimate?.totalHigh,
+      notes: notes.trim() || undefined,
+      buyerType,
+      lineItems: chairOrder?.lines.map(l => ({
+        code: l.modelCode, name: l.name, color: l.color, qty: l.qty, unitKES: l.unitKES,
+      })),
+      estimateLow: exact ?? estimate?.totalLow,
+      estimateHigh: exact ?? estimate?.totalHigh,
       leadQuality,
     };
 
@@ -360,9 +391,30 @@ const Corporate: React.FC = () => {
         </p>
       </section>
 
-      {/* ---------------- 04 · THE PROCESS ---------------- */}
+      {/* ---------------- 04 · THE ERGONOMIC CHAIR CATALOGUE ---------------- */}
+      {/* Heading and copy are hidden along with the grid when the catalogue is
+          empty — a headline standing over nothing reads as a broken page. */}
+      <section
+        ref={catalogRef}
+        className={`max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20 scroll-mt-16 ${chairCount > 0 ? '' : 'hidden'}`}
+      >
+        <SectionRule n="04">Ergonomic chairs</SectionRule>
+        <p className="text-sm text-white/55 font-light leading-relaxed max-w-2xl mb-8">
+          {chairCount} models, mesh and sponge, all sourced to order. Set a quantity against each one and your
+          schedule builds itself — carton volume and minimums are on every card, because that is what freight
+          is actually charged on.
+        </p>
+        <ChairCatalog
+          identified={identified}
+          onUnlock={scrollToForm}
+          onChange={setChairOrder}
+          onReady={setChairCount}
+        />
+      </section>
+
+      {/* ---------------- 05 · THE PROCESS ---------------- */}
       <section className="max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20">
-        <SectionRule n="04">How it runs</SectionRule>
+        <SectionRule n="05">How it runs</SectionRule>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 border-t border-white/10">
           {PROCESS.map(({ n, title, body }, i) => (
             <Reveal key={n} delay={i * 90}>
@@ -378,7 +430,7 @@ const Corporate: React.FC = () => {
 
       {/* ---------------- QUOTE FORM ---------------- */}
       <section ref={formRef} className="max-w-2xl mx-auto px-5 md:px-6 pt-16 md:pt-20 pb-24 scroll-mt-16">
-        <SectionRule n="05">Request your quote</SectionRule>
+        <SectionRule n="06">Request your quote</SectionRule>
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
           {done ? (
             <div className="p-8 md:p-14 text-center">
@@ -479,7 +531,7 @@ const Corporate: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => setStep(2)}
+                      onClick={() => { setIdentified(true); setStep(2); }}
                       disabled={!step1Valid}
                       className="btn-vibrant-orange w-full mt-2 py-4 rounded-full font-black uppercase text-[11px] tracking-widest disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
@@ -491,6 +543,35 @@ const Corporate: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-7">
+                    {/* What they built in the catalogue rides along with the brief */}
+                    {hasChairs ? (
+                      <div className="rounded-lg border border-[#FF9900]/35 bg-[#FF9900]/[0.07] p-4">
+                        <p className="eyebrow text-[#FF9900] mb-2.5">Your chair schedule</p>
+                        <p className="tnum text-sm text-white/75 font-light leading-relaxed">
+                          <strong className="font-bold text-white">{chairQty} chairs</strong> across{' '}
+                          {chairOrder!.lines.length} model{chairOrder!.lines.length === 1 ? '' : 's'}
+                          {chairOrder!.priced && <> · {money(chairOrder!.totalKES)} landed</>}
+                        </p>
+                        <button
+                          onClick={scrollToCatalog}
+                          className="mt-2.5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-[#FF9900] transition-colors"
+                        >
+                          Edit the schedule <ArrowRight size={12} weight="bold" />
+                        </button>
+                      </div>
+                    ) : chairCount > 0 ? (
+                      <button
+                        onClick={scrollToCatalog}
+                        className="w-full text-left rounded-lg border border-dashed border-white/20 bg-white/[0.02] p-4 hover:border-[#3D8593]/60 transition-colors"
+                      >
+                        <p className="text-sm font-bold mb-1">Need chairs? Build the schedule.</p>
+                        <p className="text-xs text-white/50 font-light leading-relaxed">
+                          {chairCount} ergonomic models are priced on this page — set quantities and they come
+                          through with your brief.
+                        </p>
+                      </button>
+                    ) : null}
+
                     {/* Categories */}
                     <div>
                       <span className={labelCls}>What are you sourcing? *</span>
@@ -531,9 +612,11 @@ const Corporate: React.FC = () => {
 
                     <div className="grid sm:grid-cols-2 gap-5">
                       <div>
-                        <label className={labelCls} htmlFor="c-qty">Estimated quantity *</label>
+                        <label className={labelCls} htmlFor="c-qty">
+                          {hasChairs ? 'Quantity beyond the chairs' : 'Estimated quantity *'}
+                        </label>
                         <select id="c-qty" className={field} value={qtyBand} onChange={e => setQtyBand(e.target.value)}>
-                          <option value="">Select…</option>
+                          <option value="">{hasChairs ? 'Chairs only' : 'Select…'}</option>
                           {QTY_BANDS.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
                         </select>
                       </div>
