@@ -234,6 +234,11 @@ alter table public.corporate_quotes add column if not exists line_items jsonb;
 alter table public.corporate_quotes add column if not exists buyer_type text;
 
 -- ── Make the category visible on /corporate ─────────────────────────────────
+-- No model count in the blurb: the page counts the live models itself, and a
+-- number typed in here would contradict it the moment one is switched off.
 update public.corporate_categories
-   set blurb = 'Dragonben ergonomic series — 14 models, mesh and sponge'
- where name = 'Ergonomic Chairs' and (blurb is null or blurb = 'Hbada & high-end series');
+   set blurb = 'Mesh and sponge task seating, sourced to order'
+ where name = 'Ergonomic Chairs'
+   and (blurb is null
+        or blurb = 'Hbada & high-end series'
+        or blurb like '%14 models%');

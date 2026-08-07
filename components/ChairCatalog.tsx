@@ -34,11 +34,14 @@ interface Props {
   identified: boolean;
   onUnlock: () => void;
   onChange: (order: ChairOrder) => void;
-  /** How many models loaded. Zero before the migration has been run, which is
-   *  the page's cue to drop the section heading too rather than leave a
-   *  headline standing over nothing. */
-  onReady: (count: number) => void;
+  /** What loaded, so the category card above can show a count and a teaser
+   *  strip — and drop itself entirely when the migration hasn't been run. */
+  onReady: (info: { count: number; thumbs: string[] }) => void;
 }
+
+/** Shown before the buyer expands the list — enough to see the range without
+ *  scrolling past twenty cards to reach the next category. */
+const PREVIEW_COUNT = 6;
 
 const SWATCH: Record<string, string> = {
   Black: '#1c1c1e', Grey: '#8b9096', Red: '#a83232', Pink: '#dc8bab',
@@ -54,11 +57,18 @@ const ChairCatalog: React.FC<Props> = ({ identified, onUnlock, onChange, onReady
   const [colorFor, setColorFor] = useState<Record<string, string>>({});
   /** modelId -> quantity */
   const [qtyFor, setQtyFor] = useState<Record<string, number>>({});
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchChairModels(), fetchChairSettings(), fetchHandlingBands()])
-      .then(([m, s, b]) => { setModels(m); setSettings(s); setBands(b); onReady(m.length); })
-      .catch(() => onReady(0))
+      .then(([m, s, b]) => {
+        setModels(m); setSettings(s); setBands(b);
+        onReady({
+          count: m.length,
+          thumbs: m.map(x => defaultColor(x)?.imageUrl).filter(Boolean).slice(0, 4) as string[],
+        });
+      })
+      .catch(() => onReady({ count: 0, thumbs: [] }))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -103,6 +113,13 @@ const ChairCatalog: React.FC<Props> = ({ identified, onUnlock, onChange, onReady
   const showPrices = identified;
   const rateSet = settings.kesPerCbm != null;
 
+  // A model the buyer has already set a quantity against always stays on
+  // screen, even past the preview cut — otherwise their own schedule vanishes.
+  const visible = showAll
+    ? models
+    : models.filter((m, i) => i < PREVIEW_COUNT || (qtyFor[m.id] || 0) > 0);
+  const hidden = models.length - visible.length;
+
   return (
     <div>
       {/* Gate notice — specs are public, prices are not */}
@@ -136,7 +153,7 @@ const ChairCatalog: React.FC<Props> = ({ identified, onUnlock, onChange, onReady
       )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {models.map(m => {
+        {visible.map(m => {
           const color = pickedColor(m);
           const qty = qtyFor[m.id] || 0;
           const full = containerQty(m, settings);
@@ -272,6 +289,23 @@ const ChairCatalog: React.FC<Props> = ({ identified, onUnlock, onChange, onReady
           );
         })}
       </div>
+
+      {hidden > 0 && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="mt-4 w-full py-3.5 rounded-xl border border-dashed border-white/20 text-[10px] font-black uppercase tracking-widest text-white/60 hover:border-[#3D8593] hover:text-white transition-colors"
+        >
+          Show the other {hidden} model{hidden === 1 ? '' : 's'}
+        </button>
+      )}
+      {showAll && models.length > PREVIEW_COUNT && (
+        <button
+          onClick={() => setShowAll(false)}
+          className="mt-4 w-full py-3.5 rounded-xl border border-dashed border-white/15 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white/70 transition-colors"
+        >
+          Show fewer
+        </button>
+      )}
 
       {/* Running order */}
       {order.lines.length > 0 && (

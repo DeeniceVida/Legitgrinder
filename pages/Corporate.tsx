@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   ArrowRight, CheckCircle, CircleNotch, Factory, Truck, ShieldCheck,
   SealCheck, ArrowLeft, Buildings, WarningCircle, WhatsappLogo, Cube,
-  Receipt, FileXls, HardHat, Scales, ClipboardText
+  Receipt, FileXls, HardHat, Scales, ClipboardText, CaretDown
 } from '@phosphor-icons/react';
 import {
   CorporateCategory, fetchCorporateCategories, submitCorporateQuote, notifyCorporateQuote
@@ -101,6 +101,10 @@ const Corporate: React.FC = () => {
   const [chairOrder, setChairOrder] = useState<ChairOrder | null>(null);
   /** How many chair models exist. Zero before the migration is run. */
   const [chairCount, setChairCount] = useState(0);
+  /** A few chair photos for the closed category row. */
+  const [chairThumbs, setChairThumbs] = useState<string[]>([]);
+  /** Which sourcing line is expanded. One at a time, all shut to begin with. */
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
   /** Prices unlock once they have told us who they are — specs never lock. */
   const [identified, setIdentified] = useState(false);
 
@@ -167,7 +171,12 @@ const Corporate: React.FC = () => {
   const leadQuality: 'priority' | 'low' = (timeline === 'researching' || belowMoq) ? 'low' : 'priority';
 
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const scrollToCatalog = () => catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  /** Jump to the chair line and open it — scrolling to a shut row would look
+   *  like the button did nothing. */
+  const scrollToCatalog = () => {
+    setOpenCategory(CHAIR_CATEGORY);
+    requestAnimationFrame(() => catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   const handleSubmit = async () => {
     if (!step2Valid || submitting) return;
@@ -350,71 +359,136 @@ const Corporate: React.FC = () => {
       </section>
 
       {/* ---------------- 03 · WHAT WE SOURCE ---------------- */}
-      <section className="max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20">
+      {/* One row per line. Open a line to see its models; everything else stays
+          shut, so a fourteen-model catalogue never buries the line beneath it. */}
+      <section ref={catalogRef} className="max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20 scroll-mt-16">
         <SectionRule n="03">What we source</SectionRule>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map((c, i) => (
-            <Reveal key={c.id} delay={i * 70}>
-              <div className="h-full rounded-xl border border-white/10 bg-white/[0.02] p-6 hover:border-[#3D8593]/60 transition-colors">
-                <h3 className="text-base font-bold mb-2">{c.name}</h3>
-                {c.blurb && <p className="text-sm text-white/55 font-light leading-relaxed mb-4">{c.blurb}</p>}
-                {c.moq > 0 && (
-                  <p className="tnum eyebrow text-[#7fc2ce] pt-3 border-t border-white/10">Min order · {c.moq} units</p>
-                )}
-              </div>
-            </Reveal>
-          ))}
+        <p className="text-sm text-white/55 font-light leading-relaxed max-w-2xl mb-8">
+          Open a line to see the models, the carton volumes and the minimums. Set quantities as you go and
+          your schedule builds itself — nothing here is held in stock, which is exactly why the price works
+          at volume.
+        </p>
+
+        <div className="space-y-3">
+          {categories.map((c, i) => {
+            const open = openCategory === c.name;
+            const hasCatalog = c.name === CHAIR_CATEGORY && chairCount > 0;
+            const picked = c.name === CHAIR_CATEGORY ? chairQty : 0;
+
+            return (
+              <Reveal key={c.id} delay={i * 60}>
+                <div className={`rounded-xl border overflow-hidden transition-colors ${open ? 'border-[#3D8593]/60 bg-white/[0.03]' : 'border-white/10 bg-white/[0.02] hover:border-white/25'}`}>
+                  <button
+                    onClick={() => setOpenCategory(open ? null : c.name)}
+                    aria-expanded={open}
+                    className="w-full text-left p-5 md:p-6 flex items-center gap-5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <h3 className="text-base font-bold">{c.name}</h3>
+                        {hasCatalog && (
+                          <span className="tnum eyebrow text-[#FF9900]">{chairCount} models</span>
+                        )}
+                        {picked > 0 && (
+                          <span className="tnum eyebrow text-[#7fc2ce]">· {picked} selected</span>
+                        )}
+                      </div>
+                      {c.blurb && <p className="text-sm text-white/55 font-light leading-relaxed mt-1.5">{c.blurb}</p>}
+                      <p className="tnum eyebrow text-white/35 mt-2.5">
+                        {hasCatalog ? `Min order · ${c.moq} units · Priced on this page` : `Min order · ${c.moq} units · Quoted to your brief`}
+                      </p>
+                    </div>
+
+                    {/* A glance at the range, without opening anything */}
+                    {hasCatalog && chairThumbs.length > 0 && !open && (
+                      <div className="hidden sm:flex items-center -space-x-3 shrink-0">
+                        {chairThumbs.map(src => (
+                          <span key={src} className="w-11 h-11 rounded-lg bg-white border border-white/10 overflow-hidden flex items-center justify-center">
+                            <img src={src} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <CaretDown
+                      size={18}
+                      weight="bold"
+                      className={`shrink-0 transition-transform ${open ? 'rotate-180 text-[#7fc2ce]' : 'text-white/35'}`}
+                    />
+                  </button>
+
+                  {/* Mounted even while shut, so the count and the thumbnails
+                      above are real rather than a promise. */}
+                  {c.name === CHAIR_CATEGORY && (
+                    <div className={`px-5 md:px-6 pb-6 ${open && hasCatalog ? '' : 'hidden'}`}>
+                      <ChairCatalog
+                        identified={identified}
+                        onUnlock={scrollToForm}
+                        onChange={setChairOrder}
+                        onReady={(info) => { setChairCount(info.count); setChairThumbs(info.thumbs); }}
+                      />
+                    </div>
+                  )}
+
+                  {open && !hasCatalog && (
+                    <div className="px-5 md:px-6 pb-6">
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
+                        <p className="text-sm text-white/60 font-light leading-relaxed">
+                          This line is sourced to your specification rather than from a fixed list — tell us the
+                          models, sizes and quantities you need in the brief below and we will come back with a
+                          landed-cost quotation within one business day.
+                        </p>
+                        <button
+                          onClick={scrollToForm}
+                          className="mt-3.5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:text-white transition-colors"
+                        >
+                          Brief us on this line <ArrowRight size={13} weight="bold" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Reveal>
+            );
+          })}
 
           {/* The all-in-one route — anything not on the list */}
-          <Reveal delay={categories.length * 70}>
-            <div className="h-full rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-6">
-              <FileXls size={24} weight="duotone" className="text-[#FF9900] mb-4" />
-              <h3 className="text-base font-bold mb-2">Not on the list?</h3>
-              <p className="text-sm text-white/55 font-light leading-relaxed mb-4">
-                Send us your own schedule — item, quantity and your target price per unit — and we will source
-                against it. Forty lines is as easy as one.
-              </p>
-              <a
-                href={`https://wa.me/${WHATSAPP}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:text-white transition-colors"
-              >
-                Send your schedule <ArrowRight size={13} weight="bold" />
-              </a>
+          <Reveal delay={categories.length * 60}>
+            <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-5 md:p-6">
+              <div className="flex items-start gap-4">
+                <FileXls size={24} weight="duotone" className="text-[#FF9900] shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold mb-2">Not on the list?</h3>
+                  <p className="text-sm text-white/55 font-light leading-relaxed mb-4">
+                    Send us your own schedule — item, quantity and your target price per unit — and we will
+                    source against it. Forty lines is as easy as one.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-5">
+                    <button
+                      onClick={scrollToForm}
+                      className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:text-white transition-colors"
+                    >
+                      Send your schedule <ArrowRight size={13} weight="bold" />
+                    </button>
+                    <a
+                      href={`https://wa.me/${WHATSAPP}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/45 hover:text-[#7fc2ce] transition-colors"
+                    >
+                      <WhatsappLogo size={14} weight="fill" /> Or ask on WhatsApp
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
           </Reveal>
         </div>
-        <p className="text-sm text-white/50 font-light leading-relaxed mt-6 max-w-2xl">
-          Nothing here is held in stock — every line is sourced to your order, which is exactly why the price
-          works at volume.
-        </p>
       </section>
 
-      {/* ---------------- 04 · THE ERGONOMIC CHAIR CATALOGUE ---------------- */}
-      {/* Heading and copy are hidden along with the grid when the catalogue is
-          empty — a headline standing over nothing reads as a broken page. */}
-      <section
-        ref={catalogRef}
-        className={`max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20 scroll-mt-16 ${chairCount > 0 ? '' : 'hidden'}`}
-      >
-        <SectionRule n="04">Ergonomic chairs</SectionRule>
-        <p className="text-sm text-white/55 font-light leading-relaxed max-w-2xl mb-8">
-          {chairCount} models, mesh and sponge, all sourced to order. Set a quantity against each one and your
-          schedule builds itself — carton volume and minimums are on every card, because that is what freight
-          is actually charged on.
-        </p>
-        <ChairCatalog
-          identified={identified}
-          onUnlock={scrollToForm}
-          onChange={setChairOrder}
-          onReady={setChairCount}
-        />
-      </section>
-
-      {/* ---------------- 05 · THE PROCESS ---------------- */}
+      {/* ---------------- 04 · THE PROCESS ---------------- */}
       <section className="max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20">
-        <SectionRule n="05">How it runs</SectionRule>
+        <SectionRule n="04">How it runs</SectionRule>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 border-t border-white/10">
           {PROCESS.map(({ n, title, body }, i) => (
             <Reveal key={n} delay={i * 90}>
@@ -430,7 +504,7 @@ const Corporate: React.FC = () => {
 
       {/* ---------------- QUOTE FORM ---------------- */}
       <section ref={formRef} className="max-w-2xl mx-auto px-5 md:px-6 pt-16 md:pt-20 pb-24 scroll-mt-16">
-        <SectionRule n="06">Request your quote</SectionRule>
+        <SectionRule n="05">Request your quote</SectionRule>
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
           {done ? (
             <div className="p-8 md:p-14 text-center">
