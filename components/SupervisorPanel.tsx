@@ -397,9 +397,18 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
     // ALL orders (compact) so the Manager can act on and report over any of them.
     lines.push(`ALL ORDERS (copy the ref in quotes EXACTLY when acting on one):`);
     invoices.forEach(i => {
-      const bal = Math.max((i.totalKES || 0) - (i.amountPaidKES || 0), 0);
+      const total = i.totalKES || 0;
+      const paid = i.amountPaidKES || 0;
+      const bal = Math.max(total - paid, 0);
       const d = i.createdAt ? new Date(i.createdAt).toLocaleDateString('en-KE') : '';
-      lines.push(`- ref "${i.invoiceNumber}" | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | ${i.paymentStatus} | total KES ${(i.totalKES || 0).toLocaleString()} | bal KES ${bal.toLocaleString()} | ${i.origin || 'origin?'}${d ? ` | ${d}` : ''}`);
+      // A part-paid order with no deposit on record: the balance genuinely is
+      // not known, and total-minus-nothing is NOT it. Say so, so the Manager
+      // reports "not recorded" instead of quoting the full total as owed.
+      const unrecorded = i.paymentStatus === PaymentStatus.PARTIALLY_PAID && paid <= 0;
+      const money = unrecorded
+        ? `total KES ${total.toLocaleString()} | paid UNKNOWN — deposit was never recorded, so the balance is NOT known and must not be quoted`
+        : `total KES ${total.toLocaleString()} | paid KES ${paid.toLocaleString()} | bal KES ${bal.toLocaleString()}`;
+      lines.push(`- ref "${i.invoiceNumber}" | ${i.clientName} | ${i.productName} | ${i.status} (internal ${orderInternalStatus(i)}) | ${i.paymentStatus} | ${money} | ${i.origin || 'origin?'}${d ? ` | ${d}` : ''}`);
     });
     if (products.length) {
       // Full shop stock — the Manager has complete visibility, nothing withheld.

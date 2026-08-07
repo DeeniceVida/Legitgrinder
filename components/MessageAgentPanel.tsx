@@ -56,7 +56,12 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
   const total = invoice.totalKES || 0;
   const fullyPaid = invoice.paymentStatus === PaymentStatus.PAID || invoice.isPaid;
   const paidSoFar = fullyPaid ? total : Math.min(invoice.amountPaidKES || 0, total);
-  const balance = fullyPaid ? 0 : Math.max(total - paidSoFar, 0);
+  // Marked part-paid but no deposit on record: total-minus-nothing is NOT the
+  // balance, it's the whole invoice. Quoting it would demand money the client
+  // has already handed over, so no figure goes into the draft at all.
+  const balanceUnknown =
+    !fullyPaid && invoice.paymentStatus === PaymentStatus.PARTIALLY_PAID && (invoice.amountPaidKES || 0) <= 0;
+  const balance = fullyPaid || balanceUnknown ? 0 : Math.max(total - paidSoFar, 0);
   const payLink = `${origin}/pay/${invoice.invoiceNumber}`;
   const trackingLink = `${origin}/tracking?id=${invoice.invoiceNumber}`;
   const waNumber = normalizeKenyanPhone(invoice.clientWhatsapp);
@@ -74,8 +79,8 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
       productName: invoice.productName,
       invoiceNumber: invoice.invoiceNumber,
       totalKES: invoice.totalKES,
-      amountPaidKES: paidSoFar,
-      balanceKES: balance,
+      amountPaidKES: balanceUnknown ? undefined : paidSoFar,
+      balanceKES: balanceUnknown ? undefined : balance,
       isPaid: fullyPaid,
       paymentStatus: invoice.paymentStatus,
       status: invoice.status,
@@ -164,6 +169,16 @@ const MessageAgentPanel: React.FC<MessageAgentPanelProps> = ({ invoice, onClose,
         </div>
 
         <div className="p-6 md:p-7 space-y-6">
+          {balanceUnknown && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+              <WarningCircle size={20} weight="duotone" className="text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800 leading-relaxed">
+                This order is marked <strong>Partially Paid</strong> but no deposit was ever recorded, so the balance
+                isn't known. The draft will leave the figure out rather than ask for the full
+                {' '}{invoice.currency || 'KES'} {total.toLocaleString()}. Set the amount received on the order first.
+              </p>
+            </div>
+          )}
           {error && (
             <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3" role="alert">
               <WarningCircle size={20} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />

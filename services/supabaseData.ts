@@ -568,16 +568,46 @@ export const updateInvoiceStatus = async (id: string, status: OrderStatus, progr
     }
 };
 
-export const updateInvoicePaymentStatus = async (id: string, paymentStatus: PaymentStatus): Promise<{ success: boolean; error?: any }> => {
+/**
+ * Set an invoice's payment status AND keep `amount_paid_kes` honest with it.
+ *
+ * The status on its own cannot answer "how much do they still owe" — that is
+ * arithmetic on the amount actually paid. Leaving the figure untouched is what
+ * made a partially-paid order report its whole total as the outstanding
+ * balance, in the Manager's answers, the WhatsApp drafts and the client's
+ * emailed invoice alike.
+ *
+ * Paid   → the full total is on record.
+ * Unpaid → nothing is on record.
+ * Partly → the caller must say how much; without it we cannot compute a balance.
+ */
+export const updateInvoicePaymentStatus = async (
+    id: string,
+    paymentStatus: PaymentStatus,
+    amountPaidKES?: number
+): Promise<{ success: boolean; error?: any }> => {
     try {
-        const { error } = await supabase
-            .from('invoices')
-            .update({
-                payment_status: paymentStatus,
-                is_paid: paymentStatus === PaymentStatus.PAID,
-                last_update: new Date().toISOString()
-            })
-            .eq('id', id);
+        const payload: any = {
+            payment_status: paymentStatus,
+            is_paid: paymentStatus === PaymentStatus.PAID,
+            last_update: new Date().toISOString()
+        };
+
+        if (paymentStatus === PaymentStatus.PAID) {
+            // Settle it against the invoice total unless an explicit figure came in.
+            if (typeof amountPaidKES === 'number') {
+                payload.amount_paid_kes = amountPaidKES;
+            } else {
+                const { data } = await supabase.from('invoices').select('total_kes').eq('id', id).maybeSingle();
+                if (data?.total_kes != null) payload.amount_paid_kes = data.total_kes;
+            }
+        } else if (paymentStatus === PaymentStatus.UNPAID) {
+            payload.amount_paid_kes = 0;
+        } else if (typeof amountPaidKES === 'number') {
+            payload.amount_paid_kes = amountPaidKES;
+        }
+
+        const { error } = await supabase.from('invoices').update(payload).eq('id', id);
 
         if (error) throw error;
         return { success: true };

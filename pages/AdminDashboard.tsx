@@ -305,9 +305,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
-    { id: 'monitors', name: 'Monitors', group: 'Main', icon: <Smartphone className="w-4 h-4" /> },
-    { id: 'chairs', name: 'Chairs', group: 'Main', icon: <Armchair className="w-4 h-4" /> },
-    { id: 'corporate', name: 'Corporate', group: 'Main', badge: newCorporateCount || undefined, icon: <Buildings className="w-4 h-4" /> },
+    // The corporate lines live behind one collapsible entry — they're catalogue
+    // maintenance, not somewhere he needs to be every day.
+    { id: 'corporate', name: 'Leads & Quotes', group: 'Main', section: 'corporate', badge: newCorporateCount || undefined, icon: <Buildings className="w-4 h-4" /> },
+    { id: 'monitors', name: 'Monitors', group: 'Main', section: 'corporate', icon: <Smartphone className="w-4 h-4" /> },
+    { id: 'chairs', name: 'Chairs', group: 'Main', section: 'corporate', icon: <Armchair className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Phone Price Sync', group: 'Operations', icon: <RefreshCcw className="w-4 h-4" /> },
@@ -315,6 +317,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'security', name: 'Security', group: 'System', icon: <Lock className="w-4 h-4" /> },
     { id: 'card', name: 'Business Card', group: 'System', icon: <CreditCard className="w-4 h-4" /> },
   ] as const;
+
+  /** The corporate group in the sidebar — collapsed until he needs it, and
+   *  opened automatically whenever one of its tabs is the active one. */
+  const corporateChildActive = (['corporate', 'monitors', 'chairs'] as string[]).includes(activeTab);
+  const [corporateNavOpen, setCorporateNavOpen] = useState(corporateChildActive);
+  useEffect(() => { if (corporateChildActive) setCorporateNavOpen(true); }, [corporateChildActive]);
 
   const [ebooks, setEbooks] = useState<EBook[]>([]);
   const [editingBook, setEditingBook] = useState<EBook | 'new' | null>(null);
@@ -340,6 +348,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [receiptWords, setReceiptWords] = useState('');
   const [receiptWordsEdited, setReceiptWordsEdited] = useState(false);
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
+  // Marking an order part-paid has to capture HOW MUCH, or the balance is
+  // unknowable and every downstream figure quotes the full total instead.
+  const [depositFor, setDepositFor] = useState<Invoice | null>(null);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositSaving, setDepositSaving] = useState(false);
+
   // Full invoice amendment — a mistyped figure, a changed price or an extra
   // fee, without deleting and re-issuing the order.
   const [amendingInvoice, setAmendingInvoice] = useState<Invoice | null>(null);
@@ -359,6 +373,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setAmendCurrency(amendingInvoice.currency || 'KES');
     setAmendError(null);
   }, [amendingInvoice]);
+
+  /** Total, paid and outstanding for one order. */
+  const moneyOf = (inv: Invoice) => {
+    const total = inv.totalKES || 0;
+    const paid = inv.amountPaidKES || 0;
+    return {
+      total,
+      paid,
+      balance: Math.max(total - paid, 0),
+      // Part-paid with nothing on record: the balance is unknown, and saying so
+      // is far better than quoting the whole total as if it were still owed.
+      unrecorded: inv.paymentStatus === PaymentStatus.PARTIALLY_PAID && paid <= 0,
+    };
+  };
+
+  /** Change a payment status, capturing the deposit when one is needed. */
+  const applyPaymentStatus = async (inv: Invoice, newStatus: PaymentStatus) => {
+    if (newStatus === PaymentStatus.PARTIALLY_PAID) {
+      setDepositAmount(inv.amountPaidKES ? String(inv.amountPaidKES) : '');
+      setDepositFor(inv);
+      return;
+    }
+    const paid = newStatus === PaymentStatus.PAID ? (inv.totalKES || 0) : 0;
+    onUpdateInvoices(invoices.map(i =>
+      i.id === inv.id
+        ? { ...i, paymentStatus: newStatus, isPaid: newStatus === PaymentStatus.PAID, amountPaidKES: paid }
+        : i));
+    const result = await updateInvoicePaymentStatus(inv.id, newStatus);
+    if (!result.success) alert('Failed to update payment status in database');
+  };
 
   /** Seed the receipt form each time it opens, words included. */
   useEffect(() => {
@@ -1065,29 +1109,66 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
         <nav className="flex-1 px-4 py-5 overflow-y-auto">
-          {(['Main', 'Operations', 'System'] as const).map((group) => (
-            <div key={group} className="mb-6">
-              <p className="px-3 mb-2 text-[9px] font-black uppercase tracking-[0.25em] text-gray-300">{group}</p>
-              <div className="space-y-0.5">
-                {tabs.filter(t => t.group === group).map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => setActiveTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold transition-all ${activeTab === item.id
-                      ? 'bg-teal-50 text-[#3D8593]'
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
-                  >
-                    <span className={activeTab === item.id ? 'text-[#3D8593]' : 'text-gray-400'}>{item.icon}</span>
-                    <span className="flex-1 text-left">{item.name}</span>
-                    {'badge' in item && item.badge ? (
-                      <span className="min-w-5 h-5 px-1.5 bg-emerald-500 text-white rounded-full text-[10px] font-black flex items-center justify-center">{item.badge}</span>
-                    ) : null}
-                  </button>
-                ))}
+          {(['Main', 'Operations', 'System'] as const).map((group) => {
+            const plain = tabs.filter(t => t.group === group && !('section' in t && t.section));
+            const corporateTabs = group === 'Main'
+              ? tabs.filter(t => 'section' in t && t.section === 'corporate')
+              : [];
+            const corporateBadge = corporateTabs.reduce((n, t) => n + (('badge' in t && t.badge) || 0), 0);
+
+            const navButton = (item: typeof tabs[number], nested = false) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center gap-3 py-2.5 rounded-xl text-[12px] font-bold transition-all ${nested ? 'pl-9 pr-3' : 'px-3'} ${activeTab === item.id
+                  ? 'bg-teal-50 text-[#3D8593]'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+              >
+                <span className={activeTab === item.id ? 'text-[#3D8593]' : 'text-gray-400'}>{item.icon}</span>
+                <span className="flex-1 text-left">{item.name}</span>
+                {'badge' in item && item.badge ? (
+                  <span className="min-w-5 h-5 px-1.5 bg-emerald-500 text-white rounded-full text-[10px] font-black flex items-center justify-center">{item.badge}</span>
+                ) : null}
+              </button>
+            );
+
+            return (
+              <div key={group} className="mb-6">
+                <p className="px-3 mb-2 text-[9px] font-black uppercase tracking-[0.25em] text-gray-300">{group}</p>
+                <div className="space-y-0.5">
+                  {plain.map(item => navButton(item))}
+
+                  {corporateTabs.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setCorporateNavOpen(o => !o)}
+                        aria-expanded={corporateNavOpen}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[12px] font-bold transition-all ${corporateChildActive
+                          ? 'text-[#3D8593]'
+                          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                          }`}
+                      >
+                        <span className={corporateChildActive ? 'text-[#3D8593]' : 'text-gray-400'}>
+                          <Buildings className="w-4 h-4" />
+                        </span>
+                        <span className="flex-1 text-left">Corporate</span>
+                        {corporateBadge > 0 && !corporateNavOpen ? (
+                          <span className="min-w-5 h-5 px-1.5 bg-emerald-500 text-white rounded-full text-[10px] font-black flex items-center justify-center">{corporateBadge}</span>
+                        ) : null}
+                        <ChevronRight className={`w-3.5 h-3.5 text-gray-300 transition-transform ${corporateNavOpen ? 'rotate-90' : ''}`} />
+                      </button>
+                      {corporateNavOpen && (
+                        <div className="space-y-0.5 border-l border-gray-100 ml-5">
+                          {corporateTabs.map(item => navButton(item, true))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
         <div className="px-6 py-5 border-t border-gray-50">
           <p className="text-[9px] font-bold text-gray-300 uppercase tracking-[0.2em]">LegitGrinder · 2026</p>
@@ -1806,15 +1887,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <div>
                             <p className="font-bold text-sm text-gray-900">{inv.clientName}</p>
                             <p className="text-[9px] text-gray-400 font-medium mt-1">Ref: {inv.paystackReference || 'Manual Sync'}</p>
+                            {/* What they owe, in figures — a status alone can't
+                                answer "how much is left?" */}
+                            {(() => {
+                              const m = moneyOf(inv);
+                              const cur = inv.currency || 'KES';
+                              const fig = (n: number) => `${cur} ${n.toLocaleString()}`;
+                              if (m.unrecorded) return (
+                                <button
+                                  onClick={() => { setDepositAmount(''); setDepositFor(inv); }}
+                                  className="mt-1 text-[9px] font-black uppercase tracking-wide text-rose-500 hover:text-rose-700 transition-colors"
+                                  title="No deposit recorded — the balance can't be worked out until you enter it"
+                                >
+                                  ⚠ Deposit not recorded — set it
+                                </button>
+                              );
+                              if (inv.isPaid) return (
+                                <p className="mt-1 text-[9px] font-black uppercase tracking-wide text-emerald-600">{fig(m.total)} · Settled</p>
+                              );
+                              return (
+                                <p className="mt-1 text-[9px] font-black uppercase tracking-wide text-gray-500">
+                                  {m.paid > 0 && <span className="text-emerald-600">Paid {fig(m.paid)} · </span>}
+                                  <span className="text-amber-600">Bal {fig(m.balance)}</span>
+                                </p>
+                              );
+                            })()}
                           </div>
                           <select
                             value={inv.paymentStatus}
-                            onChange={async (e) => {
-                              const newStatus = e.target.value as PaymentStatus;
-                              onUpdateInvoices(invoices.map(i => i.id === inv.id ? { ...i, paymentStatus: newStatus, isPaid: newStatus === PaymentStatus.PAID } : i));
-                              const result = await updateInvoicePaymentStatus(inv.id, newStatus);
-                              if (!result.success) alert("Failed to update payment status in database");
-                            }}
+                            onChange={(e) => applyPaymentStatus(inv, e.target.value as PaymentStatus)}
                             className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest outline-none border transition-all ${inv.paymentStatus === PaymentStatus.PAID ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                               inv.paymentStatus === PaymentStatus.PARTIALLY_PAID ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                 'bg-rose-50 text-rose-600 border-rose-100'
@@ -1890,6 +1991,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onClick={async () => {
                               const paidSoFar = inv.amountPaidKES || 0;
                               const balance = Math.max((inv.totalKES || 0) - paidSoFar, 0);
+                              // Part-paid with no deposit on record: the email would
+                              // bill them the whole total again. Stop, don't send.
+                              if (moneyOf(inv).unrecorded) {
+                                alert(
+                                  `Can't email this yet.\n\n${inv.invoiceNumber} is marked Partially Paid, but no deposit amount was ever recorded — ` +
+                                  `so this email would ask ${inv.clientName} for the full ${inv.currency || 'KES'} ${(inv.totalKES || 0).toLocaleString()} ` +
+                                  `they've already part-paid.\n\nSet the amount received on the order first (the red "Deposit not recorded" link on the row).`
+                                );
+                                setDepositAmount('');
+                                setDepositFor(inv);
+                                return;
+                              }
                               const isDeposit = !inv.isPaid && paidSoFar > 0;
                               const label = inv.isPaid ? 'receipt' : isDeposit ? 'balance invoice' : 'invoice';
                               const to = inv.clientEmail || prompt(`Email the ${label} for ${inv.invoiceNumber} to which address?`, '');
@@ -4953,6 +5066,105 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* How much has actually been paid — asked whenever an order is marked
+          part-paid, because the balance cannot be derived without it. */}
+      {depositFor && (() => {
+        const cur = depositFor.currency || 'KES';
+        const total = depositFor.totalKES || 0;
+        const entered = parseFloat(depositAmount.replace(/,/g, ''));
+        // An order still priced TBD has no total to subtract from, so a balance
+        // can't exist yet — the total has to be set first.
+        const noTotal = total <= 0;
+        const valid = !noTotal && Number.isFinite(entered) && entered > 0 && entered < total;
+        const balance = valid ? total - entered : 0;
+
+        return (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-100">
+                <div>
+                  <h3 className="text-base font-black text-gray-900 tracking-tight leading-none">How much have they paid?</h3>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5">{depositFor.invoiceNumber} · {depositFor.clientName}</p>
+                </div>
+                <button onClick={() => setDepositFor(null)} className="p-2 rounded-lg hover:bg-neutral-100 transition-colors">
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              <div className="px-6 py-6 space-y-4">
+                <div className="flex justify-between items-baseline text-sm">
+                  <span className="text-gray-400 font-bold text-[10px] uppercase tracking-widest">Invoice total</span>
+                  <span className="font-black text-gray-900">{noTotal ? 'TBD' : `${cur} ${total.toLocaleString()}`}</span>
+                </div>
+
+                {noTotal ? (
+                  <div className="rounded-xl bg-rose-50 border border-rose-100 px-4 py-3">
+                    <p className="text-[11px] font-bold text-rose-700 leading-relaxed">
+                      This order has no total yet, so there's nothing to work a balance out from.
+                      Amend the invoice and set its total first, then record the payment here.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">Amount received so far</label>
+                    <input
+                      autoFocus
+                      type="number"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder="e.g. 4100"
+                      className="w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 font-black text-lg text-gray-900 outline-none focus:border-[#3D8593] focus:bg-white transition-colors"
+                    />
+                  </div>
+                )}
+
+                {!noTotal && depositAmount && !valid && (
+                  <p className="text-[11px] font-bold text-rose-500 leading-snug">
+                    {entered >= total
+                      ? `That clears the invoice — mark it Paid instead.`
+                      : 'Enter an amount between zero and the invoice total.'}
+                  </p>
+                )}
+
+                {valid && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-500">Balance still due</p>
+                    <p className="text-xl font-black text-amber-700 tracking-tight mt-0.5">{cur} {balance.toLocaleString()}</p>
+                    <p className="text-[10px] font-medium text-amber-600/80 mt-1.5 leading-snug">
+                      This is the figure the client's email, the WhatsApp draft and the Manager will all quote.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-5 border-t border-neutral-100 flex gap-3">
+                <button onClick={() => setDepositFor(null)}
+                  className="px-5 py-3 rounded-xl border border-neutral-200 text-gray-500 font-black uppercase tracking-widest text-[10px] hover:bg-neutral-50 transition-colors">
+                  Cancel
+                </button>
+                <button
+                  disabled={!valid || depositSaving}
+                  onClick={async () => {
+                    setDepositSaving(true);
+                    const inv = depositFor;
+                    onUpdateInvoices(invoices.map(i => i.id === inv.id
+                      ? { ...i, paymentStatus: PaymentStatus.PARTIALLY_PAID, isPaid: false, amountPaidKES: entered }
+                      : i));
+                    const res = await updateInvoicePaymentStatus(inv.id, PaymentStatus.PARTIALLY_PAID, entered);
+                    setDepositSaving(false);
+                    if (res.success) setDepositFor(null);
+                    else alert('Failed to record the payment. Nothing was changed.');
+                  }}
+                  className="flex-1 py-3 bg-[#3D8593] text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-black transition-colors disabled:opacity-30"
+                >
+                  {depositSaving ? 'Saving…' : 'Record payment'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Amend Invoice Modal */}
       {amendingInvoice && (() => {
