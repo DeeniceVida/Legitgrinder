@@ -31,8 +31,10 @@ export function buildDocumentHtml(d: DocumentData): string {
     const fullyPaid = balance <= 0;
     const date = d.dateStr || new Date().toLocaleDateString('en-GB');
 
+    // Amount is the LINE total (qty × unit), so the rows add up to the total
+    // printed beneath them.
     const rows = (d.items && d.items.length
-        ? d.items.map((it) => ({ name: it.name, qty: it.quantity || 1, amt: it.priceKES || 0 }))
+        ? d.items.map((it) => ({ name: it.name, qty: it.quantity || 1, amt: (it.priceKES || 0) * (it.quantity || 1) }))
         : [{ name: d.productName || 'Order', qty: 1, amt: d.totalKES || 0 }]
     ).map((r) => `
       <tr>

@@ -553,7 +553,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const paymentStatus = formData.get('paymentStatus') as PaymentStatus;
     const isPaid = paymentStatus === PaymentStatus.PAID;
 
-    const generatedTotalKES = manualOrderItems.reduce((sum, item) => sum + item.priceKES, 0);
+    // Quantity counts. This used to sum unit prices only, so leaving Total blank
+    // on "2 × KES 5,000" saved 5,000 while the form had just promised 10,000.
+    const generatedTotalKES = manualOrderItems.reduce(
+      (sum, item) => sum + (item.priceKES || 0) * (item.quantity || 1), 0);
     const rawTotal = formData.get('totalKES') as string;
     const isTBD = rawTotal.trim().toUpperCase() === 'TBD' || formData.get('isTBD') === 'on';
     const totalKES = isTBD ? 0 : (parseFloat(rawTotal) || generatedTotalKES); // fallback to auto-computed

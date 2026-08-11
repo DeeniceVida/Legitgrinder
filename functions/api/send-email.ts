@@ -35,15 +35,18 @@ const FROM = 'LegitGrinder <invoices@legitgrinder.com>';
 const money = (n: number, cur = 'KES') => `${cur} ${Math.round(n).toLocaleString('en-US')}`;
 const esc = (s: string) => String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] as string));
 
-function buildHtml(p: EmailPayload): string {
+export function buildHtml(p: EmailPayload): string {
     const cur = p.currency || 'KES';
     const paid = p.amountPaidKES ?? (p.kind === 'receipt' ? p.totalKES : 0);
     const balance = p.balanceKES ?? Math.max((p.totalKES || 0) - paid, 0);
     const isReceipt = p.kind === 'receipt';
     const fullyPaid = balance <= 0;
 
+    // Amount is the LINE total, not the unit price — beside a Qty column, a
+    // unit price makes "2 · KES 5,000" sit under a KES 10,000 total and invites
+    // the customer to query the invoice.
     const rows = (p.items && p.items.length
-        ? p.items.map((it) => ({ name: it.name, qty: it.quantity || 1, amt: (it.priceKES || 0) }))
+        ? p.items.map((it) => ({ name: it.name, qty: it.quantity || 1, amt: (it.priceKES || 0) * (it.quantity || 1) }))
         : [{ name: p.productName || 'Order', qty: 1, amt: p.totalKES || 0 }]
     ).map((r) => `
       <tr>
