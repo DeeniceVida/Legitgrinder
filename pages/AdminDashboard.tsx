@@ -376,17 +376,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setAmendError(null);
   }, [amendingInvoice]);
 
-  /** Total, paid and outstanding for one order. */
+  /** Total, paid and outstanding for one order, per the record. */
   const moneyOf = (inv: Invoice) => {
     const total = inv.totalKES || 0;
-    const paid = inv.amountPaidKES || 0;
+    // The payment status wins: a settled order owes nothing even if no figure
+    // was ever stored against it.
+    const settled = inv.paymentStatus === PaymentStatus.PAID || inv.isPaid;
+    const paid = settled ? total : (inv.amountPaidKES || 0);
     return {
       total,
       paid,
-      balance: Math.max(total - paid, 0),
+      settled,
+      balance: settled ? 0 : Math.max(total - paid, 0),
       // Part-paid with nothing on record: the balance is unknown, and saying so
       // is far better than quoting the whole total as if it were still owed.
-      unrecorded: inv.paymentStatus === PaymentStatus.PARTIALLY_PAID && paid <= 0,
+      unrecorded: !settled && inv.paymentStatus === PaymentStatus.PARTIALLY_PAID && paid <= 0,
     };
   };
 
@@ -406,11 +410,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!result.success) alert('Failed to update payment status in database');
   };
 
-  /** Seed the receipt form each time it opens, words included. */
+  /**
+   * Seed the receipt form each time it opens — a starting point, never a cage.
+   *
+   * A receipt records what was handed over TODAY, which is not always what the
+   * record predicts: a price can move between deposit and arrival, so the sum
+   * received may be more (or less) than the balance we were expecting. Every
+   * field stays editable for exactly that reason.
+   */
   useEffect(() => {
     const inv = printingReceiptInvoice;
     if (!inv) return;
-    const amount = inv.totalKES === 0 ? 'TBD' : String(inv.totalKES ?? '');
+    const m = moneyOf(inv);
+    // Part-paid: they're most likely settling the outstanding balance now, so
+    // that is the more useful opening figure than the whole order total.
+    const suggested = m.total <= 0 ? 0 : (!m.settled && m.paid > 0 ? m.balance : m.total);
+    const amount = m.total <= 0 ? 'TBD' : String(suggested);
     setReceiptAmount(amount);
     setReceiptBalance('0');
     setReceiptWordsEdited(false);
@@ -4928,6 +4943,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 setPrintingReceiptInvoice(null);
               }, 500);
             }} className="space-y-6">
+              {/* What the record says — for reference only. The receipt itself
+                  is whatever you type; prices move between deposit and arrival. */}
+              {(() => {
+                const m = moneyOf(printingReceiptInvoice);
+                const cur = printingReceiptInvoice.currency || 'KES';
+                const fig = (n: number) => `${cur} ${n.toLocaleString()}`;
+                if (m.total <= 0) return null;
+                return (
+                  <div className="rounded-2xl bg-neutral-50 border border-neutral-100 px-5 py-4">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">On record for this order</p>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] font-bold text-gray-600">
+                      <span>Total <span className="text-gray-900">{fig(m.total)}</span></span>
+                      <span>Paid <span className="text-emerald-600">{m.unrecorded ? 'not recorded' : fig(m.paid)}</span></span>
+                      <span>Outstanding <span className="text-amber-600">{m.unrecorded ? 'unknown' : fig(m.balance)}</span></span>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-medium mt-2 leading-snug">
+                      A starting point only — type whatever was actually received.
+                    </p>
+                  </div>
+                );
+              })()}
+
               <div>
                 <div className="flex items-baseline justify-between mb-2 ml-2 mr-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Sum in Words</label>
@@ -4976,6 +5013,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }}
                     className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all"
                   />
+                  {/* Prices move between deposit and arrival. Print whatever was
+                      really received — but say so, so the record can follow. */}
+                  {(() => {
+                    const m = moneyOf(printingReceiptInvoice);
+                    const typed = parseFloat((receiptAmount || '').replace(/,/g, ''));
+                    if (!Number.isFinite(typed) || m.total <= 0 || m.unrecorded) return null;
+                    const expected = !m.settled && m.paid > 0 ? m.balance : m.total;
+                    if (Math.abs(typed - expected) < 1) return null;
+                    const cur = printingReceiptInvoice.currency || 'KES';
+                    return (
+                      <p className="text-[10px] font-bold text-amber-600 mt-2 ml-2 leading-snug">
+                        Differs from the {cur} {expected.toLocaleString()} on record. Fine to print — if the
+                        price changed, amend the invoice too so your books match.
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Balance Due</label>
