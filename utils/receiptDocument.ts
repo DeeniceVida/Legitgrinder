@@ -87,7 +87,7 @@ export function buildDocumentHtml(d: DocumentData): string {
           <div style="display:flex;justify-content:flex-end;margin-top:24px;">
             <table style="width:300px;border-collapse:collapse;">
               <tr><td style="padding:8px 0;font-size:14px;color:#6b7677;">Total</td><td style="padding:8px 0;font-size:15px;font-weight:700;text-align:right;">${money(d.totalKES || 0, cur)}</td></tr>
-              ${isReceipt ? `<tr><td style="padding:8px 0;font-size:14px;color:#6b7677;">Amount Paid</td><td style="padding:8px 0;font-size:15px;font-weight:700;text-align:right;color:#3D8593;">${money(paid, cur)}</td></tr>` : ''}
+              ${paid > 0 ? `<tr><td style="padding:8px 0;font-size:14px;color:#6b7677;">Amount Paid</td><td style="padding:8px 0;font-size:15px;font-weight:700;text-align:right;color:#3D8593;">${money(paid, cur)}</td></tr>` : ''}
               <tr><td style="padding:12px 12px;font-size:15px;font-weight:800;background:#3D8593;color:#fff;border-radius:8px 0 0 8px;">${fullyPaid ? 'Balance' : 'Balance Due'}</td>
                   <td style="padding:12px 12px;font-size:17px;font-weight:900;text-align:right;background:#3D8593;color:#fff;border-radius:0 8px 8px 0;">${money(balance, cur)}</td></tr>
             </table>

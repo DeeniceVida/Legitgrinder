@@ -101,7 +101,7 @@ export function buildHtml(p: EmailPayload): string {
 
       <table width="100%" style="margin-top:20px;">
         <tr><td style="font-size:13px;color:#6b7677;padding:4px 0;">Total</td><td style="font-size:14px;font-weight:700;color:#0f1a1c;text-align:right;">${money(p.totalKES || 0, cur)}</td></tr>
-        ${isReceipt ? `<tr><td style="font-size:13px;color:#6b7677;padding:4px 0;">Amount Paid</td><td style="font-size:14px;font-weight:700;color:#3D8593;text-align:right;">${money(paid, cur)}</td></tr>` : ''}
+        ${paid > 0 ? `<tr><td style="font-size:13px;color:#6b7677;padding:4px 0;">Amount Paid</td><td style="font-size:14px;font-weight:700;color:#3D8593;text-align:right;">${money(paid, cur)}</td></tr>` : ''}
         <tr><td style="font-size:14px;font-weight:800;color:#0f1a1c;padding:10px 0 0;border-top:1px solid #eef0ef;">${fullyPaid ? 'Balance' : 'Balance Due'}</td>
             <td style="font-size:18px;font-weight:900;text-align:right;padding:10px 0 0;border-top:1px solid #eef0ef;color:${fullyPaid ? '#16a34a' : '#ef4444'};">${money(balance, cur)}</td></tr>
       </table>
