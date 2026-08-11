@@ -347,8 +347,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // stays fully editable — once it's been hand-edited we stop overwriting it.
   const [receiptAmount, setReceiptAmount] = useState('');
   const [receiptBalance, setReceiptBalance] = useState('0');
+  const [receiptTotal, setReceiptTotal] = useState('');
   const [receiptWords, setReceiptWords] = useState('');
   const [receiptWordsEdited, setReceiptWordsEdited] = useState(false);
+  const [receiptBalanceEdited, setReceiptBalanceEdited] = useState(false);
+  /**
+   * Two very different documents from one button. A RECEIPT says money has been
+   * handed over; a STATEMENT says money is still owed. Printing the first when
+   * you meant the second tells a client they've paid when they haven't.
+   */
+  const [receiptDocKind, setReceiptDocKind] = useState<'receipt' | 'statement'>('receipt');
   const [printingReceiptInvoice, setPrintingReceiptInvoice] = useState<Invoice | null>(null);
   // Marking an order part-paid has to capture HOW MUCH, or the balance is
   // unknowable and every downstream figure quotes the full total instead.
@@ -422,15 +430,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const inv = printingReceiptInvoice;
     if (!inv) return;
     const m = moneyOf(inv);
-    // Part-paid: they're most likely settling the outstanding balance now, so
-    // that is the more useful opening figure than the whole order total.
-    const suggested = m.total <= 0 ? 0 : (!m.settled && m.paid > 0 ? m.balance : m.total);
-    const amount = m.total <= 0 ? 'TBD' : String(suggested);
-    setReceiptAmount(amount);
-    setReceiptBalance('0');
-    setReceiptWordsEdited(false);
-    setReceiptWords(amountFieldInWords(amount, inv.currency));
+    // Money still owed? Then the document he almost certainly wants is the one
+    // that ASKS for it, not one that says it has already arrived.
+    const owing = !m.settled && !m.unrecorded && m.balance > 0;
+    seedReceiptForm(inv, owing ? 'statement' : 'receipt');
   }, [printingReceiptInvoice]);
+
+  /** Fill the print form for one document type, from the record. */
+  const seedReceiptForm = (inv: Invoice, kind: 'receipt' | 'statement') => {
+    const m = moneyOf(inv);
+    setReceiptDocKind(kind);
+    setReceiptWordsEdited(false);
+    setReceiptBalanceEdited(false);
+    setReceiptTotal(m.total > 0 ? String(m.total) : '');
+
+    if (kind === 'statement') {
+      // Paid to date and what is still owed. Nothing here claims a payment.
+      setReceiptAmount(m.unrecorded ? '' : String(m.paid));
+      setReceiptBalance(String(m.balance));
+      setReceiptWords(amountFieldInWords(String(m.balance), inv.currency));
+      return;
+    }
+
+    // A receipt is written when money changes hands, so it opens blank rather
+    // than guessing a figure — a prefilled amount is a claim, not a convenience.
+    setReceiptAmount('');
+    setReceiptBalance(m.total > 0 && !m.settled ? String(m.balance) : '0');
+    setReceiptWords('');
+  };
 
   // Security & MFA State
   const [securityLoading, setSecurityLoading] = useState(false);
@@ -4820,7 +4847,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
 
             <div className="mb-8">
-              <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Elite <span className="text-rose-500">Receipting</span></h3>
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">
+                Elite <span className="text-rose-500">{receiptDocKind === 'statement' ? 'Statement' : 'Receipting'}</span>
+              </h3>
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-2">Order Ref: {printingReceiptInvoice.invoiceNumber}</p>
             </div>
 
@@ -4834,10 +4863,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               const inv = printingReceiptInvoice;
               const curr = inv?.currency || 'KES';
-              const amtStr = amountReceived.trim().toUpperCase() === 'TBD' ? 'TBD' : `${curr} ${parseFloat(amountReceived).toLocaleString()}`;
-              const balStr = balance.trim().toUpperCase() === 'TBD' ? 'TBD' : `${curr} ${parseFloat(balance).toLocaleString()}`;
+              const isStatement = receiptDocKind === 'statement';
+              const fmt = (raw: string) => raw.trim().toUpperCase() === 'TBD'
+                ? 'TBD'
+                : `${curr} ${(parseFloat(raw || '0') || 0).toLocaleString()}`;
+
+              const amtStr = fmt(amountReceived);
+              const balStr = fmt(balance);
+              // A receipt totals the transaction in front of you (received +
+              // still owed). A statement totals the ORDER, which is a figure of
+              // its own and must never be inferred from the two above.
               const isTotalTBD = amountReceived.trim().toUpperCase() === 'TBD' || balance.trim().toUpperCase() === 'TBD';
-              const totStr = isTotalTBD ? 'TBD' : `${curr} ${(parseFloat(amountReceived || '0') + parseFloat(balance || '0')).toLocaleString()}`;
+              const totStr = isStatement
+                ? fmt(formData.get('orderTotal') as string || '0')
+                : (isTotalTBD ? 'TBD' : `${curr} ${(parseFloat(amountReceived || '0') + parseFloat(balance || '0')).toLocaleString()}`);
+
+              const docLabel = isStatement ? 'Statement' : 'Receipt';
+              const payUrl = `${window.location.origin}/pay/${inv.invoiceNumber}`;
 
 
               const printWin = window.open('', '', 'width=900,height=800');
@@ -4847,7 +4889,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               printWin.document.write(`
                 <html>
                   <head>
-                    <title>Receipt ${inv.invoiceNumber}</title>
+                    <title>${docLabel} ${inv.invoiceNumber}</title>
                     <style>
                       @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
                       @page { size: A4; margin: 10mm; }
@@ -4904,34 +4946,58 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
 
                         <div class="receipt-head">
-                          <div class="receipt-label">Receipt</div>
+                          <div class="receipt-label">${docLabel}</div>
                           <div class="meta-right">
                             <div class="k">Date</div>
                             <div class="v">${new Date().toLocaleDateString('en-GB')}</div>
-                            <div class="k">Receipt No</div>
+                            <div class="k">${docLabel} No</div>
                             <div class="v">${inv.invoiceNumber}</div>
                           </div>
                         </div>
 
+                        ${isStatement ? `
+                        <div class="field"><label>Issued To</label> <div class="fv">${inv.clientName}</div></div>
+                        <div class="field"><label>Balance In Words</label> <div class="fv">${sumInWords}</div></div>
+                        <div class="field"><label>For</label> <div class="fv">${inv.productName}</div></div>
+                        ${transactionRef || inv.paystackReference ? `<div class="field"><label>Reference</label> <div class="fv">${transactionRef || inv.paystackReference}</div></div>` : ''}
+                        ` : `
                         <div class="field"><label>Received From</label> <div class="fv">${inv.clientName}</div></div>
                         <div class="field"><label>The Sum Of</label> <div class="fv">${sumInWords}</div></div>
                         <div class="field"><label>Reference</label> <div class="fv">${transactionRef || inv.paystackReference || 'MANUAL-ENTRY'}</div></div>
                         <div class="field"><label>Being Payment Of</label> <div class="fv">${inv.productName}</div></div>
+                        `}
 
                         <div class="financial-summary">
                           <table class="summary-table">
+                            ${isStatement ? `
+                            <tr><td>Order Total</td> <td class="val">${totStr}</td></tr>
+                            <tr><td>Paid To Date</td> <td class="val" style="color:#16a34a;">${amtStr}</td></tr>
+                            <tr class="total-row"><td>Balance Due</td> <td class="val" style="color:#fff;">${balStr}</td></tr>
+                            ` : `
                             <tr><td>Amount Received</td> <td class="val">${amtStr}</td></tr>
                             <tr><td>Balance Due</td> <td class="val" style="color:#ef4444;">${balStr}</td></tr>
                             <tr class="total-row"><td>Total</td> <td class="val" style="color:#fff;">${totStr}</td></tr>
+                            `}
                           </table>
 
                           <div class="signature">
-                            <div class="role">Received / Approved By</div>
+                            <div class="role">${isStatement ? 'Issued By' : 'Received / Approved By'}</div>
                             Dennis Munga
                           </div>
                         </div>
 
+                        ${isStatement ? `
+                        <div style="margin-top:20px;background:#f8fafa;border:1px solid #eef0ef;border-radius:10px;padding:14px 18px;">
+                          <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9aa4a4;margin-bottom:5px;">How to pay</div>
+                          <div style="font-size:12.5px;color:#3f4a4b;line-height:1.6;">
+                            M-Pesa, card or bank transfer: <strong style="color:#0f1a1c;">${payUrl}</strong><br/>
+                            Or reply on WhatsApp and we will send the link. Please quote <strong>${inv.invoiceNumber}</strong>.
+                          </div>
+                        </div>
+                        <div class="thanks">This is a statement of account, not a receipt — <strong>${balStr}</strong> remains payable on ${inv.invoiceNumber}.</div>
+                        ` : `
                         <div class="thanks">Thank you for choosing <strong>LegitGrinder</strong> — Authenticity Guaranteed · Invoice ${inv.invoiceNumber}</div>
+                        `}
                       </div>
                     </div>
                   </body>
@@ -4943,7 +5009,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 setPrintingReceiptInvoice(null);
               }, 500);
             }} className="space-y-6">
-              {/* What the record says — for reference only. The receipt itself
+              {/* Which document are we producing? Getting this wrong tells a
+                  client they've paid when they haven't, so it leads the form. */}
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">This document</span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {([
+                    { id: 'statement', title: 'Statement', sub: 'What they still owe' },
+                    { id: 'receipt', title: 'Receipt', sub: 'What they have paid' },
+                  ] as const).map(o => {
+                    const on = receiptDocKind === o.id;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => seedReceiptForm(printingReceiptInvoice, o.id)}
+                        aria-pressed={on}
+                        className={`rounded-2xl border px-4 py-3 text-left transition-all ${on ? 'border-rose-400 bg-rose-50' : 'border-neutral-200 bg-neutral-50 hover:border-rose-200'}`}
+                      >
+                        <span className={`block text-[11px] font-black uppercase tracking-widest ${on ? 'text-rose-600' : 'text-gray-500'}`}>{o.title}</span>
+                        <span className="block text-[10px] font-bold text-gray-400 mt-0.5">{o.sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* What the record says — for reference only. The document itself
                   is whatever you type; prices move between deposit and arrival. */}
               {(() => {
                 const m = moneyOf(printingReceiptInvoice);
@@ -4967,13 +5059,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <div>
                 <div className="flex items-baseline justify-between mb-2 ml-2 mr-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Sum in Words</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    {receiptDocKind === 'statement' ? 'Balance in Words' : 'Sum in Words'}
+                  </label>
                   {receiptWordsEdited && (
                     <button
                       type="button"
                       onClick={() => {
                         setReceiptWordsEdited(false);
-                        setReceiptWords(amountFieldInWords(receiptAmount, printingReceiptInvoice.currency));
+                        setReceiptWords(amountFieldInWords(
+                          receiptDocKind === 'statement' ? receiptBalance : receiptAmount,
+                          printingReceiptInvoice.currency));
                       }}
                       className="text-[9px] font-black uppercase tracking-widest text-rose-400 hover:text-rose-600 transition-colors"
                     >
@@ -4986,36 +5082,64 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   name="sumInWords"
                   value={receiptWords}
                   onChange={(e) => { setReceiptWords(e.target.value); setReceiptWordsEdited(true); }}
-                  placeholder="Fills itself from the amount below"
+                  placeholder={receiptDocKind === 'statement' ? 'Fills itself from the balance below' : 'Fills itself from the amount below'}
                   className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200"
                 />
               </div>
+
+              {/* The order's own value — a statement states it rather than
+                  inferring it from the two figures beneath. */}
+              {receiptDocKind === 'statement' && (
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Order Total</label>
+                  <input
+                    required
+                    name="orderTotal"
+                    type="text"
+                    value={receiptTotal}
+                    onChange={(e) => setReceiptTotal(e.target.value)}
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all"
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Transaction Reference (e.g. M-Pesa Code)</label>
                 <input name="transactionRef" defaultValue={printingReceiptInvoice.paystackReference || ''} placeholder="Paste transaction code here..." className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Amount Received</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">
+                    {receiptDocKind === 'statement' ? 'Paid To Date' : 'Amount Received'}
+                  </label>
                   <input
                     required
                     name="amountReceived"
                     type="text"
                     value={receiptAmount}
+                    placeholder={receiptDocKind === 'receipt' ? 'What they handed over' : '0'}
                     onChange={(e) => {
                       const next = e.target.value;
                       setReceiptAmount(next);
-                      // Typing 7300 writes the words for you; a wording you've
-                      // already edited by hand is left alone.
+                      if (receiptDocKind !== 'receipt') return;
+                      // On a receipt the words follow the sum received; on a
+                      // statement they follow the balance, not this field.
                       if (!receiptWordsEdited) {
                         setReceiptWords(amountFieldInWords(next, printingReceiptInvoice.currency));
                       }
+                      // Taking KES 74,900 off a KES 74,900 balance leaves zero —
+                      // work it out rather than making him do the subtraction.
+                      if (!receiptBalanceEdited) {
+                        const owed = moneyOf(printingReceiptInvoice).balance;
+                        const paidNow = parseFloat(next.replace(/,/g, ''));
+                        if (Number.isFinite(paidNow)) setReceiptBalance(String(Math.max(owed - paidNow, 0)));
+                        else setReceiptBalance(String(owed));
+                      }
                     }}
-                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all"
+                    className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200 placeholder:font-medium"
                   />
                   {/* Prices move between deposit and arrival. Print whatever was
                       really received — but say so, so the record can follow. */}
-                  {(() => {
+                  {receiptDocKind === 'receipt' && (() => {
                     const m = moneyOf(printingReceiptInvoice);
                     const typed = parseFloat((receiptAmount || '').replace(/,/g, ''));
                     if (!Number.isFinite(typed) || m.total <= 0 || m.unrecorded) return null;
@@ -5031,22 +5155,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   })()}
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">Balance Due</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">
+                    {receiptDocKind === 'statement' ? 'Balance Due' : 'Balance Still Owing'}
+                  </label>
                   <input
                     required
                     name="balance"
                     type="text"
                     value={receiptBalance}
-                    onChange={(e) => setReceiptBalance(e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setReceiptBalance(next);
+                      setReceiptBalanceEdited(true);
+                      // On a statement the balance IS the headline figure, so it
+                      // is what gets written out in words.
+                      if (!receiptWordsEdited && receiptDocKind === 'statement') {
+                        setReceiptWords(amountFieldInWords(next, printingReceiptInvoice.currency));
+                      }
+                    }}
                     className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all"
                   />
                 </div>
               </div>
+
+              <p className="text-[11px] font-medium text-gray-400 leading-relaxed text-center px-2">
+                {receiptDocKind === 'statement'
+                  ? 'A statement asks for money. It carries your pay link and says plainly that it is not a receipt.'
+                  : 'A receipt confirms money already in hand. Only print it once the payment has actually arrived.'}
+              </p>
+
               <button
                 type="submit"
                 className="w-full py-5 bg-rose-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs hover:bg-black transition-all shadow-xl shadow-rose-100"
               >
-                Generate Print Preview
+                Generate {receiptDocKind === 'statement' ? 'Statement' : 'Receipt'}
               </button>
             </form>
           </div>
