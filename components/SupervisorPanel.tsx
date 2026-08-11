@@ -372,10 +372,15 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
       const t = new Date(iso).getTime();
       return isNaN(t) ? '' : new Date(t).toISOString().slice(0, 7);
     };
+    // A settled order counts its full total as collected. Reading the stored
+    // figure alone under-reports revenue for every order marked Paid before the
+    // amount was recorded at creation.
+    const paidOn = (i: Invoice) =>
+      (i.paymentStatus === PaymentStatus.PAID || i.isPaid) ? (i.totalKES || 0) : (i.amountPaidKES || 0);
     const agg = (list: Invoice[]) => ({
       n: list.length,
       booked: list.reduce((s, i) => s + (i.totalKES || 0), 0),
-      collected: list.reduce((s, i) => s + (i.amountPaidKES || 0), 0),
+      collected: list.reduce((s, i) => s + paidOn(i), 0),
       margin: list.reduce((s, i) => s + (i.serviceFeeKES || 0), 0),
     });
     const last7 = agg(invoices.filter(i => daysAgo(i.createdAt) <= 7));
@@ -398,13 +403,18 @@ const SupervisorPanel: React.FC<SupervisorPanelProps> = ({
     lines.push(`ALL ORDERS (copy the ref in quotes EXACTLY when acting on one):`);
     invoices.forEach(i => {
       const total = i.totalKES || 0;
-      const paid = i.amountPaidKES || 0;
+      // The payment status is authoritative. A settled order owes nothing even
+      // if no figure was ever stored against it — orders created as Paid before
+      // the amount was recorded at creation would otherwise read as owing the
+      // whole total, which is the opposite of the truth.
+      const settled = i.paymentStatus === PaymentStatus.PAID || i.isPaid;
+      const paid = settled ? total : (i.amountPaidKES || 0);
       const bal = Math.max(total - paid, 0);
       const d = i.createdAt ? new Date(i.createdAt).toLocaleDateString('en-KE') : '';
       // A part-paid order with no deposit on record: the balance genuinely is
       // not known, and total-minus-nothing is NOT it. Say so, so the Manager
       // reports "not recorded" instead of quoting the full total as owed.
-      const unrecorded = i.paymentStatus === PaymentStatus.PARTIALLY_PAID && paid <= 0;
+      const unrecorded = !settled && i.paymentStatus === PaymentStatus.PARTIALLY_PAID && paid <= 0;
       const money = unrecorded
         ? `total KES ${total.toLocaleString()} | paid UNKNOWN — deposit was never recorded, so the balance is NOT known and must not be quoted`
         : `total KES ${total.toLocaleString()} | paid KES ${paid.toLocaleString()} | bal KES ${bal.toLocaleString()}`;

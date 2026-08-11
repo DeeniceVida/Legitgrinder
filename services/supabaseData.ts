@@ -719,6 +719,12 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 status: OrderStatus.RECEIVED_BY_AGENT,
                 is_paid: invoiceData.isPaid || false,
                 payment_status: invoiceData.paymentStatus || (invoiceData.isPaid ? PaymentStatus.PAID : PaymentStatus.UNPAID),
+                // Record what was paid at the moment the order is created. This
+                // was previously left unset, so a manual order marked Paid
+                // stored nothing and read back as owing its whole total.
+                amount_paid_kes: invoiceData.amountPaidKES != null
+                    ? invoiceData.amountPaidKES
+                    : (invoiceData.isPaid ? (invoiceData.totalKES || 0) : 0),
                 paystack_reference: invoiceData.paystackReference || null,
                 progress: 10,
                 last_update: new Date().toISOString(),

@@ -340,6 +340,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '', refundItem: '', transactionCode: '' });
   const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
+  /** Deposit taken at the point the order is created, when it's part-paid. */
+  const [manualOrderPaidAmount, setManualOrderPaidAmount] = useState('');
   const [manualOrderCurrency, setManualOrderCurrency] = useState<'KES' | 'USD'>('KES');
   // Receipt form. "Sum in words" writes itself from the amount received, but
   // stays fully editable — once it's been hand-edited we stop overwriting it.
@@ -581,6 +583,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       serviceFeeKES: parseFloat(formData.get('serviceFeeKES') as string) || 0,
       isPaid: isPaid,
       paymentStatus: paymentStatus,
+      // Paid settles against the total; a deposit is whatever was typed.
+      amountPaidKES: isPaid
+        ? totalKES
+        : paymentStatus === PaymentStatus.PARTIALLY_PAID
+          ? (parseFloat(formData.get('amountPaidKES') as string) || 0)
+          : 0,
       paystackReference: (formData.get('paystackReference') as string) || undefined,
       createdAt: createdAtRaw ? new Date(createdAtRaw).toISOString() : undefined,
       currency: manualOrderCurrency
@@ -4048,6 +4056,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </label>
                   ))}
                 </div>
+
+                {/* "Partially paid" is meaningless without a figure — without it
+                    the balance is unknowable and every later document quotes the
+                    whole total as still owing. */}
+                {manualOrderPaymentStatus === PaymentStatus.PARTIALLY_PAID && (
+                  <div className="mt-3">
+                    <label className={labelCls}>How much have they paid? <span className="text-neutral-300 normal-case font-medium">— required</span></label>
+                    <input
+                      type="number"
+                      name="amountPaidKES"
+                      value={manualOrderPaidAmount}
+                      onChange={(e) => setManualOrderPaidAmount(e.target.value)}
+                      placeholder="e.g. 40000"
+                      className={inputCls}
+                    />
+                    {(() => {
+                      const paid = parseFloat(manualOrderPaidAmount);
+                      if (!Number.isFinite(paid) || paid <= 0) return (
+                        <p className="text-[10px] font-bold text-amber-600 mt-1.5 leading-snug">
+                          Leave this blank and the balance can't be worked out — the order will be flagged until you fill it in.
+                        </p>
+                      );
+                      if (paid >= itemsTotal && itemsTotal > 0) return (
+                        <p className="text-[10px] font-bold text-rose-500 mt-1.5 leading-snug">
+                          That covers the whole order — mark it Paid instead.
+                        </p>
+                      );
+                      return (
+                        <p className="text-[10px] font-bold text-[#3D8593] mt-1.5 leading-snug">
+                          Balance due · {manualOrderCurrency} {(itemsTotal - paid).toLocaleString()}
+                        </p>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </form>
 
