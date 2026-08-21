@@ -5118,14 +5118,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-2 ml-2">
-                    {receiptDocKind === 'statement' ? 'Paid To Date' : 'Amount Received'}
+                    {receiptDocKind === 'statement' ? 'Paid To Date' : 'Total Received'}
+                    {receiptDocKind === 'receipt' && (
+                      <span className="text-neutral-300 normal-case font-medium"> — on this order, all payments</span>
+                    )}
                   </label>
                   <input
                     required
                     name="amountReceived"
                     type="text"
                     value={receiptAmount}
-                    placeholder={receiptDocKind === 'receipt' ? 'What they handed over' : '0'}
+                    placeholder={receiptDocKind === 'receipt' ? 'Everything paid so far' : '0'}
                     onChange={(e) => {
                       const next = e.target.value;
                       setReceiptAmount(next);
@@ -5144,31 +5147,54 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       if (!receiptWordsEdited) {
                         setReceiptWords(amountFieldInWords(next, printingReceiptInvoice.currency));
                       }
-                      // Taking KES 74,900 off a KES 74,900 balance leaves zero —
-                      // work it out rather than making him do the subtraction.
+                      // The printed table reads Received + Balance = Total, so
+                      // this figure is everything paid on the order, and what
+                      // remains is the ORDER total minus it.
                       if (!receiptBalanceEdited) {
-                        const owed = moneyOf(printingReceiptInvoice).balance;
-                        const paidNow = parseFloat(next.replace(/,/g, ''));
-                        if (Number.isFinite(paidNow)) setReceiptBalance(String(Math.max(owed - paidNow, 0)));
-                        else setReceiptBalance(String(owed));
+                        const orderTotal = moneyOf(printingReceiptInvoice).total;
+                        const received = parseFloat(next.replace(/,/g, ''));
+                        setReceiptBalance(Number.isFinite(received)
+                          ? String(Math.max(orderTotal - received, 0))
+                          : String(orderTotal));
                       }
                     }}
                     className="w-full bg-neutral-50 border-none rounded-2xl px-6 py-4 font-bold focus:ring-4 focus:ring-rose-100 transition-all placeholder:text-neutral-200 placeholder:font-medium"
                   />
-                  {/* Prices move between deposit and arrival. Print whatever was
-                      really received — but say so, so the record can follow. */}
+                  {/* One-tap fill for the common case, and a warning ONLY for a
+                      figure that cannot be right — paying part of an order or
+                      settling it in full are both normal and get no comment. */}
                   {receiptDocKind === 'receipt' && (() => {
                     const m = moneyOf(printingReceiptInvoice);
-                    const typed = parseFloat((receiptAmount || '').replace(/,/g, ''));
-                    if (!Number.isFinite(typed) || m.total <= 0 || m.unrecorded) return null;
-                    const expected = !m.settled && m.paid > 0 ? m.balance : m.total;
-                    if (Math.abs(typed - expected) < 1) return null;
+                    if (m.total <= 0) return null;
                     const cur = printingReceiptInvoice.currency || 'KES';
-                    return (
+                    const typed = parseFloat((receiptAmount || '').replace(/,/g, ''));
+
+                    if (Number.isFinite(typed) && typed > m.total) return (
                       <p className="text-[10px] font-bold text-amber-600 mt-2 ml-2 leading-snug">
-                        Differs from the {cur} {expected.toLocaleString()} on record. Fine to print — if the
-                        price changed, amend the invoice too so your books match.
+                        More than the {cur} {m.total.toLocaleString()} this order is for. Fine to print — if the
+                        price went up, amend the invoice too so your books match.
                       </p>
+                    );
+
+                    if (Number.isFinite(typed) && Math.abs(typed - m.total) < 1) return (
+                      <p className="text-[10px] font-bold text-emerald-600 mt-2 ml-2 leading-snug">
+                        Settles the order in full.
+                      </p>
+                    );
+
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const full = String(m.total);
+                          setReceiptAmount(full);
+                          if (!receiptWordsEdited) setReceiptWords(amountFieldInWords(full, printingReceiptInvoice.currency));
+                          if (!receiptBalanceEdited) setReceiptBalance('0');
+                        }}
+                        className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] hover:text-[#0f1a1c] transition-colors mt-2 ml-2"
+                      >
+                        Paid in full · {cur} {m.total.toLocaleString()}
+                      </button>
                     );
                   })()}
                 </div>
