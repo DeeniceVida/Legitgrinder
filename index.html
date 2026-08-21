@@ -54,11 +54,17 @@
   }
   </script>
 
-  <!-- Favicons -->
-  <link rel="icon" type="image/png" href="/favicon.png" sizes="32x32">
-  <link rel="icon" type="image/png" href="/favicon.png" sizes="192x192">
-  <link rel="apple-touch-icon" href="/favicon.png">
-  <link rel="shortcut icon" href="/favicon.png">
+  <!-- Favicons. These live in public/ so the URLs stay identical across every
+       deploy: Google caches a favicon by URL, and a build-hashed path would
+       go stale the moment anything else shipped. Sizes are real files, all
+       square — Google ignores a favicon that isn't. -->
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" href="/favicon-16.png" sizes="16x16">
+  <link rel="icon" type="image/png" href="/favicon-32.png" sizes="32x32">
+  <link rel="icon" type="image/png" href="/favicon-48.png" sizes="48x48">
+  <link rel="icon" type="image/png" href="/favicon-96.png" sizes="96x96">
+  <link rel="icon" type="image/png" href="/favicon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon-192.png">
 
   <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Instrument+Serif:ital@0;1&display=swap"
