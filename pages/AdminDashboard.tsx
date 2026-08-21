@@ -448,7 +448,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // Paid to date and what is still owed. Nothing here claims a payment.
       setReceiptAmount(m.unrecorded ? '' : String(m.paid));
       setReceiptBalance(String(m.balance));
-      setReceiptWords(amountFieldInWords(String(m.balance), inv.currency));
+      // The money that has changed hands is the figure worth spelling out —
+      // words exist to make a payment impossible to alter or dispute. Only
+      // when nothing has been paid does the balance take that place.
+      setReceiptWords(amountFieldInWords(String(m.paid > 0 ? m.paid : m.balance), inv.currency));
       return;
     }
 
@@ -458,6 +461,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setReceiptBalance(m.total > 0 && !m.settled ? String(m.balance) : '0');
     setReceiptWords('');
   };
+
+  /** Whether a statement's words line is certifying money paid or money owed. */
+  const statementWordsUsePaid = (parseFloat((receiptAmount || '').replace(/,/g, '')) || 0) > 0;
+  const receiptWordsLabel = receiptDocKind === 'receipt'
+    ? 'Sum in Words'
+    : (statementWordsUsePaid ? 'Paid in Words' : 'Balance in Words');
 
   // Security & MFA State
   const [securityLoading, setSecurityLoading] = useState(false);
@@ -5060,7 +5069,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div>
                 <div className="flex items-baseline justify-between mb-2 ml-2 mr-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    {receiptDocKind === 'statement' ? 'Balance in Words' : 'Sum in Words'}
+                    {receiptWordsLabel}
                   </label>
                   {receiptWordsEdited && (
                     <button
@@ -5068,7 +5077,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       onClick={() => {
                         setReceiptWordsEdited(false);
                         setReceiptWords(amountFieldInWords(
-                          receiptDocKind === 'statement' ? receiptBalance : receiptAmount,
+                          receiptDocKind === 'statement' && !statementWordsUsePaid ? receiptBalance : receiptAmount,
                           printingReceiptInvoice.currency));
                       }}
                       className="text-[9px] font-black uppercase tracking-widest text-rose-400 hover:text-rose-600 transition-colors"
@@ -5120,7 +5129,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => {
                       const next = e.target.value;
                       setReceiptAmount(next);
-                      if (receiptDocKind !== 'receipt') return;
+                      if (receiptDocKind === 'statement') {
+                        // Paid to date drives the words on a statement too —
+                        // the sum that changed hands is what gets certified.
+                        if (!receiptWordsEdited) {
+                          const paidNow = parseFloat(next.replace(/,/g, '')) || 0;
+                          setReceiptWords(amountFieldInWords(
+                            paidNow > 0 ? next : receiptBalance, printingReceiptInvoice.currency));
+                        }
+                        return;
+                      }
                       // On a receipt the words follow the sum received; on a
                       // statement they follow the balance, not this field.
                       if (!receiptWordsEdited) {
@@ -5167,9 +5185,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       const next = e.target.value;
                       setReceiptBalance(next);
                       setReceiptBalanceEdited(true);
-                      // On a statement the balance IS the headline figure, so it
-                      // is what gets written out in words.
-                      if (!receiptWordsEdited && receiptDocKind === 'statement') {
+                      // Only when nothing has been paid does the balance take
+                      // over the words line — there is no payment to certify.
+                      if (!receiptWordsEdited && receiptDocKind === 'statement' && !statementWordsUsePaid) {
                         setReceiptWords(amountFieldInWords(next, printingReceiptInvoice.currency));
                       }
                     }}
