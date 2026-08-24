@@ -78,14 +78,16 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist, loading = false }) => 
               className="w-full h-14 bg-white border border-gray-200 rounded-full pl-12 pr-6 text-sm font-medium focus:border-[#3D8593] transition-colors shadow-sm"
             />
           </div>
-          <div className="flex gap-2" role="tablist" aria-label="Phone brands">
+          {/* Three px-8 pills overran a 375px phone by a few pixels, which is
+              enough to make the whole page scroll sideways. */}
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Phone brands">
             {BRANDS.map((brand) => (
               <button
                 key={brand.id}
                 role="tab"
                 aria-selected={activeBrand === brand.id}
                 onClick={() => setActiveBrand(brand.id)}
-                className={`px-8 py-3.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeBrand === brand.id
+                className={`px-5 sm:px-8 py-3.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeBrand === brand.id
                   ? 'bg-[#0f1a1c] text-white shadow-lg'
                   : 'bg-white text-gray-500 border border-gray-200 hover:border-[#3D8593] hover:text-[#3D8593]'
                   }`}

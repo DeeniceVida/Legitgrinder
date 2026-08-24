@@ -295,7 +295,7 @@ const Monitors: React.FC = () => {
 
             <div className="grid lg:grid-cols-3 gap-6 items-start">
               {/* ── The models ───────────────────────────────── */}
-              <div className="lg:col-span-2 space-y-5">
+              <div className="lg:col-span-2 space-y-5 min-w-0">
                 {groups.map(([res, list]) => (
                   <div key={res} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                     <div className="px-5 py-3.5 border-b border-gray-50 flex items-baseline justify-between">
@@ -308,7 +308,7 @@ const Monitors: React.FC = () => {
                       {list.map(m => {
                         const p = priceMonitor(m, settings, shipping);
                         return (
-                          <div key={m.id} className="px-5 py-4 flex items-center justify-between gap-4 hover:bg-neutral-50/60 transition-colors">
+                          <div key={m.id} className="px-4 sm:px-5 py-4 flex items-center justify-between gap-3 sm:gap-4 hover:bg-neutral-50/60 transition-colors">
                             {m.imageUrl && (
                               <SafeImage
                                 src={m.imageUrl}
@@ -375,7 +375,7 @@ const Monitors: React.FC = () => {
               </div>
 
               {/* ── Selection ────────────────────────────────── */}
-              <div className="lg:sticky lg:top-28">
+              <div className="lg:sticky lg:top-28 min-w-0">
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                   <div className="px-5 py-4 border-b border-gray-50">
                     <h2 className="text-sm font-black text-gray-900 tracking-tight">Your selection</h2>
