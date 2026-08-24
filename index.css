@@ -33,6 +33,30 @@
             max-width: 100%;
         }
     }
+
+    html {
+        /* Stop iOS inflating text of its own accord, which widens layouts. */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+
+    /*
+     * iOS Safari zooms the entire page in when you focus a field whose text is
+     * smaller than 16px — and it never zooms back out. That single behaviour is
+     * why tapping the search box left the whole site oversized, with the product
+     * photo cropped by the viewport and everything needing a pinch to recover.
+     *
+     * 16px is the threshold, so every field gets it on touch layouts. !important
+     * because Tailwind's text-sm utility would otherwise win on specificity.
+     * Desktop keeps the smaller, denser sizes.
+     */
+    @media (max-width: 1023px) {
+        input,
+        select,
+        textarea {
+            font-size: 16px !important;
+        }
+    }
 }
 
 .heading-accent {
