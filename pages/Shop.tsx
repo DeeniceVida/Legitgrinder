@@ -7,6 +7,8 @@ import {
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
+import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel } from '../utils/productPricing';
+import { logProductEnquiry } from '../services/enquiries';
 import RestockNotify from '../components/RestockNotify';
 import GroupBuyPoster from '../components/GroupBuyPoster';
 import { GroupCampaign, fetchGroupCampaigns as fetchAllCampaigns } from '../services/groupBuys';
@@ -94,12 +96,21 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     }
 
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    // Final price = base + selected variant add-on(s); customer sees only the total
-    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
-    const totalPrice = (p.discountPriceKES || p.priceKES) + variationPrice;
+    const totalPrice = priceForSelection(p, selectedVarsList);
 
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const varText = varTextStrings.length > 0 ? ` (Selected: ${varTextStrings.join(', ')})` : '';
+
+    // Record the enquiry so the piece can be reserved against a possible sale
+    // and chased up later. Best-effort: a logging failure must never stop the
+    // customer reaching WhatsApp.
+    logProductEnquiry({
+      productId: p.id,
+      productName: p.name,
+      variant: varTextStrings.join(', ') || undefined,
+      quantity,
+      unitPriceKES: totalPrice,
+    }).catch(() => {});
 
     const text = encodeURIComponent(`Hi LegitGrinder, I'm interested in buying ${p.name}${varText}.\nQuantity: ${quantity}\nTotal Price: KES ${(totalPrice * quantity).toLocaleString()}`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
@@ -118,8 +129,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     setPaymentLoading(true);
     const trackingCode = response.reference;
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
-    const totalPrice = (product.discountPriceKES || product.priceKES) + variationPrice;
+    const totalPrice = priceForSelection(product, selectedVarsList);
 
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const fullProductName = product.name + (varTextStrings.length > 0 ? ` (${varTextStrings.join(', ')})` : '');
@@ -233,13 +243,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const isLocal = p.availability === Availability.LOCAL;
     const basePrice = p.discountPriceKES || p.priceKES;
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
-    // Final price = base + selected variant add-on(s). Customer only ever sees the total.
-    const pricedVariants = (p.variations || []).filter((v: ProductVariation) => (v.priceKES || 0) > 0);
-    const variationPrice = selectedVarsList.reduce((sum: number, v: ProductVariation) => sum + (v.priceKES || 0), 0);
-    const minVariantAddon = pricedVariants.length ? Math.min(...pricedVariants.map((v: ProductVariation) => v.priceKES)) : 0;
-    const needsVariantForPrice = pricedVariants.length > 0 && !selectedVarsList.some((v: ProductVariation) => (v.priceKES || 0) > 0);
-    const currentPrice = basePrice + variationPrice;   // final total once a variant is picked
-    const fromPrice = basePrice + minVariantAddon;      // starting price shown before selection
+    // A variant's price IS the price — see utils/productPricing.
+    const currentPrice = priceForSelection(p, selectedVarsList);
+    const fromPrice = fromPriceOf(p);
+    const needsVariant = needsVariantForPrice(p, selectedVarsList);
 
     // Use image from the last selected variation that has an image
     const variationWithImage = [...selectedVarsList].reverse().find((v: ProductVariation) => v.imageUrl);
@@ -302,10 +309,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 />
                 <div className={`absolute top-6 left-6 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593]/95 text-white' :
                   p.stockCount === 0 ? 'bg-red-500/90 text-white' :
-                    p.stockCount <= 5 ? 'bg-[#FF9900]/90 text-white' :
-                      'bg-emerald-500/90 text-white'
+                    'bg-emerald-500/90 text-white'
                   }`}>
-                  {p.availability === Availability.IMPORT ? 'Import on Order' : getStockStatus(p.stockCount || 0)}
+                  {p.availability === Availability.IMPORT ? 'Import on Order' : publicStockLabel(p.stockCount || 0)}
                 </div>
               </div>
 
@@ -332,15 +338,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 <p className="eyebrow text-[#3D8593] mb-3">{p.category || 'Verified Import'}</p>
                 <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-5 tracking-tighter leading-[1.05]">{p.name}</h1>
                 <div className="flex items-baseline gap-3">
-                  {needsVariantForPrice && <span className="text-sm font-black uppercase tracking-widest text-gray-400">From</span>}
+                  {needsVariant && <span className="text-sm font-black uppercase tracking-widest text-gray-400">From</span>}
                   <span className="text-4xl font-black text-gray-900 tracking-tight">
-                    KES {((needsVariantForPrice ? fromPrice : currentPrice) * quantity).toLocaleString()}
+                    KES {((needsVariant ? fromPrice : currentPrice) * quantity).toLocaleString()}
                   </span>
-                  {p.discountPriceKES && pricedVariants.length === 0 && (
+                  {p.discountPriceKES && !(p.variations || []).some(v => (v.priceKES || 0) > 0) && (
                     <span className="text-lg text-gray-400 line-through font-light">KES {(p.priceKES * quantity).toLocaleString()}</span>
                   )}
                 </div>
-                {needsVariantForPrice && (
+                {needsVariant && (
                   <p className="text-[11px] font-bold text-[#FF9900] mt-2">Select an option below to see its exact price</p>
                 )}
               </div>
@@ -414,9 +420,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                                 }`}
                             >
                               <span className={`text-xs font-bold ${soldOut ? 'text-gray-400 line-through' : selectedVariations[type] === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
-                              {tracked && (
-                                <span className={`block text-[8px] font-black uppercase tracking-widest mt-1 ${soldOut ? 'text-rose-400' : (v.stockCount as number) <= 2 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                  {soldOut ? 'Out of stock' : `${v.stockCount} left`}
+                              {/* Sold out has to be visible so nobody orders air.
+                                  The count itself is nobody's business but ours. */}
+                              {tracked && soldOut && (
+                                <span className="block text-[8px] font-black uppercase tracking-widest mt-1 text-rose-400">
+                                  Out of stock
                                 </span>
                               )}
                             </button>
@@ -680,10 +688,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     {/* Availability badge */}
                     <div className={`absolute top-3 left-3 md:top-4 md:left-4 px-3 py-1.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-[0.15em] backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593]/95 text-white' :
                       p.stockCount === 0 ? 'bg-red-500/90 text-white' :
-                        p.stockCount <= 5 ? 'bg-[#FF9900]/90 text-white' :
-                          'bg-white/90 text-gray-900'
+                        'bg-white/90 text-gray-900'
                       }`}>
-                      {p.availability === Availability.IMPORT ? 'On Order' : getStockStatus(p.stockCount || 0)}
+                      {p.availability === Availability.IMPORT ? 'On Order' : publicStockLabel(p.stockCount || 0)}
                     </div>
 
                     {/* Sale badge */}

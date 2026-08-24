@@ -91,7 +91,8 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
                       <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest" style={{ backgroundColor: theme.accent, color: theme.bg }}>On Offer</span>
                     )}
                     <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest opacity-60">
-                      {inStock ? `In stock · ${p.stockCount} left` : p.availability === Availability.IMPORT ? 'Import on order' : 'Ready to ship'}
+                      {/* No count: how much we hold is our business, not the shopper's. */}
+                      {inStock ? 'In stock' : p.availability === Availability.IMPORT ? 'Import on order' : 'Ready to ship'}
                     </span>
                   </div>
                   <h3 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight leading-[1.1] mb-2 line-clamp-2 heading-accent px-2 md:px-0">

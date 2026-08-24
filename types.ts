@@ -69,7 +69,8 @@ export enum Availability {
 export interface ProductVariation {
   type: 'Size' | 'Design' | 'Color' | 'Bundle' | 'Capacity';
   name: string;
-  priceKES: number; // Override or additional cost
+  /** The price of this variant, in full. See Product.variantsAbsolute. */
+  priceKES: number;
   imageUrl?: string;
   /** Optional per-variant stock. When set, the shop caps/deducts this variant's pieces. */
   stockCount?: number;
@@ -89,6 +90,13 @@ export interface Product {
   stockCount?: number;
   videoUrl?: string;
   isFeatured?: boolean;
+  /**
+   * True once this product's variant figures are real prices rather than
+   * add-ons on top of priceKES. Set by add_absolute_variant_pricing.sql;
+   * false means the old additive reading still applies, so the shop prices
+   * correctly whether or not that migration has been run.
+   */
+  variantsAbsolute?: boolean;
 }
 
 export enum PaymentStatus {

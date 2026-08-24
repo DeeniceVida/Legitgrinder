@@ -213,7 +213,11 @@ export const fetchInventoryProducts = async (): Promise<Product[]> => {
             category: p.category || 'Electronics',
             stockCount: parseInt(p.inventory_quantity || 0),
             videoUrl: p.video_url,
-            isFeatured: p.is_featured || false
+            isFeatured: p.is_featured || false,
+            // Strictly === true: before the migration runs the column doesn't
+            // exist, and undefined must mean "still additive" so prices stay
+            // right regardless of deploy order.
+            variantsAbsolute: p.variants_absolute === true
         }));
     } catch (error) {
         console.error('Error fetching inventory:', error);

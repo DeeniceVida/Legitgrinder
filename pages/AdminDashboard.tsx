@@ -19,7 +19,8 @@ import { seedFullInventory } from '../services/syncLinks';
 import { WHATSAPP_NUMBER } from '../constants';
 import { supabase } from '../lib/supabase';
 import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceDetails, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock, fetchWaitlistCounts,
-  ShippingAgent, fetchShippingAgents, createShippingAgent, deleteShippingAgent, setInvoiceShippingAgent } from '../services/supabaseData';
+  ShippingAgent, fetchShippingAgents, createShippingAgent, deleteShippingAgent, setInvoiceShippingAgent,
+  fetchInventoryProducts } from '../services/supabaseData';
 import {
   PricelistItem, Product, OrderStatus, getOrderProgress,
   Consultation, ConsultationStatus, Availability, Invoice, InvoiceItem, PaymentStatus,
@@ -35,6 +36,7 @@ import GroupBuysTab from '../components/GroupBuysTab';
 import ReportsTab from '../components/ReportsTab';
 import MonitorsTab from '../components/MonitorsTab';
 import ChairsTab from '../components/ChairsTab';
+import EnquiriesPanel from '../components/EnquiriesPanel';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
@@ -2449,6 +2451,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </p>
               </div>
 
+              {/* Sales that happened off-site still have to come off the shelf */}
+              <EnquiriesPanel
+                products={products}
+                onProductsChanged={() => fetchInventoryProducts().then(onUpdateProducts).catch(() => {})}
+              />
+
               {/* Search + quick stats */}
               <div className="flex flex-col md:flex-row md:items-center gap-4">
                 <div className="relative flex-1 max-w-md">
@@ -3563,11 +3571,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onChange={(e) => updateVariation(idx, { imageUrl: e.target.value })}
                             className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:ring-2 focus:ring-teal-100"
                           />
-                          <div className="relative w-28" title="Extra added to the product's base price for this option (e.g. golf +base, pegboard +2000). Customer sees only the final total.">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">+KES</span>
+                          <div className="relative w-28" title="What this option costs, in full. Type 4500 and the customer pays 4500 — nothing is added on top. Leave blank to charge the product's own price.">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">KES</span>
                             <input
                               type="number"
-                              placeholder="Add-on"
+                              placeholder="Price"
                               value={v.priceKES || ''}
                               onChange={(e) => updateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
                               className="w-full bg-white border border-neutral-100 rounded-xl pl-11 pr-2 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
