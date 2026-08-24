@@ -15,6 +15,24 @@
         font-family: var(--font-sans);
         -webkit-font-smoothing: antialiased;
     }
+
+    /*
+     * Nothing on a phone may scroll sideways. Every page is built to fit, but
+     * one stray element a few pixels too wide drags the whole document out and
+     * the site feels broken — which is exactly what kept happening.
+     *
+     * Scoped to below lg, where no `lg:sticky` is active, so this can't break
+     * the sticky columns on desktop. Content that is legitimately wide (the
+     * admin's invoice tables, the category chip rails) lives in its own
+     * overflow-x-auto container and still scrolls on its own.
+     */
+    @media (max-width: 1023px) {
+        html,
+        body {
+            overflow-x: hidden;
+            max-width: 100%;
+        }
+    }
 }
 
 .heading-accent {

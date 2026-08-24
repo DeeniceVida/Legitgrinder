@@ -334,9 +334,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 className="aspect-square bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 relative group cursor-zoom-in shadow-sm"
                 onClick={() => setExpandedImageUrl(displayImage)}
               >
+                {/* contain, not cover. A square frame around a 4:3 photo was
+                    slicing 15% off the sides — on the pegboard that took the
+                    dimension labels with it, so the buyer literally could not
+                    see the whole product. Letterboxing is the lesser evil. */}
                 <SafeImage
                   src={displayImage}
-                  className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-700"
+                  className="w-full h-full object-contain animate-in fade-in zoom-in-95 duration-700"
                   alt={p.name}
                 />
                 <div className={`absolute top-6 left-6 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593]/95 text-white' :
