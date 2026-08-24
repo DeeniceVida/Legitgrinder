@@ -15,9 +15,20 @@ import { Product, ProductVariation } from '../types';
 /** The product's own price, before any variant is chosen. */
 export const basePriceOf = (p: Product): number => p.discountPriceKES || p.priceKES || 0;
 
-/** Variants that carry a price of their own. */
+/**
+ * Option groups that are ACCESSORIES rather than a choice about the item
+ * itself. A pegboard container is a thing you add to a board, so it adds to
+ * the price and you can leave it out; a size is what the board IS, so it
+ * replaces the price and has to be chosen.
+ */
+export const ACCESSORY_TYPES = ['bundle'];
+
+export const isAccessory = (v: ProductVariation): boolean =>
+  ACCESSORY_TYPES.includes(String(v.type || '').toLowerCase());
+
+/** Variants that carry a price of their own, accessories excluded. */
 const priced = (p: Product): ProductVariation[] =>
-  (p.variations || []).filter(v => (v.priceKES || 0) > 0);
+  (p.variations || []).filter(v => (v.priceKES || 0) > 0 && !isAccessory(v));
 
 /**
  * The price for a given selection.
@@ -29,15 +40,19 @@ const priced = (p: Product): ProductVariation[] =>
  */
 export const priceForSelection = (p: Product, selected: ProductVariation[]): number => {
   const base = basePriceOf(p);
-  const withPrice = selected.filter(v => (v.priceKES || 0) > 0);
 
   if (!p.variantsAbsolute) {
     // Legacy: variant figures are add-ons on top of the base.
     return base + selected.reduce((sum, v) => sum + (v.priceKES || 0), 0);
   }
 
-  if (!withPrice.length) return base;
-  return Math.max(...withPrice.map(v => v.priceKES || 0));
+  const main = selected.filter(v => (v.priceKES || 0) > 0 && !isAccessory(v));
+  // Accessories are extra things in the box, so they genuinely add up.
+  const extras = selected.filter(v => (v.priceKES || 0) > 0 && isAccessory(v))
+    .reduce((sum, v) => sum + (v.priceKES || 0), 0);
+
+  const item = main.length ? Math.max(...main.map(v => v.priceKES || 0)) : base;
+  return item + extras;
 };
 
 /**
@@ -54,7 +69,7 @@ export const fromPriceOf = (p: Product): number => {
 
 /** True when the product can't be priced until a variant is chosen. */
 export const needsVariantForPrice = (p: Product, selected: ProductVariation[]): boolean =>
-  priced(p).length > 0 && !selected.some(v => (v.priceKES || 0) > 0);
+  priced(p).length > 0 && !selected.some(v => (v.priceKES || 0) > 0 && !isAccessory(v));
 
 /**
  * What a customer is told about stock. Never a count — the exact number is the

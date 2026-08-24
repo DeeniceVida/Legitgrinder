@@ -7,7 +7,7 @@ import {
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
-import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock } from '../utils/productPricing';
+import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock, isAccessory } from '../utils/productPricing';
 import { logProductEnquiry } from '../services/enquiries';
 import RestockNotify from '../components/RestockNotify';
 import GroupBuyPoster from '../components/GroupBuyPoster';
@@ -88,10 +88,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
-  /** Option groups the shopper still has to choose from. Capacity is optional. */
+  /**
+   * Option groups the shopper still has to choose from. Capacity is optional,
+   * and so are accessories — a container is something you may add to a board,
+   * not a decision you must make before buying one.
+   */
   const missingVariationTypes = (p: Product): string[] =>
     Array.from(new Set((p.variations || []).map(v => v.type || 'Other')))
       .filter(type => type.toLowerCase() !== 'capacity')
+      .filter(type => !isAccessory({ type } as ProductVariation))
       .filter(type => !selectedVariations[type]);
 
   const handleWhatsAppInquiry = (p: Product) => {
@@ -378,6 +383,75 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 )}
               </div>
 
+              {/* VARIATIONS / CONFIGURATIONS */}
+              {Array.isArray(p.variations) && p.variations.length > 0 && (
+                <div ref={optionsRef} className="mb-8 space-y-5 scroll-mt-24">
+                  {Object.entries(
+                    (p.variations || []).reduce((groups: Record<string, ProductVariation[]>, v: ProductVariation) => {
+                      const type = v.type || 'Other';
+                      if (!groups[type]) groups[type] = [];
+                      groups[type].push(v);
+                      return groups;
+                    }, {} as Record<string, ProductVariation[]>)
+                  ).map(([type, variations]: [string, ProductVariation[]]) => (
+                    <div key={type}>
+                      <p className="eyebrow text-gray-400 mb-2.5">
+                        {isAccessory({ type } as ProductVariation) ? `Add ${type}` : `Select ${type}`}
+                        {isAccessory({ type } as ProductVariation) && (
+                          <span className="normal-case tracking-normal font-medium text-gray-300"> — optional</span>
+                        )}
+                      </p>
+                      {/* Compact chips: the whole option set should fit beside
+                          the photo rather than pushing it off the screen. */}
+                      <div className="flex flex-wrap gap-2">
+                        {variations.map((v: ProductVariation, idx: number) => {
+                          const tracked = typeof v.stockCount === 'number';
+                          const soldOut = tracked && v.stockCount === 0;
+                          return (
+                            <button
+                              key={idx}
+                              disabled={soldOut}
+                              onClick={() => {
+                                const newSelections = { ...selectedVariations };
+                                if (newSelections[type] === v) {
+                                  delete newSelections[type];
+                                } else {
+                                  newSelections[type] = v;
+                                }
+                                setSelectedVariations(newSelections);
+                              }}
+                              aria-pressed={selectedVariations[type] === v}
+                              className={`px-3.5 py-2 rounded-xl transition-all duration-200 border ${soldOut
+                                ? 'border-transparent bg-neutral-100 opacity-50 cursor-not-allowed'
+                                : selectedVariations[type] === v
+                                  ? 'border-[#3D8593] bg-[#3D8593]/5'
+                                  : 'border-neutral-200 bg-white hover:border-[#3D8593]/50'
+                                }`}
+                            >
+                              <span className={`text-[11px] font-bold leading-none ${soldOut ? 'text-gray-400 line-through' : selectedVariations[type] === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
+                              {/* An accessory's price is worth showing on the chip —
+                                  it's money being added, not the item's own price. */}
+                              {isAccessory(v) && (v.priceKES || 0) > 0 && !soldOut && (
+                                <span className="block text-[9px] font-black text-[#FF9900] mt-0.5 leading-none">
+                                  +KES {v.priceKES.toLocaleString()}
+                                </span>
+                              )}
+                              {/* Sold out has to be visible so nobody orders air.
+                                  The count itself is nobody's business but ours. */}
+                              {tracked && soldOut && (
+                                <span className="block text-[8px] font-black uppercase tracking-widest mt-0.5 text-rose-400">
+                                  Out of stock
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* DESCRIPTION ACCORDION */}
               <div className="mb-8 bg-white border border-gray-100 rounded-[1.75rem] overflow-hidden shadow-sm">
                 <button
@@ -407,61 +481,6 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   </div>
                 </div>
               </div>
-
-              {/* VARIATIONS / CONFIGURATIONS */}
-              {Array.isArray(p.variations) && p.variations.length > 0 && (
-                <div ref={optionsRef} className="mb-8 space-y-7 scroll-mt-24">
-                  {Object.entries(
-                    (p.variations || []).reduce((groups: Record<string, ProductVariation[]>, v: ProductVariation) => {
-                      const type = v.type || 'Other';
-                      if (!groups[type]) groups[type] = [];
-                      groups[type].push(v);
-                      return groups;
-                    }, {} as Record<string, ProductVariation[]>)
-                  ).map(([type, variations]: [string, ProductVariation[]]) => (
-                    <div key={type}>
-                      <p className="eyebrow text-gray-400 mb-4">Select {type}</p>
-                      <div className="flex flex-wrap gap-3">
-                        {variations.map((v: ProductVariation, idx: number) => {
-                          const tracked = typeof v.stockCount === 'number';
-                          const soldOut = tracked && v.stockCount === 0;
-                          return (
-                            <button
-                              key={idx}
-                              disabled={soldOut}
-                              onClick={() => {
-                                const newSelections = { ...selectedVariations };
-                                if (newSelections[type] === v) {
-                                  delete newSelections[type];
-                                } else {
-                                  newSelections[type] = v;
-                                }
-                                setSelectedVariations(newSelections);
-                              }}
-                              aria-pressed={selectedVariations[type] === v}
-                              className={`px-6 py-4 rounded-2xl transition-all duration-300 border-2 ${soldOut
-                                ? 'border-transparent bg-neutral-100 opacity-50 cursor-not-allowed'
-                                : selectedVariations[type] === v
-                                  ? 'border-[#3D8593] bg-[#3D8593]/5'
-                                  : 'border-transparent bg-white shadow-sm hover:shadow-md'
-                                }`}
-                            >
-                              <span className={`text-xs font-bold ${soldOut ? 'text-gray-400 line-through' : selectedVariations[type] === v ? 'text-[#3D8593]' : 'text-gray-900'}`}>{v.name}</span>
-                              {/* Sold out has to be visible so nobody orders air.
-                                  The count itself is nobody's business but ours. */}
-                              {tracked && soldOut && (
-                                <span className="block text-[8px] font-black uppercase tracking-widest mt-1 text-rose-400">
-                                  Out of stock
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
 
               {/* ACTION CENTER */}
               <div className="space-y-5 mb-10">
@@ -803,9 +822,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-300 mb-1.5">{p.category}</p>
                     <h3 className="text-sm md:text-base font-bold text-gray-900 leading-snug mb-3 line-clamp-2">{p.name}</h3>
                     {(() => {
-                      const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0);
-                      const cardBase = p.discountPriceKES || p.priceKES;
-                      const cardPrice = pv.length ? cardBase + Math.min(...pv.map(v => v.priceKES)) : cardBase;
+                      // Accessories are excluded, so a pegboard never advertises
+                      // itself "from" the price of its container.
+                      const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0 && !isAccessory(v));
+                      const cardPrice = fromPriceOf(p);
                       return (
                     <div className="mt-auto flex items-end justify-between gap-2">
                       <div>

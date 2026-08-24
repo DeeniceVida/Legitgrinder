@@ -56,6 +56,11 @@ const AppContent: React.FC = () => {
   const isAdminRoute = location.pathname.startsWith('/admin');
   // /corporate is a standalone B2B page — it brings its own header and footer.
   const isStandalone = location.pathname.startsWith('/corporate');
+  // An open product already has a WhatsApp button in its sticky bar, one that
+  // knows the item and the chosen option. Two green circles on top of each
+  // other is just confusing, so the generic floating one stands down.
+  const isProductPage = location.pathname.startsWith('/shop')
+    && new URLSearchParams(location.search).has('product');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -387,7 +392,7 @@ const AppContent: React.FC = () => {
       </footer>
       )}
       {/* Hidden on the admin dashboard — the Manager lives there instead */}
-      {!isAdminRoute && !isStandalone && <WhatsAppWidget />}
+      {!isAdminRoute && !isStandalone && !isProductPage && <WhatsAppWidget />}
     </div>
   );
 };
