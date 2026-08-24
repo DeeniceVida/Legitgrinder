@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CaretRight, Minus, Plus, Star, Package, Clock, Truck, WarningCircle,
   MagnifyingGlass, ArrowUpRight, YoutubeLogo, ShareNetwork, Check, X, WhatsappLogo
@@ -7,7 +7,7 @@ import {
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
-import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel } from '../utils/productPricing';
+import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock } from '../utils/productPricing';
 import { logProductEnquiry } from '../services/enquiries';
 import RestockNotify from '../components/RestockNotify';
 import GroupBuyPoster from '../components/GroupBuyPoster';
@@ -40,6 +40,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
+  /** Targets for the sticky bar's buttons. */
+  const optionsRef = useRef<HTMLDivElement>(null);
+  const buyRef = useRef<HTMLDivElement>(null);
 
   // Derived state to replace selectedProduct state
   const productIdParam = searchParams.get('product');
@@ -85,11 +88,14 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   // Force LIVE key for production readiness (overrides .env if needed for immediate go-live)
   const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
-  const handleWhatsAppInquiry = (p: Product) => {
-    const allVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
-    const requiredVariationTypes = allVariationTypes.filter(type => type.toLowerCase() !== 'capacity');
-    const missingVariations = requiredVariationTypes.filter(type => !selectedVariations[type]);
+  /** Option groups the shopper still has to choose from. Capacity is optional. */
+  const missingVariationTypes = (p: Product): string[] =>
+    Array.from(new Set((p.variations || []).map(v => v.type || 'Other')))
+      .filter(type => type.toLowerCase() !== 'capacity')
+      .filter(type => !selectedVariations[type]);
 
+  const handleWhatsAppInquiry = (p: Product) => {
+    const missingVariations = missingVariationTypes(p);
     if (missingVariations.length > 0) {
       alert(`Please select your preferred ${missingVariations.join(' and ')} before continuing.`);
       return;
@@ -190,6 +196,25 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     // Trigger sync in background (Non-blocking for immediate redirect)
     performSync().catch(console.error);
 
+    // Tell the owner server-side. The WhatsApp hand-off below only reaches him
+    // if the customer presses send, so a closed tab used to mean a silent sale.
+    fetch('/api/sale-alert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productName: product.name,
+        variant: varTextStrings.join(', ') || undefined,
+        quantity,
+        totalKES: totalPrice * quantity,
+        currency: 'KES',
+        reference: trackingCode,
+        customerName: user?.user_metadata?.full_name || undefined,
+        customerEmail: user?.email || undefined,
+        trackUrl: `${window.location.origin}/tracking?id=${trackingCode}`,
+        stockLeft: effectiveStock(product) - quantity,
+      }),
+    }).catch(() => {});
+
     // 3. ALWAYS Close the loop with Admin via WhatsApp (Include Tracking Code)
     const trackingLink = `https://legitgrinder.com/tracking?id=${trackingCode}`;
     const whatsappMsg = encodeURIComponent(
@@ -253,7 +278,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const displayImage = variationWithImage ? variationWithImage.imageUrl : p.imageUrls[selectedImageIdx];
 
     return (
-      <div className="bg-brand-bg min-h-screen pt-32 pb-28 px-6">
+      // Extra bottom padding on small screens so the sticky summary never
+      // covers the last of the content.
+      <div className="bg-brand-bg min-h-screen pt-32 pb-44 lg:pb-28 px-6">
         {expandedImageUrl && (
           <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm cursor-zoom-out" onClick={() => setExpandedImageUrl(null)}>
             <img src={expandedImageUrl} className="max-w-full max-h-full object-contain animate-in zoom-in duration-300" alt="Expanded view" />
@@ -308,10 +335,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   alt={p.name}
                 />
                 <div className={`absolute top-6 left-6 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-lg backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593]/95 text-white' :
-                  p.stockCount === 0 ? 'bg-red-500/90 text-white' :
+                  effectiveStock(p) === 0 ? 'bg-red-500/90 text-white' :
                     'bg-emerald-500/90 text-white'
                   }`}>
-                  {p.availability === Availability.IMPORT ? 'Import on Order' : publicStockLabel(p.stockCount || 0)}
+                  {p.availability === Availability.IMPORT ? 'Import on Order' : publicStockLabel(effectiveStock(p))}
                 </div>
               </div>
 
@@ -383,7 +410,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
               {/* VARIATIONS / CONFIGURATIONS */}
               {Array.isArray(p.variations) && p.variations.length > 0 && (
-                <div className="mb-8 space-y-7">
+                <div ref={optionsRef} className="mb-8 space-y-7 scroll-mt-24">
                   {Object.entries(
                     (p.variations || []).reduce((groups: Record<string, ProductVariation[]>, v: ProductVariation) => {
                       const type = v.type || 'Other';
@@ -455,8 +482,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   </div>
                 )}
 
-                {(p.stockCount && p.stockCount > 0) || p.availability === Availability.IMPORT ? (
-                  <div className="flex flex-col gap-4">
+                {effectiveStock(p) > 0 || p.availability === Availability.IMPORT ? (
+                  <div ref={buyRef} className="flex flex-col gap-4 scroll-mt-24">
                     <div className="flex items-center gap-4">
                       {/* QUANTITY CONTROL */}
                       <div className="flex items-center bg-white border border-gray-200 rounded-full p-2 h-[60px]">
@@ -471,7 +498,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                         <button
                           onClick={() => {
                             // Cap at available stock: product-level, and tighter if a tracked variant is selected
-                            let maxQty = p.availability === Availability.LOCAL && p.stockCount ? p.stockCount : Infinity;
+                            let maxQty = p.availability === Availability.LOCAL ? (effectiveStock(p) || Infinity) : Infinity;
                             selectedVarsList.forEach((v: ProductVariation) => {
                               if (typeof v.stockCount === 'number') maxQty = Math.min(maxQty, v.stockCount);
                             });
@@ -487,9 +514,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       {!showPaystack ? (
                         <button
                           onClick={() => {
-                            const allVariationTypes = Array.from(new Set((p.variations || []).map(v => v.type || 'Other')));
-                            const requiredVariationTypes = allVariationTypes.filter(type => type.toLowerCase() !== 'capacity');
-                            const missingVariations = requiredVariationTypes.filter(type => !selectedVariations[type]);
+                            const missingVariations = missingVariationTypes(p);
                             if (missingVariations.length > 0) {
                               alert(`Please select your preferred ${missingVariations.join(' and ')} before continuing.`);
                               return;
@@ -576,6 +601,70 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">Arrival</p>
                   <p className="text-sm font-black text-gray-900">{isLocal ? 'Immediate' : '2-3 Weeks (Air)'}</p>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ---------------- STICKY SUMMARY ----------------
+            On a phone the price sits at the top and the options halfway down,
+            so choosing a size meant scrolling up to find out what it cost. The
+            total now follows you, updating as you pick, with the buy actions
+            on the same strip. Desktop shows both at once, so it stays hidden
+            there. */}
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-neutral-200 shadow-[0_-8px_30px_rgba(15,26,28,0.08)]">
+          <div className="max-w-7xl mx-auto px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            {/* What they've chosen so far — or what's still missing */}
+            <p className="text-[10px] font-black uppercase tracking-widest mb-2 truncate">
+              {selectedVarsList.length > 0 ? (
+                <span className="text-[#3D8593]">
+                  {selectedVarsList.map((v: ProductVariation) => v.name).join(' · ')}
+                </span>
+              ) : (
+                <span className="text-gray-400">
+                  {(p.variations || []).length > 0 ? 'No option chosen yet' : p.name}
+                </span>
+              )}
+            </p>
+
+            <div className="flex items-center gap-3">
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-1.5">
+                  {needsVariant && <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">From</span>}
+                  <span className="text-xl font-black text-gray-900 tracking-tight tabular-nums">
+                    KES {((needsVariant ? fromPrice : currentPrice) * quantity).toLocaleString()}
+                  </span>
+                </div>
+                {quantity > 1 && (
+                  <p className="text-[10px] font-bold text-gray-400 tabular-nums">
+                    {quantity} × KES {(needsVariant ? fromPrice : currentPrice).toLocaleString()}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto shrink-0">
+                <button
+                  onClick={() => handleWhatsAppInquiry(p)}
+                  aria-label="Order via WhatsApp"
+                  className="w-12 h-12 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                >
+                  <WhatsappLogo size={20} weight="fill" />
+                </button>
+                <button
+                  onClick={() => {
+                    const missing = missingVariationTypes(p);
+                    // Nothing chosen yet? Take them to the options rather than
+                    // scolding them with an alert.
+                    if (missing.length > 0) {
+                      optionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      return;
+                    }
+                    buyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                  className="h-12 px-6 rounded-full bg-[#0f1a1c] text-white font-black uppercase text-[10px] tracking-[0.2em] active:scale-95 transition-transform"
+                >
+                  {missingVariationTypes(p).length > 0 ? 'Choose option' : 'Buy now'}
+                </button>
               </div>
             </div>
           </div>
@@ -687,10 +776,10 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
                     {/* Availability badge */}
                     <div className={`absolute top-3 left-3 md:top-4 md:left-4 px-3 py-1.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-[0.15em] backdrop-blur-md ${p.availability === Availability.IMPORT ? 'bg-[#3D8593]/95 text-white' :
-                      p.stockCount === 0 ? 'bg-red-500/90 text-white' :
+                      effectiveStock(p) === 0 ? 'bg-red-500/90 text-white' :
                         'bg-white/90 text-gray-900'
                       }`}>
-                      {p.availability === Availability.IMPORT ? 'On Order' : publicStockLabel(p.stockCount || 0)}
+                      {p.availability === Availability.IMPORT ? 'On Order' : publicStockLabel(effectiveStock(p))}
                     </div>
 
                     {/* Sale badge */}

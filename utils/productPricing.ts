@@ -62,3 +62,19 @@ export const needsVariantForPrice = (p: Product, selected: ProductVariation[]): 
  */
 export const publicStockLabel = (quantity: number): string =>
   quantity > 0 ? 'In Stock' : 'Out of Stock';
+
+/**
+ * How many pieces this product can actually sell.
+ *
+ * Where stock is kept per variant, the product-level figure is often left at
+ * zero — the real count lives on the options. Reading only the product field
+ * marked such an item out of stock and hid its buy buttons entirely, with
+ * thirty pieces sitting on the shelf.
+ */
+export const effectiveStock = (p: Product): number => {
+  const tracked = (p.variations || []).filter(v => typeof v.stockCount === 'number');
+  if (tracked.length) {
+    return Math.max(p.stockCount || 0, tracked.reduce((sum, v) => sum + (v.stockCount || 0), 0));
+  }
+  return p.stockCount || 0;
+};
