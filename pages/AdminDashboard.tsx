@@ -37,6 +37,7 @@ import ReportsTab from '../components/ReportsTab';
 import MonitorsTab from '../components/MonitorsTab';
 import ChairsTab from '../components/ChairsTab';
 import EnquiriesPanel from '../components/EnquiriesPanel';
+import AudiencePanel from '../components/AudiencePanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import { effectiveStock } from '../utils/productPricing';
 import SupervisorPanel from '../components/SupervisorPanel';
@@ -1688,6 +1689,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* CLIENTS CRM TAB */}
         {activeTab === 'clients' && (
           <div className="space-y-10 animate-in fade-in duration-700">
+            {/* Every address the business holds, in one place — the table below
+                is only the registered clients, which is a fraction of them. */}
+            <AudiencePanel clients={clients} invoices={invoices} consultations={consultations} />
+
             <div className="relative group max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
               <input

@@ -969,6 +969,24 @@ export const fetchWaitlistCounts = async (): Promise<Record<string, number>> => 
     }
 };
 
+// Everyone who ever asked to be told about a restock, notified or not — these
+// are addresses that put their hand up for a product, so they belong in the
+// audience list even after the alert went out.
+export const fetchWaitlistEmails = async (): Promise<{ email: string; createdAt: string }[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('stock_notifications')
+            .select('email, created_at')
+            .order('created_at', { ascending: false });
+        if (error || !data) return [];
+        return data
+            .filter((r: any) => r.email)
+            .map((r: any) => ({ email: r.email, createdAt: r.created_at }));
+    } catch {
+        return [];
+    }
+};
+
 // When a product is restocked, email everyone waiting on it, then mark them done
 // so they're never emailed twice. Admin-only (relies on admin RLS to read the list).
 export const notifyBackInStock = async (product: Product): Promise<{ notified: number }> => {
