@@ -6,8 +6,8 @@ import {
 } from '@phosphor-icons/react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
-import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
-import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock, isAccessory } from '../utils/productPricing';
+import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock, fetchLiveStock } from '../services/supabaseData';
+import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock, isAccessory, variantInStock, isPurchasable, sellableQuantity, soldOutOptionGroups } from '../utils/productPricing';
 import { logProductEnquiry } from '../services/enquiries';
 import { logSentEmail } from '../services/sentEmails';
 import RestockNotify from '../components/RestockNotify';
@@ -41,6 +41,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedImageUrl, setExpandedImageUrl] = useState<string | null>(null);
+  /** Set when the live stock check finds the shelf emptier than the page thought. */
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
+  const [checkingStock, setCheckingStock] = useState(false);
   /** Targets for the sticky bar's buttons. */
   const optionsRef = useRef<HTMLDivElement>(null);
   const buyRef = useRef<HTMLDivElement>(null);
@@ -56,8 +59,20 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     setSelectedVariations({});
     setActiveAccordion('description');
     setExpandedImageUrl(null);
+    setStockWarning(null);
     if (productIdParam) window.scrollTo(0, 0);
   }, [productIdParam]);
+
+  /**
+   * Choosing a thinner option has to pull the quantity down with it. You could
+   * otherwise set 5 while nothing was selected, then pick the size with one
+   * piece left and still check out with 5 of it.
+   */
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const max = sellableQuantity(selectedProduct, Object.values(selectedVariations) as ProductVariation[]);
+    if (Number.isFinite(max) && quantity > max) setQuantity(Math.max(1, max));
+  }, [selectedVariations, selectedProduct, quantity]);
 
   // Restock emails link straight to a size, e.g. /shop?product=<id>&variant=<name>.
   // Pre-select that option so the shopper lands ready to buy (Amazon-style).
@@ -425,7 +440,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       <div className="flex flex-wrap gap-2">
                         {variations.map((v: ProductVariation, idx: number) => {
                           const tracked = typeof v.stockCount === 'number';
-                          const soldOut = tracked && v.stockCount === 0;
+                          const soldOut = !variantInStock(v);
                           return (
                             <button
                               key={idx}
@@ -520,8 +535,15 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   </div>
                 )}
 
-                {effectiveStock(p) > 0 || p.availability === Availability.IMPORT ? (
+                {isPurchasable(p) ? (
                   <div ref={buyRef} className="flex flex-col gap-4 scroll-mt-24">
+                    {stockWarning && (
+                      <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-4" role="alert">
+                        <WarningCircle size={20} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
+                        <p className="text-xs font-medium text-rose-900/80 leading-relaxed">{stockWarning}</p>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-4">
                       {/* QUANTITY CONTROL */}
                       <div className="flex items-center bg-white border border-gray-200 rounded-full p-2 h-[60px]">
@@ -551,7 +573,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
                       {!showPaystack ? (
                         <button
-                          onClick={() => {
+                          disabled={checkingStock}
+                          onClick={async () => {
                             const missingVariations = missingVariationTypes(p);
                             if (missingVariations.length > 0) {
                               alert(`Please select your preferred ${missingVariations.join(' and ')} before continuing.`);
@@ -561,11 +584,50 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                               alert("Payment system configuration missing. Please ensure VITE_PAYSTACK_PUBLIC_KEY is set in your environment.");
                               return;
                             }
+
+                            // The catalogue was loaded when the page opened. On a
+                            // tab left sitting all afternoon — or two people on
+                            // the last piece at once — that number is a guess.
+                            // Ask the database before taking any money.
+                            setStockWarning(null);
+                            setCheckingStock(true);
+                            const live = await fetchLiveStock(p.id);
+                            setCheckingStock(false);
+
+                            if (live) {
+                              const fresh: Product = { ...p, stockCount: live.stockCount, variations: live.variations };
+                              const chosen = (Object.values(selectedVariations) as ProductVariation[])
+                                .map(v => live.variations.find((lv: any) => lv.name === v.name && (lv.type || 'Other') === (v.type || 'Other')) || v);
+
+                              const goneEntirely = chosen.find(v => !variantInStock(v));
+                              if (goneEntirely) {
+                                setStockWarning(`${goneEntirely.name} has just sold out. Please choose another option.`);
+                                if (onUpdateProducts) onUpdateProducts(products.map(x => x.id === p.id ? fresh : x));
+                                return;
+                              }
+
+                              const available = sellableQuantity(fresh, chosen);
+                              if (available <= 0) {
+                                setStockWarning('This has just sold out. Leave your email below and we\'ll tell you the moment it\'s back.');
+                                if (onUpdateProducts) onUpdateProducts(products.map(x => x.id === p.id ? fresh : x));
+                                return;
+                              }
+                              if (Number.isFinite(available) && quantity > available) {
+                                setQuantity(available);
+                                setStockWarning(`Only ${available} left — your order has been adjusted. Press Buy Now again to continue.`);
+                                if (onUpdateProducts) onUpdateProducts(products.map(x => x.id === p.id ? fresh : x));
+                                return;
+                              }
+                            }
+                            // live === null means the check itself failed. Let the
+                            // sale through rather than block a real customer over
+                            // a network blip — the deduction still floors at 0.
+
                             setShowPaystack(true);
                           }}
-                          className="shine flex-1 h-[60px] bg-[#0f1a1c] text-white rounded-full font-black uppercase text-[11px] tracking-[0.25em] hover:bg-[#3D8593] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3"
+                          className="shine flex-1 h-[60px] bg-[#0f1a1c] text-white rounded-full font-black uppercase text-[11px] tracking-[0.25em] hover:bg-[#3D8593] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 disabled:opacity-60"
                         >
-                          Buy Now
+                          {checkingStock ? 'Checking stock…' : 'Buy Now'}
                         </button>
                       ) : (
                         <div className="flex-1 flex flex-col gap-3">
@@ -623,7 +685,21 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     </div>
                   </div>
                 ) : (
-                  <RestockNotify productId={p.id} productName={p.name} />
+                  <>
+                    {/* Say WHICH thing ran out. "Out of stock" on a product whose
+                        photo is right there reads as a mistake unless you name
+                        the size that went. */}
+                    {soldOutOptionGroups(p).length > 0 && (
+                      <div className="mb-4 flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-2xl p-5">
+                        <WarningCircle size={20} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
+                        <p className="text-xs font-medium text-rose-900/80 leading-relaxed">
+                          Every {soldOutOptionGroups(p).map(t => t.toLowerCase()).join(' and ')} is sold out
+                          right now. Leave your email below and you'll be the first to know when it's back.
+                        </p>
+                      </div>
+                    )}
+                    <RestockNotify productId={p.id} productName={p.name} />
+                  </>
                 )}
               </div>
 
@@ -689,6 +765,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   <WhatsappLogo size={20} weight="fill" />
                 </button>
                 <button
+                  disabled={!isPurchasable(p)}
                   onClick={() => {
                     const missing = missingVariationTypes(p);
                     // Nothing chosen yet? Take them to the options rather than
@@ -699,9 +776,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                     }
                     buyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }}
-                  className="h-12 px-6 rounded-full bg-[#0f1a1c] text-white font-black uppercase text-[10px] tracking-[0.2em] active:scale-95 transition-transform"
+                  className="h-12 px-6 rounded-full bg-[#0f1a1c] text-white font-black uppercase text-[10px] tracking-[0.2em] active:scale-95 transition-transform disabled:bg-neutral-200 disabled:text-gray-400 disabled:active:scale-100"
                 >
-                  {missingVariationTypes(p).length > 0 ? 'Choose option' : 'Buy now'}
+                  {!isPurchasable(p)
+                    ? 'Out of stock'
+                    : missingVariationTypes(p).length > 0 ? 'Choose option' : 'Buy now'}
                 </button>
               </div>
             </div>

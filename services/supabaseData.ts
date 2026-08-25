@@ -969,6 +969,35 @@ export const fetchWaitlistCounts = async (): Promise<Record<string, number>> => 
     }
 };
 
+/**
+ * What this product's stock says RIGHT NOW.
+ *
+ * The shop loads its catalogue once. A tab left open all afternoon, or two
+ * people on the last piece at the same time, will happily sell stock that has
+ * already gone. Re-read the row before taking payment.
+ *
+ * Returns null if it can't be checked — the caller lets the sale through
+ * rather than blocking a real customer over a network blip.
+ */
+export const fetchLiveStock = async (
+    productId: string
+): Promise<{ stockCount: number; variations: any[] } | null> => {
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .select('inventory_quantity, shop_variants')
+            .eq('id', productId)
+            .single();
+        if (error || !data) return null;
+        return {
+            stockCount: data.inventory_quantity || 0,
+            variations: Array.isArray(data.shop_variants) ? data.shop_variants : [],
+        };
+    } catch {
+        return null;
+    }
+};
+
 // Everyone who ever asked to be told about a restock, notified or not — these
 // are addresses that put their hand up for a product, so they belong in the
 // audience list even after the alert went out.

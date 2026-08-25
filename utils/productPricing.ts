@@ -1,4 +1,4 @@
-import { Product, ProductVariation } from '../types';
+import { Product, ProductVariation, Availability } from '../types';
 
 /**
  * What a shop product costs.
@@ -92,4 +92,57 @@ export const effectiveStock = (p: Product): number => {
     return Math.max(p.stockCount || 0, tracked.reduce((sum, v) => sum + (v.stockCount || 0), 0));
   }
   return p.stockCount || 0;
+};
+
+/**
+ * Can this one option still be sold?
+ *
+ * An option with no count of its own is NOT assumed sold out — most products
+ * don't track stock per colour, and treating "no number" as zero would empty
+ * the shop. It rides on the product's overall stock instead.
+ */
+export const variantInStock = (v: ProductVariation): boolean =>
+  typeof v.stockCount === 'number' ? v.stockCount > 0 : true;
+
+/**
+ * The option groups a customer MUST choose from to buy. Accessories are
+ * optional extras, and capacity is handled elsewhere.
+ */
+export const requiredOptionTypes = (p: Product): string[] =>
+  Array.from(new Set((p.variations || []).map(v => v.type || 'Other')))
+    .filter(type => type.toLowerCase() !== 'capacity')
+    .filter(type => !isAccessory({ type } as ProductVariation));
+
+/**
+ * Required groups where every single option has sold out.
+ *
+ * This is the case that used to strand people: the product-level count was
+ * still positive, so the buy button appeared, but every size was disabled —
+ * pressing Buy Now asked them to "select a size" they could not select.
+ */
+export const soldOutOptionGroups = (p: Product): string[] =>
+  requiredOptionTypes(p).filter(type => {
+    const group = (p.variations || []).filter(v => (v.type || 'Other') === type);
+    return group.length > 0 && group.every(v => !variantInStock(v));
+  });
+
+/** Can this product be bought at all right now? */
+export const isPurchasable = (p: Product): boolean => {
+  // Import-on-order items are sourced per order, so they hold no stock.
+  if (p.availability !== Availability.LOCAL) return true;
+  return effectiveStock(p) > 0 && soldOutOptionGroups(p).length === 0;
+};
+
+/**
+ * How many pieces of one exact selection can be sold — the product's stock,
+ * tightened by whichever chosen option has the fewest left. Infinity for
+ * import items, which are ordered in rather than taken off a shelf.
+ */
+export const sellableQuantity = (p: Product, selected: ProductVariation[]): number => {
+  if (p.availability !== Availability.LOCAL) return Infinity;
+  let max = effectiveStock(p);
+  selected.forEach(v => {
+    if (typeof v.stockCount === 'number') max = Math.min(max, v.stockCount);
+  });
+  return Math.max(0, max);
 };
