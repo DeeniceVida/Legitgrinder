@@ -7,7 +7,7 @@ import {
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock, fetchLiveStock } from '../services/supabaseData';
-import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock, isAccessory, variantInStock, isPurchasable, sellableQuantity, soldOutOptionGroups } from '../utils/productPricing';
+import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock, isAccessory, variantInStock, isPurchasable, sellableQuantity, soldOutOptionGroups, shelveProducts } from '../utils/productPricing';
 import { logProductEnquiry } from '../services/enquiries';
 import { logSentEmail } from '../services/sentEmails';
 import RestockNotify from '../components/RestockNotify';
@@ -37,6 +37,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  /** Which shelf the grid is showing: everything, in Nairobi now, or on order. */
+  const [stockFilter, setStockFilter] = useState<'all' | 'ready' | 'import'>('all');
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -288,6 +290,16 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  /**
+   * The shop in the order a buyer cares about.
+   *
+   * Everything used to sit in one undifferentiated list, so stock sitting in
+   * Nairobi — the things that can be paid for and collected today — was buried
+   * among items that take three weeks to arrive. Nothing was wrong with those
+   * products; you just had to scroll to find them.
+   */
+  const shelves = shelveProducts(filteredProducts);
 
   const openProduct = (id: string) => {
     const params = new URLSearchParams(searchParams);
@@ -859,15 +871,42 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           </div>
         </div>
 
+        {/* WHAT'S ON THE SHELF — the split that matters most to a buyer, so it
+            gets its own row rather than hiding among the category chips. */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 mb-4" role="tablist" aria-label="Availability">
+          {([
+            { id: 'all' as const, label: 'Everything', count: filteredProducts.length },
+            { id: 'ready' as const, label: 'Available now', count: shelves.ready.length },
+            { id: 'import' as const, label: 'Import on order', count: shelves.toOrder.length },
+          ]).map(t => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={stockFilter === t.id}
+              onClick={() => setStockFilter(t.id)}
+              className={`shrink-0 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${stockFilter === t.id
+                ? 'bg-[#3D8593] text-white shadow-lg'
+                : 'bg-white text-gray-500 border border-gray-200 hover:border-[#3D8593] hover:text-[#3D8593]'
+                }`}
+            >
+              {t.id === 'ready' && (
+                <span className={`w-1.5 h-1.5 rounded-full ${stockFilter === t.id ? 'bg-white' : 'bg-emerald-500'}`} aria-hidden="true" />
+              )}
+              {t.label}
+              <span className={stockFilter === t.id ? 'text-white/70' : 'text-gray-300'}>{t.count}</span>
+            </button>
+          ))}
+        </div>
+
         {/* RESULT COUNT */}
         <div className="flex justify-between items-center mb-8">
           <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
             {filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'items'}
             {searchQuery && <> for “{searchQuery}”</>}
           </p>
-          {(searchQuery || selectedCategory !== 'All') && (
+          {(searchQuery || selectedCategory !== 'All' || stockFilter !== 'all') && (
             <button
-              onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }}
+              onClick={() => { setSearchQuery(''); setSelectedCategory('All'); setStockFilter('all'); }}
               className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline"
             >
               Clear filters
@@ -877,8 +916,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
         {/* GRID */}
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-            {filteredProducts.map((p, i) => (
+          (() => {
+            const card = (p: Product, i: number) => (
               <Reveal key={p.id} delay={(i % 4) * 90}>
                 <article
                   onClick={() => openProduct(p.id)}
@@ -947,8 +986,72 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                   </div>
                 </article>
               </Reveal>
-            ))}
-          </div>
+            );
+
+            const shelf = (
+              key: string,
+              title: string,
+              blurb: string,
+              list: Product[],
+              tone: string,
+              muted = false,
+            ) => list.length === 0 ? null : (
+              <section key={key} className={muted ? 'opacity-70' : undefined}>
+                {/* Only worth a heading when more than one shelf is on screen —
+                    a single filtered list already says what it is. */}
+                {stockFilter === 'all' && (
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-4">
+                    <h2 className="text-lg md:text-xl font-bold tracking-tight text-gray-900">{title}</h2>
+                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${tone}`}>
+                      {list.length} {list.length === 1 ? 'item' : 'items'}
+                    </span>
+                    <p className="text-xs text-gray-400 font-light w-full md:w-auto">{blurb}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                  {list.map(card)}
+                </div>
+              </section>
+            );
+
+            return (
+              <div className="space-y-12">
+                {(stockFilter === 'all' || stockFilter === 'ready') &&
+                  shelf('ready', 'Available now', 'In Nairobi — pay and collect or have it delivered today.',
+                    shelves.ready, 'bg-emerald-50 text-emerald-600')}
+
+                {(stockFilter === 'all' || stockFilter === 'import') &&
+                  shelf('import', 'We can import this for you', 'Sourced to order — about 2–3 weeks by air.',
+                    shelves.toOrder, 'bg-teal-50 text-[#3D8593]')}
+
+                {/* Sold out goes last on purpose: still findable, so people can
+                    ask to be told when it's back, but never in front of the
+                    things that can actually be bought today. */}
+                {stockFilter === 'all' &&
+                  shelf('gone', 'Sold out for now', 'Ask to be notified and you\'ll hear the moment it lands.',
+                    shelves.gone, 'bg-neutral-100 text-gray-400', true)}
+
+                {/* The filter can empty a shelf the search alone did not. */}
+                {((stockFilter === 'ready' && !shelves.ready.length) ||
+                  (stockFilter === 'import' && !shelves.toOrder.length)) && (
+                  <div className="py-16 text-center">
+                    <Package size={40} weight="duotone" className="text-gray-300 mx-auto mb-5" />
+                    <p className="text-gray-500 font-light mb-6">
+                      {stockFilter === 'ready'
+                        ? 'Nothing here is in Nairobi right now.'
+                        : 'Nothing here is import-only — it\'s all in stock.'}
+                    </p>
+                    <button
+                      onClick={() => setStockFilter('all')}
+                      className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline"
+                    >
+                      Show everything
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()
         ) : (
           <div className="py-24 text-center">
             <Package size={48} weight="duotone" className="text-gray-300 mx-auto mb-6" />

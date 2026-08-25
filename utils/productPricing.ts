@@ -138,6 +138,28 @@ export const isPurchasable = (p: Product): boolean => {
  * tightened by whichever chosen option has the fewest left. Infinity for
  * import items, which are ordered in rather than taken off a shelf.
  */
+/**
+ * Split a product list into the three shelves the shop shows, in the order a
+ * buyer cares about: what is in Nairobi now, what can be imported, and what
+ * has sold out.
+ *
+ * Kept here beside the other stock rules so the grid, the tab counts and the
+ * product page can never disagree about which shelf something is on.
+ */
+export const shelveProducts = (list: Product[]): {
+  ready: Product[]; toOrder: Product[]; gone: Product[];
+} => {
+  const ready: Product[] = [];
+  const toOrder: Product[] = [];
+  const gone: Product[] = [];
+  list.forEach(p => {
+    if (p.availability !== Availability.LOCAL) toOrder.push(p);
+    else if (isPurchasable(p)) ready.push(p);
+    else gone.push(p);
+  });
+  return { ready, toOrder, gone };
+};
+
 export const sellableQuantity = (p: Product, selected: ProductVariation[]): number => {
   if (p.availability !== Availability.LOCAL) return Infinity;
   let max = effectiveStock(p);
