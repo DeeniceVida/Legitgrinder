@@ -22,9 +22,11 @@ import {
 interface Props {
   products: Product[];
   onProductsChanged: () => void;
+  /** Answering one changes the dashboard's own counts and best-seller table. */
+  onChanged?: () => void;
 }
 
-const EnquiriesPanel: React.FC<Props> = ({ products, onProductsChanged }) => {
+const EnquiriesPanel: React.FC<Props> = ({ products, onProductsChanged, onChanged }) => {
   const [enquiries, setEnquiries] = useState<ProductEnquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -84,6 +86,7 @@ const EnquiriesPanel: React.FC<Props> = ({ products, onProductsChanged }) => {
     setEnquiries(prev => prev.map(x => x.id === e.id
       ? { ...x, status: bought ? 'bought' : 'lost', stockAdjusted: adjusted || x.stockAdjusted }
       : x));
+    onChanged?.();
   };
 
   const reopen = async (e: ProductEnquiry) => {
@@ -91,6 +94,7 @@ const EnquiriesPanel: React.FC<Props> = ({ products, onProductsChanged }) => {
     await setEnquiryOutcome(e.id, 'open');
     setBusy(null);
     setEnquiries(prev => prev.map(x => (x.id === e.id ? { ...x, status: 'open' } : x)));
+    onChanged?.();
   };
 
   const remove = async (e: ProductEnquiry) => {
@@ -98,6 +102,7 @@ const EnquiriesPanel: React.FC<Props> = ({ products, onProductsChanged }) => {
     await deleteEnquiry(e.id);
     setBusy(null);
     setEnquiries(prev => prev.filter(x => x.id !== e.id));
+    onChanged?.();
   };
 
   const age = (e: ProductEnquiry) => {

@@ -50,6 +50,7 @@ import {
   upsertCorporateCategory, setCorporateQuoteStatus
 } from '../services/corporate';
 import { computeAttention } from '../utils/logistics';
+import { ProductEnquiry, fetchProductEnquiries, needsFollowUp } from '../services/enquiries';
 import type { MessageIntent } from '../services/messageAgent';
 
 
@@ -301,13 +302,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Time-sensitive items (grace elapsed / ready with balance) — badges the Orders tab + Manager button
   const attentionCount = computeAttention(invoices).length;
 
+  // WhatsApp enquiries. Loaded here rather than only inside the Stock tab,
+  // because an enquiry you never see is an enquiry you never answer — and an
+  // unanswered one means stock is wrong and the sale is missing from the stats.
+  const [enquiries, setEnquiries] = useState<ProductEnquiry[]>([]);
+  const loadEnquiries = () => { fetchProductEnquiries().then(setEnquiries).catch(() => {}); };
+  useEffect(loadEnquiries, []);
+  const openEnquiries = enquiries.filter(e => e.status === 'open');
+  const chaseEnquiries = openEnquiries.filter(needsFollowUp);
+  const freshEnquiries = openEnquiries.length - chaseEnquiries.length;
+
   // Leads and Ad Banners tabs removed 2026-07 (unused per owner)
   const tabs = [
     { id: 'overview', name: 'Dashboard', group: 'Main', icon: <BarChart3 className="w-4 h-4" /> },
     { id: 'reports', name: 'Reports', group: 'Main', icon: <Calendar className="w-4 h-4" /> },
     { id: 'clients', name: 'Clients', group: 'Main', icon: <Users className="w-4 h-4" /> },
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
-    { id: 'products', name: 'Stock', group: 'Main', icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'products', name: 'Stock', group: 'Main', badge: openEnquiries.length || undefined, icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
     // The corporate lines live behind one collapsible entry — they're catalogue
     // maintenance, not somewhere he needs to be every day.
@@ -1364,6 +1375,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const outOfStock = products.filter(p => p.availability === Availability.LOCAL && (p.stockCount || 0) === 0).length;
               const actions = [
                 { count: newPaidOrders, label: 'New paid orders to process', tab: 'invoices' as const, color: 'text-emerald-600 bg-emerald-50' },
+                // The WhatsApp side of the shop. Nobody tells you how these ended,
+                // so the dashboard has to ask — the day-old ones first.
+                { count: chaseEnquiries.length, label: 'WhatsApp enquiries waiting over a day — did they buy?', tab: 'products' as const, color: 'text-[#FF9900] bg-[#FF9900]/10' },
+                { count: freshEnquiries, label: 'New WhatsApp enquiries — confirm the sale to take stock off', tab: 'products' as const, color: 'text-[#1eb955] bg-[#25D366]/10' },
                 { count: unpaidInvoices, label: 'Unpaid invoices to follow up', tab: 'invoices' as const, color: 'text-rose-600 bg-rose-50' },
                 { count: pendingConsults, label: 'Consultation requests awaiting review', tab: 'consultations' as const, color: 'text-indigo-600 bg-indigo-50' },
                 { count: lowStock, label: 'Products running low (≤2 pieces)', tab: 'products' as const, color: 'text-amber-600 bg-amber-50' },
@@ -1589,26 +1604,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               );
             })()}
 
-            {/* BEST SELLING PRODUCTS — what's moving fast (from real paid orders) */}
+            {/* BEST SELLING PRODUCTS — what's actually moving, both counters:
+                paid website orders AND the WhatsApp enquiries you confirmed as
+                bought. Counting only the website made off-site sales look like
+                nothing had moved, which is the opposite of the truth. */}
             {(() => {
-              const sales: Record<string, { sold: number; revenue: number; lastSold: number }> = {};
+              const sales: Record<string, { sold: number; revenue: number; lastSold: number; wa: number }> = {};
+              const bucket = (name: string) => {
+                const key = name.replace(/\s*\(.*\)$/, '').trim();
+                if (!sales[key]) sales[key] = { sold: 0, revenue: 0, lastSold: 0, wa: 0 };
+                return sales[key];
+              };
               invoices.forEach(inv => {
                 if (!inv.isPaid || !inv.productName) return;
-                const key = inv.productName.replace(/\s*\(.*\)$/, '').trim();
-                if (!sales[key]) sales[key] = { sold: 0, revenue: 0, lastSold: 0 };
-                sales[key].sold += inv.quantity || 1;
-                sales[key].revenue += inv.totalKES || 0;
+                const s = bucket(inv.productName);
+                s.sold += inv.quantity || 1;
+                s.revenue += inv.totalKES || 0;
                 const t = new Date(inv.createdAt || inv.date || 0).getTime();
-                if (t > sales[key].lastSold) sales[key].lastSold = t;
+                if (t > s.lastSold) s.lastSold = t;
+              });
+              enquiries.forEach(e => {
+                if (e.status !== 'bought' || !e.productName) return;
+                const s = bucket(e.productName);
+                const qty = e.quantity || 1;
+                s.sold += qty;
+                s.wa += qty;
+                s.revenue += (e.unitPriceKES || 0) * qty;
+                const t = new Date(e.createdAt || 0).getTime();
+                if (t > s.lastSold) s.lastSold = t;
               });
               const top = Object.entries(sales).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 6);
               if (top.length === 0) return null;
+              const waTotal = Object.values(sales).reduce((n, s) => n + s.wa, 0);
               return (
                 <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
                   <div className="px-6 py-4 border-b border-neutral-50 flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-black text-gray-900 tracking-tight">Best Selling Products</h3>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Ranked by paid revenue — restocking &amp; marketing focus</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+                        Ranked by revenue — website orders {waTotal > 0 ? '+ confirmed WhatsApp sales' : 'and confirmed WhatsApp sales'}
+                      </p>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
@@ -1629,7 +1664,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black ${i === 0 ? 'bg-[#FF9900]/10 text-[#FF9900]' : 'bg-neutral-100 text-gray-500'}`}>{i + 1}</span>
                             </td>
                             <td className="px-4 py-4 font-bold text-sm text-gray-900 max-w-[280px] truncate">{name}</td>
-                            <td className="px-4 py-4"><span className="px-2.5 py-1 bg-teal-50 text-[#3D8593] rounded-lg text-xs font-black">{s.sold} sold</span></td>
+                            <td className="px-4 py-4">
+                              <span className="px-2.5 py-1 bg-teal-50 text-[#3D8593] rounded-lg text-xs font-black">{s.sold} sold</span>
+                              {s.wa > 0 && (
+                                <span className="ml-1.5 px-2 py-1 bg-[#25D366]/10 text-[#1eb955] rounded-lg text-[10px] font-black" title="Confirmed on WhatsApp, not bought through the site">
+                                  {s.wa} via WhatsApp
+                                </span>
+                              )}
+                            </td>
                             <td className="px-4 py-4 font-black text-sm text-gray-900">KES {s.revenue.toLocaleString()}</td>
                             <td className="px-8 py-4 text-xs text-gray-400 font-medium">{s.lastSold ? new Date(s.lastSold).toLocaleDateString('en-GB') : '—'}</td>
                           </tr>
@@ -2461,6 +2503,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <EnquiriesPanel
                 products={products}
                 onProductsChanged={() => fetchInventoryProducts().then(onUpdateProducts).catch(() => {})}
+                onChanged={loadEnquiries}
               />
 
               {/* Search + quick stats */}
