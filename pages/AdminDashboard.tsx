@@ -37,6 +37,7 @@ import ReportsTab from '../components/ReportsTab';
 import MonitorsTab from '../components/MonitorsTab';
 import ChairsTab from '../components/ChairsTab';
 import EnquiriesPanel from '../components/EnquiriesPanel';
+import { effectiveStock } from '../utils/productPricing';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
@@ -1114,8 +1115,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // back-in-stock waitlist. Fire-and-forget; reports how many were notified.
   const maybeNotifyRestock = (prev: Product | undefined, merged: Product) => {
     if (!prev) return;
-    const wasOut = prev.availability === Availability.LOCAL && (prev.stockCount || 0) === 0;
-    const nowAvailable = merged.availability === Availability.IMPORT || (merged.stockCount || 0) > 0;
+    // effectiveStock, not the product-level field: stock is often kept per
+    // option, and refilling the sizes left that field at 0 — so a genuine
+    // restock looked like no change at all and nobody was emailed.
+    const wasOut = prev.availability === Availability.LOCAL && effectiveStock(prev) === 0;
+    const nowAvailable = merged.availability === Availability.IMPORT || effectiveStock(merged) > 0;
     if (!wasOut || !nowAvailable) return;
     notifyBackInStock(merged).then(r => {
       if (r.notified > 0) {
@@ -2506,12 +2510,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <div className="flex items-center gap-2">
                                     <p className="text-[9px] font-black uppercase tracking-widest text-gray-300">{p.category}</p>
                                     {waitlistCounts[p.id] > 0 && (
-                                      <span
-                                        title={`${waitlistCounts[p.id]} shopper${waitlistCounts[p.id] > 1 ? 's are' : ' is'} waiting for this to come back in stock — they'll be emailed automatically when you restock it.`}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FF9900]/10 text-[#FF9900] text-[9px] font-black uppercase tracking-widest"
+                                      // Clickable on purpose. Automatic sending
+                                      // depends on catching an exact 0-to-stocked
+                                      // moment, which a SQL fix or a per-option
+                                      // restock walks straight past — so there has
+                                      // to be a way to just send it.
+                                      <button
+                                        onClick={async () => {
+                                          const n = waitlistCounts[p.id];
+                                          if (!confirm(`Email ${n} shopper${n > 1 ? 's' : ''} that "${p.name}" is back in stock?\n\nThey are emailed once and drop off the list.`)) return;
+                                          const res = await notifyBackInStock(p);
+                                          if (res.notified > 0) {
+                                            setWaitlistCounts(prev => { const next = { ...prev }; delete next[p.id]; return next; });
+                                            alert(`📣 Emailed ${res.notified} shopper${res.notified > 1 ? 's' : ''}.`);
+                                          } else {
+                                            alert('Nothing was sent — nobody is still waiting on this, or the mailer failed.');
+                                          }
+                                        }}
+                                        title={`${waitlistCounts[p.id]} shopper${waitlistCounts[p.id] > 1 ? 's are' : ' is'} waiting for this. Click to email them now that it's back.`}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FF9900]/10 text-[#FF9900] text-[9px] font-black uppercase tracking-widest hover:bg-[#FF9900] hover:text-white transition-colors"
                                       >
-                                        🔔 {waitlistCounts[p.id]} waiting
-                                      </span>
+                                        🔔 {waitlistCounts[p.id]} waiting — email them
+                                      </button>
                                     )}
                                   </div>
                                 </div>
