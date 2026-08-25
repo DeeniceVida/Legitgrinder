@@ -1,4 +1,5 @@
 // Client helper for the WhatsApp message agent. Talks to /api/message-agent.
+import { logSentEmail } from './sentEmails';
 
 export type MessageIntent = 'reminder' | 'ready' | 'shipped' | 'thanks' | 'review' | 'custom';
 
@@ -48,11 +49,22 @@ export async function sendStatusEmail(
       body: JSON.stringify(input)
     });
     const data = await res.json();
+    const to = (input as any).to || (input as any).email || 'client';
+    const ref = (input as any).invoiceNumber;
     if (!res.ok || !data.success) {
+      logSentEmail({ kind: 'order-status', recipient: to, status: 'failed', error: data.error, reference: ref });
       return { success: false, error: data.error || 'The email could not be sent.' };
     }
+    logSentEmail({
+      kind: 'order-status', recipient: to,
+      subject: `Order update · ${ref || ''}`.trim(), status: 'sent', reference: ref,
+    });
     return { success: true };
   } catch (err: any) {
+    logSentEmail({
+      kind: 'order-status', recipient: (input as any).to || 'client',
+      status: 'failed', error: err.message, reference: (input as any).invoiceNumber,
+    });
     return {
       success: false,
       error: err.message || 'Could not reach the email service. Note: it only works on the live site, not local preview.'

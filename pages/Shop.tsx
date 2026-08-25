@@ -9,6 +9,7 @@ import { WHATSAPP_NUMBER } from '../constants';
 import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock } from '../services/supabaseData';
 import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock, isAccessory } from '../utils/productPricing';
 import { logProductEnquiry } from '../services/enquiries';
+import { logSentEmail } from '../services/sentEmails';
 import RestockNotify from '../components/RestockNotify';
 import GroupBuyPoster from '../components/GroupBuyPoster';
 import { GroupCampaign, fetchGroupCampaigns as fetchAllCampaigns } from '../services/groupBuys';
@@ -218,7 +219,21 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         trackUrl: `${window.location.origin}/tracking?id=${trackingCode}`,
         stockLeft: effectiveStock(product) - quantity,
       }),
-    }).catch(() => {});
+    })
+      .then(async r => {
+        const d = await r.json().catch(() => ({} as any));
+        logSentEmail({
+          kind: 'sale-alert', recipient: 'orders@legitgrinder.com',
+          subject: `Paid · ${fullProductName}`,
+          status: r.ok && d.success ? 'sent' : 'failed',
+          error: r.ok && d.success ? undefined : (d.error || `HTTP ${r.status}`),
+          reference: trackingCode,
+        });
+      })
+      .catch(e => logSentEmail({
+        kind: 'sale-alert', recipient: 'orders@legitgrinder.com',
+        status: 'failed', error: e?.message, reference: trackingCode,
+      }));
 
     // 3. ALWAYS Close the loop with Admin via WhatsApp (Include Tracking Code)
     const trackingLink = `https://legitgrinder.com/tracking?id=${trackingCode}`;

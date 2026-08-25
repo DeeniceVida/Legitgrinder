@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { logSentEmail } from './sentEmails';
 
 export interface CorporateCategory {
   id: string;
@@ -203,8 +204,18 @@ export const notifyCorporateQuote = async (payload: any): Promise<{ success: boo
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     });
     const data = await res.json();
-    return res.ok && data.success ? { success: true } : { success: false, error: data.error };
+    const ok = res.ok && data.success;
+    logSentEmail({
+      kind: 'corporate',
+      recipient: payload?.email || 'unknown',
+      subject: `Corporate quote · ${payload?.businessName || 'enquiry'}`,
+      status: ok ? 'sent' : 'failed',
+      error: ok ? undefined : data.error,
+      reference: payload?.businessName,
+    });
+    return ok ? { success: true } : { success: false, error: data.error };
   } catch (e: any) {
+    logSentEmail({ kind: 'corporate', recipient: payload?.email || 'unknown', status: 'failed', error: e.message, reference: payload?.businessName });
     return { success: false, error: e.message };
   }
 };

@@ -1,5 +1,6 @@
 
 import { supabase } from '../lib/supabase';
+import { logSentEmail } from './sentEmails';
 import { PricelistItem, Product, Availability, Client, Consultation, ConsultationStatus, BlogPost, FAQItem, Invoice, OrderStatus, SourcingRequest, EBook, PaymentStatus } from '../types';
 
 /**
@@ -60,6 +61,12 @@ export interface InvoiceEmailPayload {
 }
 
 export const sendInvoiceEmail = async (payload: InvoiceEmailPayload): Promise<{ success: boolean; error?: string }> => {
+    const log = (status: 'sent' | 'failed', error?: string) => logSentEmail({
+        kind: payload.kind === 'receipt' ? 'receipt' : 'invoice',
+        recipient: payload.to,
+        subject: `${payload.kind === 'receipt' ? 'Payment Receipt' : 'Your Invoice'} · ${payload.invoiceNumber}`,
+        status, error, reference: payload.invoiceNumber,
+    });
     try {
         const res = await fetch('/api/send-email', {
             method: 'POST',
@@ -69,11 +76,14 @@ export const sendInvoiceEmail = async (payload: InvoiceEmailPayload): Promise<{ 
         const data = await res.json();
         if (!res.ok || !data.success) {
             console.error('sendInvoiceEmail failed:', data?.error);
+            log('failed', data?.error);
             return { success: false, error: data?.error };
         }
+        log('sent');
         return { success: true };
     } catch (e: any) {
         console.error('sendInvoiceEmail error:', e);
+        log('failed', e.message);
         return { success: false, error: e.message };
     }
 };
@@ -990,8 +1000,18 @@ export const notifyBackInStock = async (product: Product): Promise<{ notified: n
             }),
         });
         const data = await res.json().catch(() => ({} as any));
-        if (!res.ok || !data.success) return { notified: 0 };
+        if (!res.ok || !data.success) {
+            logSentEmail({
+                kind: 'restock', recipient: recipients, subject: `${product.name} is back in stock`,
+                status: 'failed', error: data?.error || `HTTP ${res.status}`, reference: product.name,
+            });
+            return { notified: 0 };
+        }
 
+        logSentEmail({
+            kind: 'restock', recipient: recipients, subject: `${product.name} is back in stock`,
+            status: 'sent', reference: product.name,
+        });
         await supabase.from('stock_notifications')
             .update({ notified_at: new Date().toISOString() })
             .in('id', rows.map(r => r.id));

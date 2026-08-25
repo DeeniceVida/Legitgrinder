@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { logSentEmail } from './sentEmails';
 
 /** A colour a buyer can pick. Purely a choice — it never changes the price. */
 export interface GroupColor {
@@ -187,7 +188,12 @@ export const sendGroupBalanceEmails = async (args: {
       body: JSON.stringify(args)
     });
     const data = await res.json();
-    if (!res.ok || !data.success) return { success: false, error: data.error || 'The emails could not be sent.' };
+    const emails = (args.recipients || []).map(r => r.email).filter(Boolean);
+    if (!res.ok || !data.success) {
+      logSentEmail({ kind: 'group-balance', recipient: emails, status: 'failed', error: data.error, reference: args.campaignTitle });
+      return { success: false, error: data.error || 'The emails could not be sent.' };
+    }
+    logSentEmail({ kind: 'group-balance', recipient: emails, subject: `Balance due · ${args.campaignTitle || 'group buy'}`, status: 'sent', reference: args.campaignTitle });
     return { success: true, sent: data.sent, skipped: data.skipped };
   } catch (e: any) {
     return { success: false, error: e.message || 'Could not reach the email service (live site only).' };

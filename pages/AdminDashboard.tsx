@@ -37,6 +37,7 @@ import ReportsTab from '../components/ReportsTab';
 import MonitorsTab from '../components/MonitorsTab';
 import ChairsTab from '../components/ChairsTab';
 import EnquiriesPanel from '../components/EnquiriesPanel';
+import SentEmailsTab from '../components/SentEmailsTab';
 import { effectiveStock } from '../utils/productPricing';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
@@ -317,6 +318,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Phone Price Sync', group: 'Operations', icon: <RefreshCcw className="w-4 h-4" /> },
     { id: 'books', name: 'eBooks', group: 'Operations', icon: <Book className="w-4 h-4" /> },
+    { id: 'emails', name: 'Sent Emails', group: 'Operations', icon: <Mail className="w-4 h-4" /> },
     { id: 'security', name: 'Security', group: 'System', icon: <Lock className="w-4 h-4" /> },
     { id: 'card', name: 'Business Card', group: 'System', icon: <CreditCard className="w-4 h-4" /> },
   ] as const;
@@ -3101,6 +3103,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'monitors' && <MonitorsTab />}
 
         {activeTab === 'chairs' && <ChairsTab />}
+
+        {activeTab === 'emails' && <SentEmailsTab />}
 
         {activeTab === 'groupbuys' && <GroupBuysTab />}
 
