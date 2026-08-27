@@ -145,6 +145,8 @@ export interface Invoice {
   mombasaArrivedAt?: string;    // when it arrived at port — drives the grace period
   reviewRequestedAt?: string;   // when the admin sent the review request (delivered orders)
   shippingAgent?: string;       // which shipping agent carried this order
+  /** Free text printed on the invoice/receipt — where it is going, or any condition of the sale. */
+  deliveryNote?: string;
 }
 
 

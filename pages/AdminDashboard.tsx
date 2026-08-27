@@ -641,6 +641,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       clientName: formData.get('clientName') as string,
       clientWhatsapp: formData.get('clientWhatsapp') as string,
       clientEmail: (formData.get('clientEmail') as string) || undefined,
+      deliveryNote: (formData.get('deliveryNote') as string) || undefined,
       productName: customTitle && customTitle.trim() ? customTitle.trim() : fallbackProductName,
       quantity: 1,
       items: manualOrderItems,
@@ -2136,6 +2137,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 amountPaidKES: inv.isPaid ? (inv.totalKES || 0) : (paidSoFar > 0 ? paidSoFar : undefined),
                                 balanceKES: inv.isPaid ? 0 : balance,
                                 reference: inv.paystackReference,
+                                deliveryNote: inv.deliveryNote,
                               };
                               const attachment = await generateDocumentAttachment(docData);
                               const r = await sendInvoiceEmail({
@@ -4094,6 +4096,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="col-span-2">
                   <label className={labelCls}>Invoice Title <span className="text-neutral-300 normal-case font-medium">— optional</span></label>
                   <input name="customTitle" className={inputCls} placeholder="e.g. Amazon Packages (defaults to items)" />
+                </div>
+                {/* A receipt for something being delivered has to say where it
+                    is going. Sold off-platform, this is the only record of it. */}
+                <div className="col-span-2">
+                  <label className={labelCls}>Delivery / Notes <span className="text-neutral-300 normal-case font-medium">— printed on the receipt</span></label>
+                  <textarea
+                    name="deliveryNote"
+                    rows={2}
+                    className={inputCls + ' resize-none'}
+                    placeholder="e.g. Deliver to Westlands, Rhapta Road — rider on 0712 345678"
+                  />
                 </div>
               </div>
 

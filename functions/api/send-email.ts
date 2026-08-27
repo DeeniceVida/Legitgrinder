@@ -24,6 +24,7 @@ interface EmailPayload {
     reference?: string;
     payUrl?: string;                    // for invoices with an outstanding balance
     trackUrl?: string;                  // deep link that auto-tracks this order
+    deliveryNote?: string;              // where it is going, or any condition of the sale
     attachment?: { filename: string; content: string };  // base64 PDF (no data: prefix)
 }
 
@@ -107,6 +108,12 @@ export function buildHtml(p: EmailPayload): string {
       </table>
 
       ${p.reference ? `<p style="margin:16px 0 0;font-size:12px;color:#9aa4a4;">Reference: ${esc(p.reference)}</p>` : ''}
+
+      ${p.deliveryNote ? `
+      <div style="margin:20px 0 0;background:#f2f8f8;border:1px solid #d8e8e8;border-radius:12px;padding:14px 18px;">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#3D8593;margin-bottom:4px;">Delivery</div>
+        <div style="font-size:13px;color:#3f4a4b;line-height:1.6;">${esc(p.deliveryNote)}</div>
+      </div>` : ''}
 
       ${(!fullyPaid && p.payUrl) ? `
       <div style="text-align:center;margin:28px 0 8px;">

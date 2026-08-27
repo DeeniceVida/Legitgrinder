@@ -17,6 +17,8 @@ export interface DocumentData {
     balanceKES?: number;
     reference?: string;
     dateStr?: string;
+    /** Where it is going, or any condition of the sale. Printed under the total. */
+    deliveryNote?: string;
 }
 
 const money = (n: number, cur = 'KES') => `${cur} ${Math.round(n).toLocaleString('en-US')}`;
@@ -94,6 +96,8 @@ export function buildDocumentHtml(d: DocumentData): string {
           </div>
 
           ${d.reference ? `<div style="margin-top:20px;font-size:12px;color:#9aa4a4;">Reference: ${esc(d.reference)}</div>` : ''}
+
+          ${d.deliveryNote ? `<div style="margin-top:18px;background:#f2f8f8;border:1px solid #d8e8e8;border-radius:10px;padding:12px 16px;"><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#3D8593;margin-bottom:4px;">Delivery</div><div style="font-size:12px;color:#3f4a4b;line-height:1.6;white-space:pre-wrap;">${esc(d.deliveryNote)}</div></div>` : ''}
 
           <div style="margin-top:24px;background:#fff8ed;border:1px solid #fde4bf;border-radius:10px;padding:12px 16px;">
             <div style="font-size:11px;color:#a86b12;line-height:1.5;">Order processing: orders are placed 1 business day after payment is confirmed — the time it takes for funds to settle.</div>

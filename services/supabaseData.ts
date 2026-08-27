@@ -57,10 +57,20 @@ export interface InvoiceEmailPayload {
     reference?: string;
     payUrl?: string;
     trackUrl?: string;
+    /** Where it is going, or any condition of the sale. Printed on both the email and the PDF. */
+    deliveryNote?: string;
     attachment?: { filename: string; content: string };
 }
 
-export const sendInvoiceEmail = async (payload: InvoiceEmailPayload): Promise<{ success: boolean; error?: string }> => {
+/**
+ * @param keepalive Let the request finish after the page navigates away. The
+ * shop hands the browser to WhatsApp the instant payment succeeds, which
+ * aborts any request still in flight — including the buyer's own receipt.
+ */
+export const sendInvoiceEmail = async (
+    payload: InvoiceEmailPayload,
+    keepalive = false
+): Promise<{ success: boolean; error?: string }> => {
     const log = (status: 'sent' | 'failed', error?: string) => logSentEmail({
         kind: payload.kind === 'receipt' ? 'receipt' : 'invoice',
         recipient: payload.to,
@@ -72,6 +82,7 @@ export const sendInvoiceEmail = async (payload: InvoiceEmailPayload): Promise<{ 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
+            keepalive,
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
@@ -375,6 +386,7 @@ export const fetchInvoicesData = async (): Promise<Invoice[]> => {
             clientName: inv.client_name,
             clientWhatsapp: inv.client_whatsapp,
             clientEmail: inv.client_email,
+            deliveryNote: inv.delivery_note || undefined,
             amountPaidKES: inv.amount_paid_kes || 0,
             productName: inv.product_name,
             quantity: inv.quantity || 1,
@@ -462,6 +474,7 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
             clientName: inv.client_name,
             clientWhatsapp: inv.client_whatsapp,
             clientEmail: inv.client_email,
+            deliveryNote: inv.delivery_note || undefined,
             amountPaidKES: inv.amount_paid_kes || 0,
             productName: inv.product_name,
             quantity: inv.quantity || 1,
@@ -684,6 +697,7 @@ export const updateInvoiceDetails = async (
         set('clientName', 'client_name');
         set('clientWhatsapp', 'client_whatsapp', v => v || null);
         set('clientEmail', 'client_email', v => v || null);
+        set('deliveryNote', 'delivery_note', v => v || null);
         set('productName', 'product_name');
         set('quantity', 'quantity');
         set('items', 'items', v => v || []);
@@ -722,6 +736,7 @@ export const createManualInvoice = async (invoiceData: Partial<Invoice>): Promis
                 client_name: invoiceData.clientName,
                 client_whatsapp: invoiceData.clientWhatsapp,
                 client_email: (invoiceData as any).clientEmail || null,
+                delivery_note: (invoiceData as any).deliveryNote || null,
                 product_name: invoiceData.productName,
                 quantity: invoiceData.quantity || 1,
                 items: invoiceData.items || [],

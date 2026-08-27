@@ -6,7 +6,7 @@ import {
 } from '@phosphor-icons/react';
 import { Availability, Product, ProductVariation, OrderStatus } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
-import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock, fetchLiveStock } from '../services/supabaseData';
+import { getStockStatus, createInvoice, verifyPaystackPayment, decrementProductStock, decrementVariantStock, fetchLiveStock, sendInvoiceEmail } from '../services/supabaseData';
 import { priceForSelection, fromPriceOf, needsVariantForPrice, publicStockLabel, effectiveStock, isAccessory, variantInStock, isPurchasable, sellableQuantity, soldOutOptionGroups, shelveProducts } from '../utils/productPricing';
 import { logProductEnquiry } from '../services/enquiries';
 import { logSentEmail } from '../services/sentEmails';
@@ -46,6 +46,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
   /** Set when the live stock check finds the shelf emptier than the page thought. */
   const [stockWarning, setStockWarning] = useState<string | null>(null);
   const [checkingStock, setCheckingStock] = useState(false);
+  /**
+   * Where the receipt goes. Guests used to check out as the placeholder
+   * address `client@legitgrinder.com`, so every website sale was anonymous:
+   * no receipt could be sent and the buyer never reached the mailing list.
+   */
+  const [buyerEmail, setBuyerEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
   /** Targets for the sticky bar's buttons. */
   const optionsRef = useRef<HTMLDivElement>(null);
   const buyRef = useRef<HTMLDivElement>(null);
@@ -177,9 +184,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         // 2. Create Invoice
         const { data: { user: authUser } } = await supabase.auth.getUser();
 
+        const receiptTo = authUser?.email || buyerEmail.trim();
+
         const invoiceResult = await createInvoice({
           userId: authUser?.id,
           clientName: authUser?.user_metadata?.full_name || 'Guest Elite',
+          clientEmail: receiptTo || undefined,
           productName: fullProductName,
           quantity: quantity,
           totalKES: totalPrice * quantity,
@@ -190,6 +200,27 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
 
         if (!invoiceResult.success) {
           console.error("Database record failed:", invoiceResult.error);
+        }
+
+        // 2b. The buyer's own receipt. Paid means paid — they should not have
+        //     to ask for proof, and on a six-figure order they will want it
+        //     before they have finished reading the WhatsApp message.
+        //     keepalive, because the redirect below would otherwise abort it.
+        if (receiptTo && invoiceResult.invoiceNumber) {
+          sendInvoiceEmail({
+            to: receiptTo,
+            kind: 'receipt',
+            invoiceNumber: invoiceResult.invoiceNumber,
+            clientName: authUser?.user_metadata?.full_name || 'Guest Elite',
+            productName: fullProductName,
+            items: [{ name: fullProductName, quantity, priceKES: totalPrice }],
+            currency: 'KES',
+            totalKES: totalPrice * quantity,
+            amountPaidKES: totalPrice * quantity,
+            balanceKES: 0,
+            reference: response.reference,
+            trackUrl: `${window.location.origin}/tracking?id=${trackingCode}`,
+          }, true).catch(() => {});
         }
 
         // 3. Deduct purchased pieces from stock (locally-stocked items only —
@@ -216,14 +247,24 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       }
     };
 
-    // Trigger sync in background (Non-blocking for immediate redirect)
-    performSync().catch(console.error);
+    // Give the record-keeping a moment to land before handing the browser to
+    // WhatsApp. Navigating away aborts anything still in flight, and an
+    // aborted request here is a sale with no invoice, no receipt and no stock
+    // deduction. Capped so a slow database can never strand a paying customer
+    // on a spinner — payment has already succeeded either way.
+    await Promise.race([
+      performSync().catch(console.error),
+      new Promise(resolve => setTimeout(resolve, 6000)),
+    ]);
 
     // Tell the owner server-side. The WhatsApp hand-off below only reaches him
     // if the customer presses send, so a closed tab used to mean a silent sale.
     fetch('/api/sale-alert', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      // Survives the redirect below — without it the alert was a race the
+      // WhatsApp hand-off usually won.
+      keepalive: true,
       body: JSON.stringify({
         productName: product.name,
         variant: varTextStrings.join(', ') || undefined,
@@ -556,6 +597,30 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       </div>
                     )}
 
+                    {/* Where the receipt goes. Signed-in buyers already have one
+                        on file, so only guests are asked. */}
+                    {!user && (
+                      <div>
+                        <label htmlFor="buyer-email" className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">
+                          Email for your receipt
+                        </label>
+                        <input
+                          id="buyer-email"
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          value={buyerEmail}
+                          onChange={(e) => { setBuyerEmail(e.target.value); setEmailError(null); }}
+                          placeholder="you@example.com"
+                          aria-invalid={!!emailError}
+                          className={`w-full h-[54px] bg-white border rounded-2xl px-5 text-sm font-medium outline-none transition-colors ${emailError ? 'border-rose-300 focus:border-rose-400' : 'border-gray-200 focus:border-[#3D8593]'}`}
+                        />
+                        <p className={`text-[11px] font-medium mt-1.5 ${emailError ? 'text-rose-500' : 'text-gray-400'}`}>
+                          {emailError || 'We send your receipt and tracking link here. Nothing else.'}
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-4">
                       {/* QUANTITY CONTROL */}
                       <div className="flex items-center bg-white border border-gray-200 rounded-full p-2 h-[60px]">
@@ -594,6 +659,13 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                             }
                             if (!PAYSTACK_PUBLIC_KEY) {
                               alert("Payment system configuration missing. Please ensure VITE_PAYSTACK_PUBLIC_KEY is set in your environment.");
+                              return;
+                            }
+                            // A sale with no address is a sale with no receipt.
+                            if (!user && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(buyerEmail.trim())) {
+                              setEmailError(buyerEmail.trim()
+                                ? 'That address doesn\'t look right — check it and try again.'
+                                : 'Please add an email so we can send your receipt.');
                               return;
                             }
 
@@ -648,7 +720,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                             publicKey="pk_live_b11692e8994766a02428b1176fc67f4b8b958974"
                             amount={Math.round(currentPrice * 100 * quantity)}
                             currency="KES"
-                            email={user?.email || "client@legitgrinder.com"}
+                            email={user?.email || buyerEmail.trim()}
                             metadata={{
                               custom_fields: [
                                 { display_name: "Customer Name", variable_name: "customer_name", value: user?.user_metadata?.full_name || 'Guest Elite' },
