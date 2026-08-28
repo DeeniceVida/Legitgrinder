@@ -95,14 +95,33 @@ export const effectiveStock = (p: Product): number => {
 };
 
 /**
+ * Does this option group keep its own stock counts? True if ANY option in it
+ * carries a number.
+ */
+export const groupTracksStock = (p: Product, type: string): boolean =>
+  (p.variations || []).some(v => (v.type || 'Other') === type && typeof v.stockCount === 'number');
+
+/**
  * Can this one option still be sold?
  *
- * An option with no count of its own is NOT assumed sold out — most products
- * don't track stock per colour, and treating "no number" as zero would empty
- * the shop. It rides on the product's overall stock instead.
+ * An option with no count of its own is read in the context of its siblings,
+ * not globally:
+ *
+ * - **No option in the group is counted** — the group isn't tracked at all
+ *   (a sofa's colours), so it rides on the product's overall stock. Reading
+ *   "no number" as zero here would empty the shop.
+ * - **Its siblings ARE counted** — then a missing number is a gap in the data,
+ *   not an unlimited supply, and it must not be offered. The pegboard was
+ *   exactly this: every size had a count except "60 x 30cm White", which was
+ *   sold out in real life and still selectable on the site.
+ *
+ * Callers must pass the product. Without it the old, looser reading applies.
  */
-export const variantInStock = (v: ProductVariation): boolean =>
-  typeof v.stockCount === 'number' ? v.stockCount > 0 : true;
+export const variantInStock = (v: ProductVariation, p?: Product): boolean => {
+  if (typeof v.stockCount === 'number') return v.stockCount > 0;
+  if (p && groupTracksStock(p, v.type || 'Other')) return false;
+  return true;
+};
 
 /**
  * The option groups a customer MUST choose from to buy. Accessories are
@@ -123,7 +142,7 @@ export const requiredOptionTypes = (p: Product): string[] =>
 export const soldOutOptionGroups = (p: Product): string[] =>
   requiredOptionTypes(p).filter(type => {
     const group = (p.variations || []).filter(v => (v.type || 'Other') === type);
-    return group.length > 0 && group.every(v => !variantInStock(v));
+    return group.length > 0 && group.every(v => !variantInStock(v, p));
   });
 
 /** Can this product be bought at all right now? */
@@ -165,6 +184,8 @@ export const sellableQuantity = (p: Product, selected: ProductVariation[]): numb
   let max = effectiveStock(p);
   selected.forEach(v => {
     if (typeof v.stockCount === 'number') max = Math.min(max, v.stockCount);
+    // Uncounted, but its siblings are counted — nothing to sell.
+    else if (!variantInStock(v, p)) max = 0;
   });
   return Math.max(0, max);
 };

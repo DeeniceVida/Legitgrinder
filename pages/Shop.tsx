@@ -93,7 +93,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const match = selectedProduct.variations.find(
       v => (v.name || '').trim().toLowerCase() === variantParam.trim().toLowerCase()
     );
-    if (match) setSelectedVariations(prev => ({ ...prev, [match.type]: match }));
+    // Only if it's still there. A restock email or a shared link would
+    // otherwise select a sold-out size for them, walking straight past the
+    // disabled button that exists to stop exactly that.
+    if (match && variantInStock(match, selectedProduct)) {
+      setSelectedVariations(prev => ({ ...prev, [match.type]: match }));
+    }
   }, [selectedProduct]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load group-buy campaigns (public read) for the poster.
@@ -132,6 +137,24 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     }
 
     const selectedVarsList = Object.values(selectedVariations) as ProductVariation[];
+
+    // The buy button was guarded but this one never was, so a sold-out option
+    // could still be ordered over WhatsApp — which is how it actually happened.
+    const goneOption = selectedVarsList.find(v => !variantInStock(v, p));
+    if (goneOption) {
+      setStockWarning(`${goneOption.name} is out of stock. Please choose another option.`);
+      setSelectedVariations(prev => {
+        const next = { ...prev };
+        delete next[goneOption.type || 'Other'];
+        return next;
+      });
+      optionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (!isPurchasable(p)) {
+      setStockWarning('This is out of stock right now. Leave your email below and we\'ll tell you the moment it\'s back.');
+      return;
+    }
     const totalPrice = priceForSelection(p, selectedVarsList);
 
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
@@ -493,7 +516,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       <div className="flex flex-wrap gap-2">
                         {variations.map((v: ProductVariation, idx: number) => {
                           const tracked = typeof v.stockCount === 'number';
-                          const soldOut = !variantInStock(v);
+                          const soldOut = !variantInStock(v, p);
                           return (
                             <button
                               key={idx}
@@ -683,7 +706,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                               const chosen = (Object.values(selectedVariations) as ProductVariation[])
                                 .map(v => live.variations.find((lv: any) => lv.name === v.name && (lv.type || 'Other') === (v.type || 'Other')) || v);
 
-                              const goneEntirely = chosen.find(v => !variantInStock(v));
+                              const goneEntirely = chosen.find(v => !variantInStock(v, fresh));
                               if (goneEntirely) {
                                 setStockWarning(`${goneEntirely.name} has just sold out. Please choose another option.`);
                                 if (onUpdateProducts) onUpdateProducts(products.map(x => x.id === p.id ? fresh : x));
@@ -843,8 +866,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
               <div className="flex items-center gap-2 ml-auto shrink-0">
                 <button
                   onClick={() => handleWhatsAppInquiry(p)}
-                  aria-label="Order via WhatsApp"
-                  className="w-12 h-12 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                  disabled={!isPurchasable(p)}
+                  aria-label={isPurchasable(p) ? 'Order via WhatsApp' : 'Out of stock'}
+                  className="w-12 h-12 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-lg active:scale-95 transition-transform disabled:bg-neutral-200 disabled:text-gray-400 disabled:shadow-none disabled:active:scale-100"
                 >
                   <WhatsappLogo size={20} weight="fill" />
                 </button>
