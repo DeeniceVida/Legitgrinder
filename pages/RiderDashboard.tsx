@@ -30,20 +30,61 @@ const RiderDashboard: React.FC = () => {
   const [riderName, setRiderName] = useState<string>('');
   const [jobs, setJobs] = useState<Delivery[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [earned, setEarned] = useState(0);
+  /**
+   * The PIN is kept on this phone so a rider signs in once, not at every
+   * traffic light. Losing the phone is handled by revoking the link.
+   */
+  const pinKey = `lg.rider.pin.${token.slice(0, 8)}`;
+  const [pin, setPin] = useState<string>(() => {
+    try { return localStorage.getItem(pinKey) || ''; } catch { return ''; }
+  });
+  const [needsPin, setNeedsPin] = useState(false);
+  const [pinEntry, setPinEntry] = useState('');
+  const [checking, setChecking] = useState(false);
 
-  const load = () => {
+  const load = (withPin = pin) => {
     setLoading(true);
-    fetchRiderJobs(token).then(res => {
-      if (!res.ok) setError(res.error || 'That link did not work.');
-      else { setError(null); setRiderName(res.riderName || ''); setJobs(res.jobs); }
+    fetchRiderJobs(token, withPin || undefined).then(res => {
+      if (res.needsPin) {
+        setNeedsPin(true);
+        setRiderName(res.riderName || '');
+        setError(res.error || null);
+      } else if (!res.ok) {
+        setError(res.error || 'That link did not work.');
+      } else {
+        setNeedsPin(false);
+        setError(null);
+        setRiderName(res.riderName || '');
+        setJobs(res.jobs);
+        setEarned(res.earned30d || 0);
+      }
       setLoading(false);
     });
   };
-  useEffect(load, [token]);
+  useEffect(() => { load(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submitPin = () => {
+    const entered = pinEntry.trim();
+    if (entered.length < 4) return;
+    setChecking(true);
+    fetchRiderJobs(token, entered).then(res => {
+      setChecking(false);
+      if (res.needsPin || !res.ok) { setError(res.error || 'That PIN is not right.'); return; }
+      try { localStorage.setItem(pinKey, entered); } catch { /* private window */ }
+      setPin(entered);
+      setNeedsPin(false);
+      setError(null);
+      setRiderName(res.riderName || '');
+      setJobs(res.jobs);
+      setEarned(res.earned30d || 0);
+      setPinEntry('');
+    });
+  };
 
   const setStatus = async (job: Delivery, status: DeliveryStatus) => {
     setBusy(job.id);
-    const res = await riderUpdateJob(token, job.id, { status });
+    const res = await riderUpdateJob(token, job.id, pin || undefined, { status });
     setBusy(null);
     if (!res.ok) { setError(res.error || 'Could not save that.'); return; }
     load();
@@ -53,6 +94,48 @@ const RiderDashboard: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#0f1a1c] flex items-center justify-center">
         <CircleNotch size={30} className="text-[#3D8593] animate-spin" />
+      </div>
+    );
+  }
+
+  /* The link says which rider. The PIN says it's really them. */
+  if (needsPin) {
+    return (
+      <div className="min-h-screen bg-[#0f1a1c] flex items-center justify-center p-6">
+        <div className="w-full max-w-xs">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#3D8593] mb-2 text-center">LegitGrinder</p>
+          <h1 className="text-xl font-bold text-white mb-1 text-center">
+            {riderName ? `Hi ${riderName}` : 'Sign in'}
+          </h1>
+          <p className="text-neutral-400 text-[13px] font-light text-center mb-6">
+            Enter your PIN to see your deliveries.
+          </p>
+
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            value={pinEntry}
+            onChange={e => { setPinEntry(e.target.value.replace(/\D/g, '').slice(0, 8)); setError(null); }}
+            onKeyDown={e => { if (e.key === 'Enter') submitPin(); }}
+            placeholder="••••"
+            className="w-full h-16 bg-white/5 border border-white/20 rounded-2xl text-center text-2xl tracking-[0.5em] font-black text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-600"
+          />
+
+          {error && <p className="text-[12px] font-bold text-rose-400 mt-3 text-center">{error}</p>}
+
+          <button
+            onClick={submitPin}
+            disabled={checking || pinEntry.length < 4}
+            className="w-full h-14 mt-4 rounded-full bg-white text-[#0f1a1c] font-black uppercase text-[11px] tracking-widest disabled:opacity-40"
+          >
+            {checking ? 'Checking…' : 'Sign in'}
+          </button>
+
+          <p className="text-neutral-500 text-[11px] text-center mt-5 leading-relaxed">
+            Forgotten it? Ask LegitGrinder to set you a new one.
+          </p>
+        </div>
       </div>
     );
   }
@@ -95,16 +178,20 @@ const RiderDashboard: React.FC = () => {
 
         <div className="space-y-4">
           {open.map(job => (
-            <JobCard key={job.id} job={job} token={token} busy={busy === job.id}
+            <JobCard key={job.id} job={job} token={token} pin={pin || undefined} busy={busy === job.id}
               onStatus={setStatus} onSaved={load} onError={setError} />
           ))}
         </div>
 
         {done.length > 0 && (
           <>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-500 mt-10 mb-3">
-              Delivered this week
-            </p>
+            <div className="flex items-baseline justify-between mt-10 mb-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-neutral-500">
+                Delivered · last 30 days
+              </p>
+              {/* What they have earned. The first thing any rider wants to know. */}
+              <p className="text-[11px] font-black text-emerald-400">{money(earned)}</p>
+            </div>
             <div className="space-y-3">
               {done.map(job => (
                 <div key={job.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-3">
@@ -132,9 +219,10 @@ const JobCard: React.FC<{
   token: string;
   busy: boolean;
   onStatus: (j: Delivery, s: DeliveryStatus) => void;
+  pin?: string;
   onSaved: () => void;
   onError: (m: string) => void;
-}> = ({ job, token, busy, onStatus, onSaved, onError }) => {
+}> = ({ job, token, busy, onStatus, onSaved, onError, pin }) => {
   const [service, setService] = useState(job.parcelService || '');
   const [fee, setFee] = useState(job.parcelFeeKES != null ? String(job.parcelFeeKES) : '');
   const [ref, setRef] = useState(job.parcelRef || '');
@@ -155,14 +243,14 @@ const JobCard: React.FC<{
     setUploading(true);
     const up = await uploadReceipt(file, job.id);
     if (up.error || !up.url) { setUploading(false); onError(up.error || 'The upload failed.'); return; }
-    const res = await riderUpdateJob(token, job.id, { receiptUrl: up.url });
+    const res = await riderUpdateJob(token, job.id, pin, { receiptUrl: up.url });
     setUploading(false);
     if (!res.ok) { onError(res.error || 'Saved the photo but could not attach it.'); return; }
     onSaved();
   };
 
   const saveParcel = async () => {
-    const res = await riderUpdateJob(token, job.id, {
+    const res = await riderUpdateJob(token, job.id, pin, {
       parcelService: service.trim() || undefined,
       parcelFeeKES: fee.trim() ? parseInt(fee, 10) : undefined,
       parcelRef: ref.trim() || undefined,
@@ -185,11 +273,18 @@ const JobCard: React.FC<{
               <p className="text-[12px] text-neutral-400 font-light mt-0.5">{job.itemDescription}</p>
             )}
           </div>
-          <span className={`shrink-0 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-            job.status === 'collected' ? 'bg-[#FF9900]/15 text-[#FF9900]' : 'bg-[#3D8593]/20 text-[#7fc2ce]'
-          }`}>
-            {job.status === 'collected' ? 'Picked up' : 'To collect'}
-          </span>
+          <div className="shrink-0 text-right space-y-1">
+            <span className={`inline-block px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+              job.status === 'collected' ? 'bg-[#FF9900]/15 text-[#FF9900]' : 'bg-[#3D8593]/20 text-[#7fc2ce]'
+            }`}>
+              {job.status === 'collected' ? 'Picked up' : 'To collect'}
+            </span>
+            {/* Where the job came from — one the customer booked themselves
+                reads differently from one sent by hand. */}
+            <span className="block text-[8px] font-black uppercase tracking-widest text-neutral-500">
+              {job.source === 'customer' ? 'Booked by customer' : 'From LegitGrinder'}
+            </span>
+          </div>
         </div>
 
         <div className="space-y-2 mb-4">

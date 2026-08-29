@@ -12,6 +12,12 @@
 --  never another customer.
 --
 --  Run once in the Supabase SQL editor, AFTER add_riders.sql. Safe to re-run.
+--
+--  ⚠ ORDER MATTERS: add_rider_pin.sql runs AFTER this one and REPLACES
+--  rider_jobs and rider_update_job with versions that require a PIN. If you
+--  re-run this file afterwards you will recreate the older PIN-less versions
+--  alongside them, the API will not know which to call, and the rider page
+--  will break. Re-run add_rider_pin.sql immediately after if you ever do.
 -- ============================================================================
 
 -- ── 1. Each rider gets a revocable link ─────────────────────────────────────

@@ -42,6 +42,8 @@ export interface Delivery {
   parcelFeeKES?: number;
   parcelRef?: string;
   parcelReceiptUrl?: string;
+  /** admin = you created it · customer = they booked it themselves. */
+  source?: string;
   riderNotes?: string;
   notes?: string;
   collectedAt?: string;
@@ -70,6 +72,7 @@ const toDelivery = (d: any): Delivery => ({
   parcelFeeKES: d.parcel_fee_kes != null ? Number(d.parcel_fee_kes) : undefined,
   parcelRef: d.parcel_ref || undefined,
   parcelReceiptUrl: d.parcel_receipt_url || undefined,
+  source: d.source || undefined,
   riderNotes: d.rider_notes || undefined,
   notes: d.notes || undefined,
   collectedAt: d.collected_at || undefined,
@@ -159,21 +162,33 @@ export const rotateRiderToken = async (riderId: string) => {
 export interface RiderJobsResult {
   ok: boolean;
   error?: string;
+  /** The link is valid but a PIN is needed — ask, do not show a failure. */
+  needsPin?: boolean;
   riderName?: string;
+  earned30d?: number;
   jobs: Delivery[];
 }
 
-export const fetchRiderJobs = async (token: string): Promise<RiderJobsResult> => {
+export const fetchRiderJobs = async (token: string, pin?: string): Promise<RiderJobsResult> => {
   try {
-    const { data, error } = await supabase.rpc('rider_jobs', { p_token: token });
+    const { data, error } = await supabase.rpc('rider_jobs', { p_token: token, p_pin: pin ?? null });
     if (error) {
       console.error('rider_jobs failed:', error.message);
       return { ok: false, error: friendly(error.message), jobs: [] };
     }
-    if (!data?.ok) return { ok: false, error: data?.error || 'That link did not work.', jobs: [] };
+    if (!data?.ok) {
+      return {
+        ok: false,
+        needsPin: data?.needsPin === true,
+        riderName: data?.riderName,
+        error: data?.error || (data?.needsPin ? undefined : 'That link did not work.'),
+        jobs: [],
+      };
+    }
     return {
       ok: true,
       riderName: data.rider?.name,
+      earned30d: data.earned30d ?? 0,
       jobs: (data.jobs || []).map(toDelivery),
     };
   } catch (e: any) {
@@ -184,6 +199,7 @@ export const fetchRiderJobs = async (token: string): Promise<RiderJobsResult> =>
 export const riderUpdateJob = async (
   token: string,
   deliveryId: string,
+  pin: string | undefined,
   patch: {
     status?: DeliveryStatus;
     parcelService?: string;
@@ -197,6 +213,7 @@ export const riderUpdateJob = async (
     const { data, error } = await supabase.rpc('rider_update_job', {
       p_token: token,
       p_delivery_id: deliveryId,
+      p_pin: pin ?? null,
       p_status: patch.status ?? null,
       p_service: patch.parcelService ?? null,
       p_parcel_fee: patch.parcelFeeKES ?? null,

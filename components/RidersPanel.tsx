@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Motorcycle, Plus, Trash, Star, Check, X, WarningCircle, LinkSimple } from '@phosphor-icons/react';
-import { Rider, fetchRiders, createRider, updateRider, setDefaultRider, deleteRider } from '../services/riders';
+import { Rider, fetchRiders, createRider, updateRider, setDefaultRider, deleteRider, setRiderPin } from '../services/riders';
 import { rotateRiderToken } from '../services/deliveries';
 import { normalizeKenyanPhone } from '../utils/phone';
 
@@ -18,6 +18,8 @@ const RidersPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [pinFor, setPinFor] = useState<string | null>(null);
+  const [pinValue, setPinValue] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -60,6 +62,18 @@ const RidersPanel: React.FC = () => {
     setBusy(r.id);
     await deleteRider(r.id);
     setBusy(null); load();
+  };
+
+  /** The PIN they type after opening their link. Four to eight digits. */
+  const savePin = async (r: Rider) => {
+    setBusy(r.id); setError(null);
+    const res = await setRiderPin(r.id, pinValue.trim());
+    setBusy(null);
+    if (!res.success) { setError(res.error || 'Could not set that PIN.'); return; }
+    setPinFor(null); setPinValue('');
+    alert(res.cleared
+      ? `${r.name} no longer needs a PIN — their link alone opens the dashboard.`
+      : `PIN set. Tell ${r.name} in person or on a call, not in the same message as the link.`);
   };
 
   /** Their dashboard link, ready to paste into WhatsApp. */
@@ -181,6 +195,13 @@ const RidersPanel: React.FC = () => {
                     {copied === r.id ? <><Check size={12} weight="bold" /> Copied</> : <><LinkSimple size={12} weight="bold" /> Their link</>}
                   </button>
                   <button
+                    onClick={() => { setPinFor(pinFor === r.id ? null : r.id); setPinValue(''); setError(null); }}
+                    className="px-3 py-2 rounded-xl border border-neutral-200 text-gray-500 text-[9px] font-black uppercase tracking-widest hover:border-[#3D8593] hover:text-[#3D8593] transition-colors"
+                    title="The PIN they type after opening their link"
+                  >
+                    Set PIN
+                  </button>
+                  <button
                     onClick={() => revoke(r)}
                     disabled={busy === r.id}
                     className="px-3 py-2 rounded-xl border border-neutral-200 text-gray-400 text-[9px] font-black uppercase tracking-widest hover:border-rose-300 hover:text-rose-500 transition-colors disabled:opacity-40"
@@ -215,6 +236,36 @@ const RidersPanel: React.FC = () => {
                 <Trash size={14} />
               </button>
             </div>
+
+            {pinFor === r.id && (
+              <div className="w-full mt-1 pt-4 border-t border-neutral-100">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">
+                  {r.name}'s PIN <span className="text-neutral-300 normal-case font-medium">— 4 to 8 digits, or leave blank to remove it</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    value={pinValue}
+                    onChange={e => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    inputMode="numeric"
+                    placeholder="e.g. 4821"
+                    className={input + ' max-w-[180px] tracking-[0.3em] font-black'}
+                  />
+                  <button
+                    onClick={() => savePin(r)}
+                    disabled={busy === r.id}
+                    className="px-5 rounded-xl bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40"
+                  >
+                    Save PIN
+                  </button>
+                </div>
+                {/* The link and the PIN are two factors only while they travel
+                    separately. In one WhatsApp message they are one. */}
+                <p className="text-[11px] font-medium text-gray-400 mt-2 leading-relaxed">
+                  Send the link and tell them the PIN <strong className="text-gray-600">separately</strong> — a call, or in
+                  person. Both in one message is the same as having no PIN at all.
+                </p>
+              </div>
+            )}
           </div>
         ))}
       </div>

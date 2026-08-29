@@ -74,3 +74,27 @@ export const deleteRider = async (id: string) => {
   const { error } = await supabase.from('riders').delete().eq('id', id);
   return { success: !error, error: error?.message };
 };
+
+/**
+ * Set (or clear) a rider's sign-in PIN.
+ *
+ * Stored as a bcrypt hash by set_rider_pin, so it can be checked but never
+ * read back — if a rider forgets it you set a new one rather than looking it
+ * up. An empty PIN clears the gate for that rider.
+ */
+export const setRiderPin = async (
+  riderId: string,
+  pin: string,
+): Promise<{ success: boolean; error?: string; cleared?: boolean }> => {
+  try {
+    const { data, error } = await supabase.rpc('set_rider_pin', {
+      p_rider_id: riderId,
+      p_pin: pin || null,
+    });
+    if (error) return { success: false, error: error.message };
+    if (!data?.ok) return { success: false, error: data?.error || 'Could not set that PIN.' };
+    return { success: true, cleared: data.cleared === true };
+  } catch (e: any) {
+    return { success: false, error: e?.message || 'Could not set that PIN.' };
+  }
+};

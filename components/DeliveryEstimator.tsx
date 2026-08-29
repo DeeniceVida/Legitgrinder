@@ -298,9 +298,9 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
             className="mt-0.5 w-4 h-4 accent-[#3D8593]"
           />
           <span>
-            <span className="block text-[13px] font-bold text-gray-900">Large or bulky item</span>
+            <span className="block text-[13px] font-bold text-gray-900">Is it bigger than a 27-inch monitor?</span>
             <span className="block text-[11px] font-medium text-gray-400">
-              Won't sit on a boda comfortably — adds {money(BULKY_SURCHARGE)}.
+              Anything larger than that needs more than a backpack — adds {money(BULKY_SURCHARGE)}.
             </span>
           </span>
         </label>

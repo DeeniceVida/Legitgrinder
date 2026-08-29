@@ -194,6 +194,22 @@ const DeliveriesPanel: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          {/* The link you send anyone who'd rather have it delivered — they
+              pin, see the fee, and it books itself onto a rider. */}
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/request-delivery`).then(() => {
+                setCopied('request-link');
+                setTimeout(() => setCopied(null), 2000);
+              });
+            }}
+            className="px-4 py-2.5 rounded-xl bg-[#25D366]/10 text-[#1eb955] text-[10px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-colors flex items-center gap-2"
+            title="Send this to a customer who wants delivery"
+          >
+            {copied === 'request-link'
+              ? <><Check size={13} weight="bold" /> Copied</>
+              : <><LinkSimple size={13} weight="bold" /> Request link</>}
+          </button>
           <button onClick={load} className="w-10 h-10 rounded-xl border border-neutral-200 flex items-center justify-center text-gray-400 hover:text-[#3D8593] hover:border-[#3D8593] transition-colors">
             <ArrowsClockwise size={14} weight="bold" />
           </button>
@@ -279,7 +295,7 @@ const DeliveriesPanel: React.FC = () => {
               </div>
               <label className="flex items-center gap-2.5 cursor-pointer pb-2.5">
                 <input type="checkbox" checked={bulky} onChange={e => setBulky(e.target.checked)} className="w-4 h-4 accent-[#3D8593]" />
-                <span className="text-[13px] font-bold text-gray-700">Bulky item (+150)</span>
+                <span className="text-[13px] font-bold text-gray-700">Bigger than a 27" monitor (+150)</span>
               </label>
             </div>
 
