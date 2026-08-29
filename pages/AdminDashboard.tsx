@@ -38,6 +38,7 @@ import MonitorsTab from '../components/MonitorsTab';
 import ChairsTab from '../components/ChairsTab';
 import EnquiriesPanel from '../components/EnquiriesPanel';
 import AudiencePanel from '../components/AudiencePanel';
+import RidersPanel from '../components/RidersPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import { effectiveStock } from '../utils/productPricing';
 import SupervisorPanel from '../components/SupervisorPanel';
@@ -2505,6 +2506,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <Info className="w-4 h-4" /> Phones are managed in the Phone Price Sync tab — this list is your shop stock.
                 </p>
               </div>
+
+              {/* Who carries local deliveries */}
+              <RidersPanel />
 
               {/* Sales that happened off-site still have to come off the shelf */}
               <EnquiriesPanel
