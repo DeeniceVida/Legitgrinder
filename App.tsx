@@ -23,6 +23,7 @@ import Corporate from './pages/Corporate';
 import Monitors from './pages/Monitors';
 import HowItWorks from './pages/HowItWorks';
 import RiderDashboard from './pages/RiderDashboard';
+import RequestDelivery from './pages/RequestDelivery';
 import DeliveryTracking from './pages/DeliveryTracking';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import SafeImage from './components/SafeImage';
@@ -257,6 +258,7 @@ const AppContent: React.FC = () => {
           <Route path="/group/:slug" element={<GroupBuy />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           {/* Token links — the link IS the credential, so no login guard. */}
+          <Route path="/request-delivery" element={<RequestDelivery />} />
           <Route path="/rider/:token" element={<RiderDashboard />} />
           <Route path="/delivery/:token" element={<DeliveryTracking />} />
           <Route

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Package, WhatsappLogo, CircleNotch, Crosshair, Info } from '@phosphor-icons/react';
+import { MapPin, WhatsappLogo, CircleNotch, Crosshair, Info, Check } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
+import { requestDelivery } from '../services/deliveries';
 import {
   ORIGINS, originById, fetchRoadKm, quoteDelivery, isNearNairobi,
   RATE_PER_KM, MINIMUM_FEE, BULKY_SURCHARGE, Quote,
@@ -34,8 +35,21 @@ const originIcon = L.divIcon({
   iconAnchor: [10, 10],
 });
 
-const DeliveryEstimator: React.FC = () => {
+interface Props {
+  /** Order code this delivery belongs to, when the link carried one. */
+  reference?: string;
+  /** What is being delivered, when we already know. */
+  item?: string;
+}
+
+const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
   const [originId, setOriginId] = useState<'cbd' | 'industrial'>('cbd');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [sending, setSending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  /** Set once it's booked — their own link to watch it. */
+  const [bookedToken, setBookedToken] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ lat: number; lng: number } | null>(null);
   const [bulky, setBulky] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -153,17 +167,86 @@ const DeliveryEstimator: React.FC = () => {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
   };
 
+  /** Book it: creates the job, puts it on the rider's phone, tells the owner. */
+  const submit = async () => {
+    if (!drop || !quote) return;
+    if (!name.trim()) { setFormError('We need a name for the delivery.'); return; }
+    if (phone.trim().replace(/\D/g, '').length < 9) { setFormError('A phone number the rider can call, please.'); return; }
+    setFormError(null);
+    setSending(true);
+
+    const res = await requestDelivery({
+      customerName: name.trim(),
+      customerPhone: phone.trim(),
+      item,
+      originId,
+      lat: drop.lat, lng: drop.lng,
+      label: `${drop.lat.toFixed(5)}, ${drop.lng.toFixed(5)}`,
+      km: quote.km,
+      bulky,
+      reference,
+    });
+
+    if (!res.ok) { setSending(false); setFormError(res.error || 'We could not book that.'); return; }
+
+    // Tell the owner. Best-effort — the job already exists either way, and a
+    // failed email must never look to the customer like a failed booking.
+    fetch('/api/delivery-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        customerName: name.trim(),
+        customerPhone: phone.trim(),
+        item, reference,
+        origin: origin.name,
+        mapUrl: `https://www.google.com/maps?q=${drop.lat.toFixed(6)},${drop.lng.toFixed(6)}`,
+        km: quote.km,
+        bulky,
+        feeKES: res.deliveryFeeKES ?? quote.total,
+        assigned: res.assigned,
+        trackUrl: `${window.location.origin}/delivery/${res.customerToken}`,
+      }),
+    }).catch(() => {});
+
+    setSending(false);
+    setBookedToken(res.customerToken || null);
+  };
+
   const money = (n: number) => `KES ${n.toLocaleString()}`;
+
+  /* Booked — nothing else on this page matters now. */
+  if (bookedToken) {
+    return (
+      <div className="bg-white rounded-[1.75rem] border border-gray-100 shadow-sm p-8 text-center">
+        <span className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-5">
+          <Check size={26} weight="bold" />
+        </span>
+        <h2 className="text-2xl font-bold tracking-tighter mb-2">A rider is on it.</h2>
+        <p className="text-gray-500 font-light text-sm leading-relaxed mb-6 max-w-sm mx-auto">
+          Your delivery has been sent to a rider and to LegitGrinder. Keep this link — it
+          shows you where your item has got to, and carries the courier receipt if we send
+          it onward.
+        </p>
+        <a
+          href={`/delivery/${bookedToken}`}
+          className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-[#0f1a1c] text-white font-black uppercase text-[10px] tracking-[0.2em] hover:bg-[#3D8593] transition-colors"
+        >
+          Track my delivery
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-[1.75rem] border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-6 md:px-8 pt-7 pb-5">
         <p className="eyebrow text-[#3D8593] mb-3">Delivery</p>
         <h2 className="text-2xl md:text-3xl font-bold tracking-tighter mb-2">
-          What will the rider cost?
+          Where should we bring it?
         </h2>
         <p className="text-gray-500 font-light text-sm leading-relaxed">
-          Drop a pin where you want it delivered and see the fee before you message anyone.
+          Drop a pin where you want it delivered. You see the fee before you confirm anything —
           KES {RATE_PER_KM} per kilometre, minimum {money(MINIMUM_FEE)}.
         </p>
       </div>
@@ -262,12 +345,34 @@ const DeliveryEstimator: React.FC = () => {
                   </p>
                 )}
 
-                <button
-                  onClick={askOnWhatsApp}
-                  className="w-full mt-5 h-[54px] bg-[#25D366] text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] hover:bg-[#128C7E] transition-all flex items-center justify-center gap-3"
-                >
-                  <WhatsappLogo size={18} weight="fill" /> Book this delivery
-                </button>
+                {/* Who it's for. Asked only once a fee exists, so nobody fills
+                    in a form before knowing what it costs. */}
+                <div className="mt-5 space-y-2">
+                  <input
+                    value={name} onChange={e => setName(e.target.value)}
+                    placeholder="Your name"
+                    className="w-full h-[50px] bg-white/10 border border-white/20 rounded-2xl px-4 text-sm font-medium text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-500"
+                  />
+                  <input
+                    value={phone} onChange={e => setPhone(e.target.value)}
+                    inputMode="tel" placeholder="Phone the rider should call"
+                    className="w-full h-[50px] bg-white/10 border border-white/20 rounded-2xl px-4 text-sm font-medium text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-500"
+                  />
+                  {formError && <p className="text-[12px] font-bold text-rose-400">{formError}</p>}
+                  <button
+                    onClick={submit}
+                    disabled={sending}
+                    className="w-full h-[54px] bg-[#FF9900] text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] hover:bg-white hover:text-[#0f1a1c] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                  >
+                    {sending ? <><CircleNotch size={16} className="animate-spin" /> Sending…</> : <>Send this to a rider</>}
+                  </button>
+                  <button
+                    onClick={askOnWhatsApp}
+                    className="w-full h-[46px] border border-white/20 text-neutral-300 rounded-full font-black uppercase text-[10px] tracking-[0.2em] hover:border-[#25D366] hover:text-[#25D366] transition-all flex items-center justify-center gap-2"
+                  >
+                    <WhatsappLogo size={16} weight="fill" /> Or ask on WhatsApp
+                  </button>
+                </div>
               </>
             )}
           </div>

@@ -283,3 +283,54 @@ export const fetchDeliveryStatus = async (token: string): Promise<DeliveryStatus
     return { ok: false, error: e?.message || 'Could not load that delivery.' };
   }
 };
+
+/* ── Customer asks for delivery themselves ──────────────────────────────── */
+
+/**
+ * The customer's own request, from the link sent to them after their order
+ * lands. Creates the job, assigns whoever is on duty, and hands back their
+ * tracking link.
+ *
+ * The fee is recomputed server-side and whatever the browser sends is ignored
+ * — see request_delivery in add_deliveries.sql.
+ */
+export const requestDelivery = async (r: {
+  customerName?: string;
+  customerPhone?: string;
+  item?: string;
+  originId: string;
+  lat: number;
+  lng: number;
+  label?: string;
+  km: number;
+  bulky?: boolean;
+  reference?: string;
+}): Promise<{ ok: boolean; error?: string; customerToken?: string; deliveryFeeKES?: number; assigned?: boolean }> => {
+  try {
+    const { data, error } = await supabase.rpc('request_delivery', {
+      p_customer_name: r.customerName ?? null,
+      p_customer_phone: r.customerPhone ?? null,
+      p_item: r.item ?? null,
+      p_origin_id: r.originId,
+      p_lat: r.lat,
+      p_lng: r.lng,
+      p_label: r.label ?? null,
+      p_km: r.km,
+      p_bulky: r.bulky ?? false,
+      p_reference: r.reference ?? null,
+    });
+    if (error) {
+      console.error('request_delivery failed:', error.message);
+      return { ok: false, error: friendly(error.message) };
+    }
+    if (!data?.ok) return { ok: false, error: data?.error || 'We could not book that.' };
+    return {
+      ok: true,
+      customerToken: data.customerToken,
+      deliveryFeeKES: data.deliveryFeeKES,
+      assigned: data.assigned,
+    };
+  } catch (e: any) {
+    return { ok: false, error: 'We could not book that. Please try again or message us.' };
+  }
+};

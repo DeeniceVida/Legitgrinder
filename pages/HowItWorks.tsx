@@ -6,7 +6,6 @@ import {
   Storefront, UsersThree, Calculator, ChatCircleText, Timer
 } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
-import DeliveryEstimator from '../components/DeliveryEstimator';
 import { Reveal } from '../components/Motion';
 
 /**
@@ -57,7 +56,7 @@ const timelines = [
 
 const promises = [
   { title: 'All-inclusive to Nairobi', desc: 'The total we quote is the total you pay — shipping, customs and clearance are all in it. No surprise charges when it lands.' },
-  { title: 'Doorstep delivery, your way', desc: 'Collection at our CBD shop is free. Prefer delivery? A rider brings it — KES 50 per kilometre, minimum KES 300. Work out your exact fee on the map below.' },
+  { title: 'Doorstep delivery, your way', desc: 'Collection at our CBD shop is free. Prefer delivery? A rider brings it — KES 50 per kilometre, minimum KES 300. We send you a link to pin your location and see the exact fee.' },
   { title: 'Orders placed within 1 business day', desc: 'Your order is placed with the store within one business day of your payment confirming — the time it takes funds to settle.' },
   { title: 'Track it the whole way', desc: 'Every order gets a tracking number. Watch it move from the store to Nairobi on our live tracker.' },
 ];
@@ -263,15 +262,6 @@ const HowItWorks: React.FC = () => {
                 </a>
               </div>
             </div>
-          </div>
-        </Reveal>
-
-        {/* DELIVERY ESTIMATOR — the rider fee was the one cost on this page we
-            refused to put a number to, which is exactly the cost people ask
-            about before ordering. */}
-        <Reveal>
-          <div className="mb-24">
-            <DeliveryEstimator />
           </div>
         </Reveal>
 

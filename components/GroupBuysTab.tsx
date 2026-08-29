@@ -29,7 +29,9 @@ const PICKUP_HOURS = 'Open Monday to Saturday, 9am–6pm. Closed Sunday.';
 const DEFAULT_COLLECTION_NOTE =
   `Collect from ${PICKUP_ADDRESS}\n` +
   `${PICKUP_HOURS} Please bring your order code.\n\n` +
-  `Prefer delivery? Reply to this email or WhatsApp +254 791 873 538 and we'll arrange a rider — the rider's fee is agreed directly with them.`;
+  // No longer "agreed with the rider" — the email now carries a button that
+  // prices it properly, so pointing people back to a negotiation would undo it.
+  `Can't reach town? Use the delivery button below to pin your location and see the rider's fee.`;
 const NOTE_STORAGE_KEY = 'lg.groupbuy.collectionNote';
 
 const GroupBuysTab: React.FC = () => {
@@ -227,6 +229,8 @@ const GroupBuysTab: React.FC = () => {
       campaignTitle: c.title,
       imageUrl: (c.imageUrls && c.imageUrls[0]) || c.imageUrl,
       collectionNote: collectionNote.trim() || undefined,
+      // Buyers who cannot reach town get a rider instead of a lost sale.
+      deliveryUrl: origin + '/request-delivery?item=' + encodeURIComponent(c.title),
       recipients: withEmail.map(o => ({
         email: o.clientEmail!, name: o.clientName, orderCode: o.orderCode,
         units: o.units, color: o.color,

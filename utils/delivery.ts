@@ -25,28 +25,38 @@ export const BULKY_SURCHARGE = 150;
 export interface Origin {
   id: 'cbd' | 'industrial';
   name: string;
+  /** Safe to show a customer. Never names the premises or the partner. */
   detail: string;
+  /** For the dashboard only — what the place actually is. */
+  adminDetail: string;
   lat: number;
   lng: number;
 }
 
 /**
- * Where a rider starts from. These are the owner's own pinned locations, not
- * approximations — the first guess at Industrial Area was ~1.7km out, which is
- * around KES 85 of error on every quote from there.
+ * Where a rider starts from. The owner's own pinned locations, not
+ * approximations — the first guess at Industrial Area was ~1.7km out, about
+ * KES 85 of error on every quote from there.
+ *
+ * `detail` is deliberately vague. A customer arranging DELIVERY has no reason
+ * to be told the shop's floor and door number or which cargo firm clears the
+ * goods — the full CBD address belongs only where someone is actually coming
+ * to collect, which is the group-buy email.
  */
 export const ORIGINS: Origin[] = [
   {
     id: 'cbd',
     name: 'Nairobi CBD',
-    detail: 'Dynamic Mall, Tom Mboya Street — where in-stock items are collected',
+    detail: 'Items already in Nairobi',
+    adminDetail: 'Dynamic Mall, Shop ML 135, Tom Mboya Street',
     lat: -1.2854649,
     lng: 36.8266681,
   },
   {
     id: 'industrial',
     name: 'Industrial Area',
-    detail: 'Salihiya World Cargo — for goods coming out of clearing',
+    detail: 'Goods coming out of clearing',
+    adminDetail: 'Salihiya World Cargo',
     lat: -1.2996869,
     lng: 36.839082,
   },

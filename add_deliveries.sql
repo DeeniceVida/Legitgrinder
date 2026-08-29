@@ -254,3 +254,87 @@ drop policy if exists "receipts are readable" on storage.objects;
 create policy "receipts are readable" on storage.objects
   for select to anon, authenticated
   using (bucket_id = 'delivery-receipts');
+
+
+-- ── 7. The customer asks for delivery themselves ────────────────────────────
+-- The flow: their group-buy email offers "collect from CBD, or have it
+-- delivered?". Delivered takes them to a page where they drop a pin, see the
+-- fee, and confirm. That confirmation lands here.
+--
+-- The fee is RECOMPUTED here and the client's figure ignored. Anything the
+-- browser sends can be edited, and a delivery that books itself for KES 0 is
+-- a delivery someone has to argue about later.
+create or replace function public.request_delivery(
+  p_customer_name  text,
+  p_customer_phone text,
+  p_item           text,
+  p_origin_id      text,
+  p_lat            numeric,
+  p_lng            numeric,
+  p_label          text,
+  p_km             numeric,
+  p_bulky          boolean default false,
+  p_reference      text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_rider uuid;
+  v_fee   int;
+  v_km    numeric;
+  v_token text;
+begin
+  if p_lat is null or p_lng is null then
+    return jsonb_build_object('ok', false, 'error', 'We need your location pin.');
+  end if;
+  -- Roughly Kenya. Stops a stray pin from booking a delivery to another country.
+  if p_lat < -5.5 or p_lat > 5.5 or p_lng < 33.0 or p_lng > 42.5 then
+    return jsonb_build_object('ok', false, 'error', 'That pin is outside Kenya.');
+  end if;
+  if coalesce(p_origin_id, '') not in ('cbd', 'industrial') then
+    return jsonb_build_object('ok', false, 'error', 'Unknown pickup point.');
+  end if;
+
+  -- Distance is clamped, then priced by the same rules as the site:
+  -- KES 50/km rounded up to the nearest 10, floor of 300, plus 150 if bulky.
+  v_km := greatest(0, least(coalesce(p_km, 0), 500));
+  v_fee := greatest(ceil((v_km * 50) / 10.0) * 10, 300)::int
+           + case when coalesce(p_bulky, false) then 150 else 0 end;
+
+  -- Straight to whoever is on duty, so it is on their phone immediately.
+  select id into v_rider from public.riders
+   where active and is_default order by name limit 1;
+  if v_rider is null then
+    select id into v_rider from public.riders where active order by name limit 1;
+  end if;
+
+  insert into public.deliveries (
+    rider_id, customer_name, customer_phone, item_description, invoice_number,
+    origin_id, drop_lat, drop_lng, drop_label, distance_km, is_bulky,
+    delivery_fee_kes, notes
+  ) values (
+    v_rider,
+    nullif(left(coalesce(p_customer_name, ''), 120), ''),
+    nullif(left(coalesce(p_customer_phone, ''), 40), ''),
+    nullif(left(coalesce(p_item, ''), 300), ''),
+    nullif(left(coalesce(p_reference, ''), 60), ''),
+    p_origin_id, p_lat, p_lng,
+    nullif(left(coalesce(p_label, ''), 200), ''),
+    round(v_km, 1), coalesce(p_bulky, false), v_fee,
+    'Requested by the customer from their own link.'
+  )
+  returning customer_token into v_token;
+
+  return jsonb_build_object(
+    'ok', true,
+    'customerToken', v_token,
+    'deliveryFeeKES', v_fee,
+    'assigned', v_rider is not null
+  );
+end;
+$$;
+
+grant execute on function public.request_delivery(text, text, text, text, numeric, numeric, text, numeric, boolean, text) to anon, authenticated;

@@ -260,7 +260,9 @@ const DeliveriesPanel: React.FC = () => {
               <div>
                 <label className={lbl}>Rider collects from</label>
                 <select value={originId} onChange={e => setOriginId(e.target.value)} className={input}>
-                  {ORIGINS.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  {/* The dashboard names the actual place; the customer-facing
+                      page deliberately does not. */}
+                  {ORIGINS.map(o => <option key={o.id} value={o.id}>{o.name} — {o.adminDetail}</option>)}
                 </select>
               </div>
             </div>

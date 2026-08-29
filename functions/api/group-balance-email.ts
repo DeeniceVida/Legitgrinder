@@ -22,6 +22,7 @@ interface Payload {
   campaignTitle: string;
   imageUrl?: string;
   collectionNote?: string;      // e.g. "Ready for collection at Nairobi CBD from tomorrow 10am"
+  deliveryUrl?: string;         // the request-delivery page, for buyers who can't come to town
   recipients: Recipient[];
 }
 
@@ -69,6 +70,13 @@ function buildHtml(p: Payload, r: Recipient): string {
 
       ${p.collectionNote ? `<div style="margin:20px 0 4px;background:#fff8ed;border:1px solid #fde4bf;border-radius:12px;padding:14px 18px;">
         <p style="margin:0;font-size:12.5px;color:#a86b12;line-height:1.55;">📍 ${esc(p.collectionNote).replace(/\n/g, '<br/>')}</p>
+      </div>` : ''}
+
+      ${p.deliveryUrl ? `
+      <div style="text-align:center;margin:18px 0 4px;">
+        <p style="margin:0 0 10px;font-size:12.5px;color:#6b7677;">Can't get to town? We'll bring it to you.</p>
+        <a href="${esc(p.deliveryUrl)}&amp;order=${esc(r.orderCode)}" style="display:inline-block;border:2px solid #FF9900;color:#FF9900;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:12px 30px;border-radius:999px;">🛵 I'd rather have it delivered</a>
+        <p style="margin:10px 0 0;font-size:11px;color:#9aa4a4;">Pin your location, see the rider's fee, and confirm — no haggling at the door.</p>
       </div>` : ''}
 
       <p style="margin:18px 0 0;font-size:12px;color:#9aa4a4;text-align:center;">Paid another way? Reply to this email and we'll mark it off.</p>

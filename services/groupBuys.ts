@@ -176,6 +176,7 @@ export const sendGroupBalanceEmails = async (args: {
   campaignTitle: string;
   imageUrl?: string;
   collectionNote?: string;
+  deliveryUrl?: string;
   recipients: {
     email: string; name?: string; orderCode: string; units?: number; color?: string;
     totalKES: number; paidKES: number; balanceKES: number; payUrl: string;
