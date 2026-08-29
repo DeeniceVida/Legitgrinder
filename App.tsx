@@ -22,6 +22,8 @@ import GroupBalancePay from './pages/GroupBalancePay';
 import Corporate from './pages/Corporate';
 import Monitors from './pages/Monitors';
 import HowItWorks from './pages/HowItWorks';
+import RiderDashboard from './pages/RiderDashboard';
+import DeliveryTracking from './pages/DeliveryTracking';
 import WhatsAppWidget from './components/WhatsAppWidget';
 import SafeImage from './components/SafeImage';
 import ValentineTheme from './components/ValentineTheme';
@@ -54,8 +56,11 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
-  // /corporate is a standalone B2B page — it brings its own header and footer.
-  const isStandalone = location.pathname.startsWith('/corporate');
+  // Pages that bring their own chrome. /corporate is a standalone B2B page;
+  // /rider is a working tool opened on a phone at the roadside, where the
+  // marketing nav and footer are noise wrapped around the job list.
+  const isStandalone = location.pathname.startsWith('/corporate')
+    || location.pathname.startsWith('/rider');
   // An open product already has a WhatsApp button in its sticky bar, one that
   // knows the item and the chosen option. Two green circles on top of each
   // other is just confusing, so the generic floating one stands down.
@@ -251,6 +256,9 @@ const AppContent: React.FC = () => {
           <Route path="/group/pay/:orderCode" element={<GroupBalancePay />} />
           <Route path="/group/:slug" element={<GroupBuy />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
+          {/* Token links — the link IS the credential, so no login guard. */}
+          <Route path="/rider/:token" element={<RiderDashboard />} />
+          <Route path="/delivery/:token" element={<DeliveryTracking />} />
           <Route
             path="/admin"
             element={

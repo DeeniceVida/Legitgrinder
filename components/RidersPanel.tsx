@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Motorcycle, Plus, Trash, Star, Check, X, WarningCircle } from '@phosphor-icons/react';
+import { Motorcycle, Plus, Trash, Star, Check, X, WarningCircle, LinkSimple } from '@phosphor-icons/react';
 import { Rider, fetchRiders, createRider, updateRider, setDefaultRider, deleteRider } from '../services/riders';
+import { rotateRiderToken } from '../services/deliveries';
 import { normalizeKenyanPhone } from '../utils/phone';
 
 /**
@@ -16,6 +17,7 @@ const RidersPanel: React.FC = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -58,6 +60,28 @@ const RidersPanel: React.FC = () => {
     setBusy(r.id);
     await deleteRider(r.id);
     setBusy(null); load();
+  };
+
+  /** Their dashboard link, ready to paste into WhatsApp. */
+  const copyLink = (r: Rider) => {
+    const url = `${window.location.origin}/rider/${r.accessToken}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(r.id);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
+
+  /** Kill the old link. Use it the day a rider stops working with you. */
+  const revoke = async (r: Rider) => {
+    if (!confirm(
+      `Revoke ${r.name}'s link?\n\n` +
+      `Their current link stops working immediately, and you'll need to send them the new one.`
+    )) return;
+    setBusy(r.id);
+    const res = await rotateRiderToken(r.id);
+    setBusy(null);
+    if (!res.success) { setError(res.error || 'Could not revoke that link.'); return; }
+    load();
   };
 
   const input = 'w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 text-sm font-medium outline-none focus:border-[#3D8593] transition-colors';
@@ -146,7 +170,26 @@ const RidersPanel: React.FC = () => {
               </a>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              {r.accessToken && r.active && (
+                <>
+                  <button
+                    onClick={() => copyLink(r)}
+                    className="px-3 py-2 rounded-xl bg-[#25D366]/10 text-[#1eb955] text-[9px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-colors flex items-center gap-1.5"
+                    title="Copy their dashboard link to send on WhatsApp"
+                  >
+                    {copied === r.id ? <><Check size={12} weight="bold" /> Copied</> : <><LinkSimple size={12} weight="bold" /> Their link</>}
+                  </button>
+                  <button
+                    onClick={() => revoke(r)}
+                    disabled={busy === r.id}
+                    className="px-3 py-2 rounded-xl border border-neutral-200 text-gray-400 text-[9px] font-black uppercase tracking-widest hover:border-rose-300 hover:text-rose-500 transition-colors disabled:opacity-40"
+                    title="Kill the old link and issue a new one"
+                  >
+                    Revoke link
+                  </button>
+                </>
+              )}
               {!r.isDefault && r.active && (
                 <button
                   onClick={() => makeDefault(r)}

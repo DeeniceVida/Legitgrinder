@@ -11,6 +11,8 @@ export interface Rider {
   isDefault: boolean;
   active: boolean;
   notes?: string;
+  /** Their private dashboard link. Rotating it revokes the old one. */
+  accessToken?: string;
   createdAt: string;
 }
 
@@ -21,6 +23,7 @@ const toRider = (d: any): Rider => ({
   isDefault: d.is_default === true,
   active: d.active !== false,
   notes: d.notes || undefined,
+  accessToken: d.access_token || undefined,
   createdAt: d.created_at,
 });
 

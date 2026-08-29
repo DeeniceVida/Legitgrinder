@@ -31,23 +31,24 @@ export interface Origin {
 }
 
 /**
- * Where a rider starts from. Coordinates are approximate to the block — they
- * set the fee, not the navigation, and the rider gets a real map link.
+ * Where a rider starts from. These are the owner's own pinned locations, not
+ * approximations — the first guess at Industrial Area was ~1.7km out, which is
+ * around KES 85 of error on every quote from there.
  */
 export const ORIGINS: Origin[] = [
   {
     id: 'cbd',
     name: 'Nairobi CBD',
     detail: 'Dynamic Mall, Tom Mboya Street — where in-stock items are collected',
-    lat: -1.2836,
-    lng: 36.8267,
+    lat: -1.2854649,
+    lng: 36.8266681,
   },
   {
     id: 'industrial',
     name: 'Industrial Area',
-    detail: 'For goods coming out of clearing',
-    lat: -1.3080,
-    lng: 36.8500,
+    detail: 'Salihiya World Cargo — for goods coming out of clearing',
+    lat: -1.2996869,
+    lng: 36.839082,
   },
 ];
 

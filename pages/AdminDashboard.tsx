@@ -39,6 +39,7 @@ import ChairsTab from '../components/ChairsTab';
 import EnquiriesPanel from '../components/EnquiriesPanel';
 import AudiencePanel from '../components/AudiencePanel';
 import RidersPanel from '../components/RidersPanel';
+import DeliveriesPanel from '../components/DeliveriesPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import { effectiveStock } from '../utils/productPricing';
 import SupervisorPanel from '../components/SupervisorPanel';
@@ -2507,8 +2508,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </p>
               </div>
 
-              {/* Who carries local deliveries */}
+              {/* Who carries local deliveries, and the jobs themselves */}
               <RidersPanel />
+              <DeliveriesPanel />
 
               {/* Sales that happened off-site still have to come off the shelf */}
               <EnquiriesPanel
