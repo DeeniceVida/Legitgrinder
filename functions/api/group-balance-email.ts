@@ -68,7 +68,7 @@ function buildHtml(p: Payload, r: Recipient): string {
       </div>
 
       ${p.collectionNote ? `<div style="margin:20px 0 4px;background:#fff8ed;border:1px solid #fde4bf;border-radius:12px;padding:14px 18px;">
-        <p style="margin:0;font-size:12.5px;color:#a86b12;line-height:1.55;">📍 ${esc(p.collectionNote)}</p>
+        <p style="margin:0;font-size:12.5px;color:#a86b12;line-height:1.55;">📍 ${esc(p.collectionNote).replace(/\n/g, '<br/>')}</p>
       </div>` : ''}
 
       <p style="margin:18px 0 0;font-size:12px;color:#9aa4a4;text-align:center;">Paid another way? Reply to this email and we'll mark it off.</p>

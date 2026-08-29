@@ -14,6 +14,22 @@ import { normalizeKenyanPhone } from '../utils/phone';
 const input = 'w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:border-[#3D8593] transition-colors';
 const label = 'block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1.5';
 
+/**
+ * What the balance email tells buyers about getting their order.
+ *
+ * This used to be one hardcoded line — "our Nairobi CBD pickup point" — which
+ * is not an address, so someone who had just paid still had to message to ask
+ * where to go. It also never mentioned delivery, so nobody knew to ask.
+ *
+ * Editable per send and remembered below, because a campaign collected
+ * somewhere else should just be typed over.
+ */
+const PICKUP_ADDRESS = 'Dynamic Mall, Shop ML 135, 3rd Floor — Tom Mboya Street, behind the National Archives, opposite Ambassadeur.';
+const DEFAULT_COLLECTION_NOTE =
+  `Collect from ${PICKUP_ADDRESS} Bring your order code.\n\n` +
+  `Prefer delivery? Reply to this email or WhatsApp +254 791 873 538 and we'll arrange a rider — the rider's fee is agreed directly with them.`;
+const NOTE_STORAGE_KEY = 'lg.groupbuy.collectionNote';
+
 const GroupBuysTab: React.FC = () => {
   const [campaigns, setCampaigns] = useState<GroupCampaign[]>([]);
   const [orders, setOrders] = useState<GroupOrder[]>([]);
@@ -25,6 +41,12 @@ const GroupBuysTab: React.FC = () => {
   const [notifying, setNotifying] = useState(false);
   const [notifyResult, setNotifyResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [copiedGroupMsg, setCopiedGroupMsg] = useState(false);
+  /** The send dialog — replaces a blind confirm() you couldn't edit anything in. */
+  const [sendFor, setSendFor] = useState<{ campaign: GroupCampaign; owing: GroupOrder[] } | null>(null);
+  const [collectionNote, setCollectionNote] = useState(() => {
+    try { return localStorage.getItem(NOTE_STORAGE_KEY) || DEFAULT_COLLECTION_NOTE; }
+    catch { return DEFAULT_COLLECTION_NOTE; }
+  });
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -181,13 +203,10 @@ const GroupBuysTab: React.FC = () => {
   const handleArrivedAndNotify = async (c: GroupCampaign, owing: GroupOrder[]) => {
     const withEmail = owing.filter(o => (o.clientEmail || '').includes('@'));
     const noEmail = owing.length - withEmail.length;
-    const owed = owing.reduce((s, o) => s + Math.max(o.totalKES - o.amountPaidKES, 0), 0);
 
-    if (!confirm(
-      `Email ${withEmail.length} buyer${withEmail.length === 1 ? '' : 's'} that "${c.title}" has arrived?\n\n` +
-      `They'll each get their own balance (KES ${owed.toLocaleString()} total) and a pay link.` +
-      (noEmail > 0 ? `\n\n${noEmail} buyer(s) have no email on file — WhatsApp them individually from the list below.` : '')
-    )) return;
+    setSendFor(null);
+    // Remember it for next time, so the address is typed once.
+    try { localStorage.setItem(NOTE_STORAGE_KEY, collectionNote); } catch { /* private window */ }
 
     setNotifying(true);
     setNotifyResult(null);
@@ -205,7 +224,7 @@ const GroupBuysTab: React.FC = () => {
     const res = await sendGroupBalanceEmails({
       campaignTitle: c.title,
       imageUrl: (c.imageUrls && c.imageUrls[0]) || c.imageUrl,
-      collectionNote: 'Ready for collection at our Nairobi CBD pickup point once your balance is cleared.',
+      collectionNote: collectionNote.trim() || undefined,
       recipients: withEmail.map(o => ({
         email: o.clientEmail!, name: o.clientName, orderCode: o.orderCode,
         units: o.units, color: o.color,
@@ -240,8 +259,12 @@ const GroupBuysTab: React.FC = () => {
     const first = (o.clientName || 'there').split(' ')[0];
     const balance = Math.max(o.totalKES - o.amountPaidKES, 0);
     const msg = encodeURIComponent(
-      `Hi ${first}! Your ${title} order (${o.orderCode}) has arrived and is ready for collection. ` +
-      `Balance due: KES ${balance.toLocaleString()}. Kindly clear it so we can hand it over. Thank you!`
+      `Hi ${first}! Your ${title} order (${o.orderCode}) has arrived and is ready for collection.\n\n` +
+      `Balance due: KES ${balance.toLocaleString()}.\n\n` +
+      // The buyers WhatsApped individually are the ones with no email, so this
+      // is the only place they will ever be told where to go.
+      `📍 ${PICKUP_ADDRESS}\n\n` +
+      `Prefer delivery? Let me know and I'll arrange a rider. Thank you!`
     );
     window.open(`https://wa.me/${normalizeKenyanPhone(o.clientWhatsapp)}?text=${msg}`, '_blank');
   };
@@ -302,7 +325,7 @@ const GroupBuysTab: React.FC = () => {
                     {copiedGroupMsg ? <><CheckCircle size={13} weight="fill" className="text-emerald-500" /> Copied</> : <><Copy size={13} weight="bold" /> Group message</>}
                   </button>
                   <button
-                    onClick={() => handleArrivedAndNotify(selectedCampaign, owing)}
+                    onClick={() => { setNotifyResult(null); setSendFor({ campaign: selectedCampaign, owing }); }}
                     disabled={notifying || owing.length === 0}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
                   >
@@ -533,6 +556,78 @@ const GroupBuysTab: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* SEND BALANCE EMAILS — the collection wording is the last thing you see
+          before it goes out, because it is the part that changes. */}
+      {sendFor && (() => {
+        const withEmail = sendFor.owing.filter(o => (o.clientEmail || '').includes('@'));
+        const noEmail = sendFor.owing.length - withEmail.length;
+        const owed = sendFor.owing.reduce((s, o) => s + Math.max(o.totalKES - o.amountPaidKES, 0), 0);
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+            <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+              <div className="px-7 py-5 border-b border-neutral-100">
+                <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">Email {withEmail.length} buyer{withEmail.length === 1 ? '' : 's'}</h3>
+                <p className="text-[11px] font-bold text-gray-400 mt-1.5">
+                  “{sendFor.campaign.title}” has arrived · KES {owed.toLocaleString()} outstanding
+                </p>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-7 py-6 space-y-5">
+                <p className="text-[13px] text-gray-500 font-medium leading-relaxed">
+                  Each buyer gets their own email with their own balance and pay link — nobody sees anyone else's.
+                </p>
+
+                <div>
+                  <label className={label}>Collection &amp; delivery <span className="text-neutral-300 normal-case font-medium">— appears in the 📍 box</span></label>
+                  <textarea
+                    value={collectionNote}
+                    onChange={(e) => setCollectionNote(e.target.value)}
+                    rows={6}
+                    className={input + ' resize-none leading-relaxed'}
+                  />
+                  <div className="flex items-center justify-between mt-1.5">
+                    <p className="text-[10px] font-medium text-gray-400">Saved for next time.</p>
+                    {collectionNote !== DEFAULT_COLLECTION_NOTE && (
+                      <button
+                        onClick={() => setCollectionNote(DEFAULT_COLLECTION_NOTE)}
+                        className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline"
+                      >
+                        Reset to default
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {noEmail > 0 && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                    <p className="text-[12px] font-medium text-amber-900/80 leading-relaxed">
+                      <strong>{noEmail} buyer{noEmail === 1 ? ' has' : 's have'} no email on file</strong> and will not receive
+                      this. WhatsApp them from the list — their button is already there.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-7 py-5 border-t border-neutral-100 flex justify-end gap-2">
+                <button
+                  onClick={() => setSendFor(null)}
+                  className="px-5 py-3 rounded-full border border-neutral-200 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleArrivedAndNotify(sendFor.campaign, sendFor.owing)}
+                  disabled={withEmail.length === 0}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
+                >
+                  <PaperPlaneTilt size={13} weight="fill" /> Send {withEmail.length} email{withEmail.length === 1 ? '' : 's'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
