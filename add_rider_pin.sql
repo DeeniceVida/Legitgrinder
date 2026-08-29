@@ -14,7 +14,13 @@
 --  Safe to re-run.
 -- ============================================================================
 
-create extension if not exists pgcrypto;
+-- Supabase puts extensions in their own schema. Installing here is a no-op if
+-- it already exists; what matters is that every function below carries
+--   set search_path = public, extensions
+-- so crypt() and gen_salt() can actually be found. Without that second schema
+-- the PIN check raises "function crypt(text, text) does not exist" and a rider
+-- with a PIN set can never sign in.
+create extension if not exists pgcrypto with schema extensions;
 
 alter table public.riders
   add column if not exists pin_hash text;
@@ -30,7 +36,7 @@ create or replace function public.set_rider_pin(p_rider_id uuid, p_pin text)
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 begin
   if not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
@@ -70,7 +76,7 @@ create or replace function public.rider_jobs(p_token text, p_pin text default nu
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_rider public.riders%rowtype;
@@ -152,7 +158,7 @@ create or replace function public.rider_update_job(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_rider public.riders%rowtype;
@@ -213,7 +219,7 @@ create or replace function public.request_delivery(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_rider uuid;
