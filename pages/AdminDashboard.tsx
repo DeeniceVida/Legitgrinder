@@ -121,7 +121,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'monitors' | 'invoices' | 'products' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'monitors' | 'invoices' | 'products' | 'deliveries' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -322,6 +322,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'clients', name: 'Clients', group: 'Main', icon: <Users className="w-4 h-4" /> },
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', badge: openEnquiries.length || undefined, icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'deliveries', name: 'Riders & Deliveries', group: 'Main', badge: undefined, icon: <Truck className="w-4 h-4" /> },
     { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
     // The corporate lines live behind one collapsible entry — they're catalogue
     // maintenance, not somewhere he needs to be every day.
@@ -2508,10 +2509,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </p>
               </div>
 
-              {/* Who carries local deliveries, and the jobs themselves */}
-              <RidersPanel />
-              <DeliveriesPanel />
-
               {/* Sales that happened off-site still have to come off the shelf */}
               <EnquiriesPanel
                 products={products}
@@ -3161,6 +3158,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'chairs' && <ChairsTab />}
 
         {activeTab === 'emails' && <SentEmailsTab />}
+
+        {activeTab === 'deliveries' && (
+          <div className="space-y-6 animate-in fade-in duration-700">
+            <RidersPanel />
+            <DeliveriesPanel />
+          </div>
+        )}
 
         {activeTab === 'groupbuys' && <GroupBuysTab />}
 
