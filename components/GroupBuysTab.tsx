@@ -25,8 +25,10 @@ const label = 'block text-[10px] font-black uppercase tracking-widest text-gray-
  * somewhere else should just be typed over.
  */
 const PICKUP_ADDRESS = 'Dynamic Mall, Shop ML 135, 3rd Floor — Tom Mboya Street, behind the National Archives, opposite Ambassadeur.';
+const PICKUP_HOURS = 'Open Monday to Friday, 9am–6pm. Closed Sunday.';
 const DEFAULT_COLLECTION_NOTE =
-  `Collect from ${PICKUP_ADDRESS} Bring your order code.\n\n` +
+  `Collect from ${PICKUP_ADDRESS}\n` +
+  `${PICKUP_HOURS} Please bring your order code.\n\n` +
   `Prefer delivery? Reply to this email or WhatsApp +254 791 873 538 and we'll arrange a rider — the rider's fee is agreed directly with them.`;
 const NOTE_STORAGE_KEY = 'lg.groupbuy.collectionNote';
 
@@ -245,8 +247,11 @@ const GroupBuysTab: React.FC = () => {
   const copyGroupMessage = (c: GroupCampaign) => {
     const msg =
       `📦 *${c.title} has arrived!*\n\n` +
-      `Everyone who reserved — your order is in and ready for collection at our Nairobi CBD point.\n\n` +
+      `Everyone who reserved — your order is in and ready for collection at:\n` +
+      `📍 ${PICKUP_ADDRESS}\n` +
+      `🕘 ${PICKUP_HOURS}\n\n` +
       `Your exact balance and a pay link have been emailed to you. Kindly clear it so we can hand yours over.\n\n` +
+      `Need it delivered instead? Message me and I'll arrange a rider.\n\n` +
       `Didn't get the email? Reply here with your order code (GRP-XXXXXX) and we'll resend it.\n\n` +
       `— LegitGrinder`;
     navigator.clipboard.writeText(msg).then(() => {
@@ -263,7 +268,8 @@ const GroupBuysTab: React.FC = () => {
       `Balance due: KES ${balance.toLocaleString()}.\n\n` +
       // The buyers WhatsApped individually are the ones with no email, so this
       // is the only place they will ever be told where to go.
-      `📍 ${PICKUP_ADDRESS}\n\n` +
+      `📍 ${PICKUP_ADDRESS}\n` +
+      `🕘 ${PICKUP_HOURS}\n\n` +
       `Prefer delivery? Let me know and I'll arrange a rider. Thank you!`
     );
     window.open(`https://wa.me/${normalizeKenyanPhone(o.clientWhatsapp)}?text=${msg}`, '_blank');
