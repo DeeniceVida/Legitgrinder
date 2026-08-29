@@ -285,6 +285,9 @@ declare
   v_rider uuid;
   v_fee   int;
   v_km    numeric;
+  v_straight numeric;
+  v_olat  numeric;
+  v_olng  numeric;
   v_token text;
 begin
   if p_lat is null or p_lng is null then
@@ -298,9 +301,29 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Unknown pickup point.');
   end if;
 
-  -- Distance is clamped, then priced by the same rules as the site:
-  -- KES 50/km rounded up to the nearest 10, floor of 300, plus 150 if bulky.
-  v_km := greatest(0, least(coalesce(p_km, 0), 500));
+  -- The browser sends the ROAD distance it measured, and the browser can be
+  -- edited. Claiming 0.1km for a trip across town would under-quote the fee,
+  -- and the rider is the one who would find out.
+  --
+  -- So: never accept less than the straight line between the two points.
+  -- Road distance is always at least that, so a genuine routed figure passes
+  -- untouched while a made-up one is floored at the honest minimum.
+  select lat, lng into v_olat, v_olng from (values
+    ('cbd',        -1.2854649::numeric, 36.8266681::numeric),
+    ('industrial', -1.2996869::numeric, 36.839082::numeric)
+  ) as o(id, lat, lng) where o.id = p_origin_id;
+
+  -- Haversine, in kilometres.
+  v_straight := 2 * 6371 * asin(least(1, sqrt(
+      sin(radians(p_lat - v_olat) / 2) ^ 2
+    + cos(radians(v_olat)) * cos(radians(p_lat)) * sin(radians(p_lng - v_olng) / 2) ^ 2
+  )));
+
+  v_km := greatest(coalesce(p_km, 0), v_straight);
+  v_km := greatest(0, least(v_km, 500));
+
+  -- Priced by the same rules as the site: KES 50/km rounded up to the
+  -- nearest 10, floor of 300, plus 150 if bulky.
   v_fee := greatest(ceil((v_km * 50) / 10.0) * 10, 300)::int
            + case when coalesce(p_bulky, false) then 150 else 0 end;
 
