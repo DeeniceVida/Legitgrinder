@@ -25,7 +25,7 @@ const label = 'block text-[10px] font-black uppercase tracking-widest text-gray-
  * somewhere else should just be typed over.
  */
 const PICKUP_ADDRESS = 'Dynamic Mall, Shop ML 135, 3rd Floor — Tom Mboya Street, behind the National Archives, opposite Ambassadeur.';
-const PICKUP_HOURS = 'Open Monday to Friday, 9am–6pm. Closed Sunday.';
+const PICKUP_HOURS = 'Open Monday to Saturday, 9am–6pm. Closed Sunday.';
 const DEFAULT_COLLECTION_NOTE =
   `Collect from ${PICKUP_ADDRESS}\n` +
   `${PICKUP_HOURS} Please bring your order code.\n\n` +
