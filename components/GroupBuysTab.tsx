@@ -47,6 +47,8 @@ const GroupBuysTab: React.FC = () => {
   const [copiedGroupMsg, setCopiedGroupMsg] = useState(false);
   /** The send dialog — replaces a blind confirm() you couldn't edit anything in. */
   const [sendFor, setSendFor] = useState<{ campaign: GroupCampaign; owing: GroupOrder[] } | null>(null);
+  /** Whether THIS campaign is items bigger than a jerrycan — rides in the delivery link. */
+  const [largeItems, setLargeItems] = useState(false);
   const [collectionNote, setCollectionNote] = useState(() => {
     try { return localStorage.getItem(NOTE_STORAGE_KEY) || DEFAULT_COLLECTION_NOTE; }
     catch { return DEFAULT_COLLECTION_NOTE; }
@@ -230,7 +232,7 @@ const GroupBuysTab: React.FC = () => {
       imageUrl: (c.imageUrls && c.imageUrls[0]) || c.imageUrl,
       collectionNote: collectionNote.trim() || undefined,
       // Buyers who cannot reach town get a rider instead of a lost sale.
-      deliveryUrl: origin + '/request-delivery?item=' + encodeURIComponent(c.title),
+      deliveryUrl: origin + '/request-delivery?item=' + encodeURIComponent(c.title) + (largeItems ? '&large=1' : ''),
       recipients: withEmail.map(o => ({
         email: o.clientEmail!, name: o.clientName, orderCode: o.orderCode,
         units: o.units, color: o.color,
@@ -608,6 +610,23 @@ const GroupBuysTab: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Rides in the delivery button's link. Without it every buyer
+                    who picks delivery is quoted 150 short of what the rider
+                    will actually want for a big load. */}
+                <label className="flex items-start gap-3 cursor-pointer bg-neutral-50 border border-neutral-100 rounded-xl p-4">
+                  <input type="checkbox" checked={largeItems} onChange={e => setLargeItems(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-[#FF9900]" />
+                  <span>
+                    <span className="block text-[13px] font-bold text-gray-900">
+                      These are bigger than a 20-litre jerrycan
+                    </span>
+                    <span className="block text-[11px] font-medium text-gray-400 leading-relaxed">
+                      Adds KES 150 to any delivery booked from this email, shown to the buyer as an
+                      explained line. Leave it off for small items.
+                    </span>
+                  </span>
+                </label>
 
                 {noEmail > 0 && (
                   <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">

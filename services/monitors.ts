@@ -390,7 +390,7 @@ export const priceMonitor = (
  * order, never per unit and never a percentage.
  *
  * The percentage rule is opt-in: it only applies if serviceFeePctOver is set
- * above zero, which it isn't by default. (The How It Works page mentions 4%
+ * above zero, which it isn't by default. (The How It Works page mentions 5%
  * above KES 100,000 for large orders — if that should apply here, set the
  * percentage in the dashboard and it takes over above the threshold.)
  */

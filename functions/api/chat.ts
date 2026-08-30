@@ -31,7 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     - China Sea: 45-50 days.
     - USA Air: 3-4 weeks.
     - USA Sea: 3 months.
-    - Fees: Buying price (includes 5% transaction fee), Shipping fee (weight/volume based), and Service fee (Min $30 or 6% for >100k KES).
+    - Fees: Buying price (includes 5% transaction fee), Shipping fee (weight/volume based), and Service fee (from KES 3,000, or KES 3,500 for business goods; above KES 100,000 it is 5% of the buying price, or 7% for business goods).
     - Specific US Phone Formula: $1 = 135 KES. Cost includes +$20 flat + 3.5% shipping + service fee ($30 or 4.5% if value > $750).
     - Location: Nairobi CBD (collection point).
     - Founder/Owner: Known for helpfulness on TikTok/Instagram.
