@@ -27,11 +27,13 @@ const label = 'block text-[10px] font-black uppercase tracking-widest text-gray-
 const PICKUP_ADDRESS = 'Dynamic Mall, Shop ML 135, 3rd Floor — Tom Mboya Street, behind the National Archives, opposite Ambassadeur.';
 const PICKUP_HOURS = 'Open Monday to Saturday, 9am–6pm. Closed Sunday.';
 const DEFAULT_COLLECTION_NOTE =
-  `Collect from ${PICKUP_ADDRESS}\n` +
+  // The buyer is choosing between two options and only one of them has a price.
+  // Saying the free one is free is what makes it a choice rather than a charge.
+  `Collection is FREE from ${PICKUP_ADDRESS}\n` +
   `${PICKUP_HOURS} Please bring your order code.\n\n` +
   // No longer "agreed with the rider" — the email now carries a button that
   // prices it properly, so pointing people back to a negotiation would undo it.
-  `Can't reach town? Use the delivery button below to pin your location and see the rider's fee.`;
+  `Would rather not come to town? Use the delivery button below to pin your location and see what a rider would cost.`;
 const NOTE_STORAGE_KEY = 'lg.groupbuy.collectionNote';
 
 const GroupBuysTab: React.FC = () => {
