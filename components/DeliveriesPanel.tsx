@@ -51,6 +51,23 @@ const DeliveriesPanel: React.FC = () => {
   const [copied, setCopied] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
+  // Link builder — the owner's two decisions, encoded into the URL.
+  const [building, setBuilding] = useState(false);
+  const [linkOrigin, setLinkOrigin] = useState<string>('cbd');
+  const [linkLarge, setLinkLarge] = useState(false);
+  const [linkItem, setLinkItem] = useState('');
+  const [linkRef, setLinkRef] = useState('');
+
+  const buildLink = () => {
+    const q = new URLSearchParams();
+    if (linkOrigin !== 'cbd') q.set('from', linkOrigin);
+    if (linkLarge) q.set('large', '1');
+    if (linkItem.trim()) q.set('item', linkItem.trim());
+    if (linkRef.trim()) q.set('order', linkRef.trim());
+    const qs = q.toString();
+    return `${window.location.origin}/request-delivery${qs ? '?' + qs : ''}`;
+  };
+
   // New-job form
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -194,21 +211,12 @@ const DeliveriesPanel: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          {/* The link you send anyone who'd rather have it delivered — they
-              pin, see the fee, and it books itself onto a rider. */}
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/request-delivery`).then(() => {
-                setCopied('request-link');
-                setTimeout(() => setCopied(null), 2000);
-              });
-            }}
+            onClick={() => { setBuilding(b => !b); setError(null); }}
             className="px-4 py-2.5 rounded-xl bg-[#25D366]/10 text-[#1eb955] text-[10px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-colors flex items-center gap-2"
-            title="Send this to a customer who wants delivery"
+            title="Build the link you send a customer who wants delivery"
           >
-            {copied === 'request-link'
-              ? <><Check size={13} weight="bold" /> Copied</>
-              : <><LinkSimple size={13} weight="bold" /> Request link</>}
+            <LinkSimple size={13} weight="bold" /> Delivery link
           </button>
           <button onClick={load} className="w-10 h-10 rounded-xl border border-neutral-200 flex items-center justify-center text-gray-400 hover:text-[#3D8593] hover:border-[#3D8593] transition-colors">
             <ArrowsClockwise size={14} weight="bold" />
@@ -227,6 +235,75 @@ const DeliveriesPanel: React.FC = () => {
           <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl p-4">
             <WarningCircle size={16} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
             <p className="text-sm font-medium text-rose-900">{error}</p>
+          </div>
+        )}
+
+        {/* THE LINK BUILDER. Two things the customer cannot know — where the
+            package is, and how big it is — get decided here and ride in the
+            link, so their page never asks them. */}
+        {building && (
+          <div className="bg-[#0f1a1c] rounded-2xl p-5 space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">
+              Build the link you send them
+            </p>
+
+            <div>
+              <label className="text-[10px] font-black uppercase tracking-widest text-neutral-500 block mb-1.5">
+                Where is the package?
+              </label>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {ORIGINS.map(o => (
+                  <button
+                    key={o.id}
+                    onClick={() => setLinkOrigin(o.id)}
+                    className={`text-left px-4 py-3 rounded-xl border transition-all ${linkOrigin === o.id
+                      ? 'border-[#3D8593] bg-[#3D8593]/15'
+                      : 'border-white/15 hover:border-white/30'}`}
+                  >
+                    <span className={`block text-[12px] font-black ${linkOrigin === o.id ? 'text-[#7fc2ce]' : 'text-white'}`}>{o.name}</span>
+                    <span className="block text-[10px] font-medium text-neutral-500 mt-0.5">{o.adminDetail}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" checked={linkLarge} onChange={e => setLinkLarge(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-[#FF9900]" />
+              <span>
+                <span className="block text-[12.5px] font-bold text-white">Bigger than a 20-litre jerrycan</span>
+                <span className="block text-[11px] font-medium text-neutral-500">
+                  Adds KES 150. They see it as an explained line, not a box to tick.
+                </span>
+              </span>
+            </label>
+
+            <div className="grid sm:grid-cols-2 gap-2">
+              <input value={linkItem} onChange={e => setLinkItem(e.target.value)}
+                placeholder="What is it? (optional)"
+                className="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-sm font-medium text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-600" />
+              <input value={linkRef} onChange={e => setLinkRef(e.target.value)}
+                placeholder="Order code (optional)"
+                className="w-full h-11 bg-white/5 border border-white/15 rounded-xl px-4 text-sm font-medium text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-600" />
+            </div>
+
+            <p className="text-[11px] font-mono text-neutral-500 break-all bg-black/30 rounded-lg px-3 py-2">
+              {buildLink()}
+            </p>
+
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(buildLink()).then(() => {
+                  setCopied('built-link');
+                  setTimeout(() => setCopied(null), 2200);
+                });
+              }}
+              className="w-full h-11 rounded-xl bg-[#25D366] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-2"
+            >
+              {copied === 'built-link'
+                ? <><Check size={14} weight="bold" /> Copied — paste it to them</>
+                : <><LinkSimple size={14} weight="bold" /> Copy this link</>}
+            </button>
           </div>
         )}
 

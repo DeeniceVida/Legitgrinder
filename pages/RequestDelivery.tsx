@@ -16,6 +16,10 @@ const RequestDelivery: React.FC = () => {
   const [params] = useSearchParams();
   const reference = params.get('order') || params.get('ref') || undefined;
   const item = params.get('item') || undefined;
+  // The owner's calls ride in the link: where the package is, and whether it
+  // is a large one. The customer is never asked either.
+  const origin = params.get('from') === 'industrial' ? 'industrial' as const : 'cbd' as const;
+  const large = params.get('large') === '1';
 
   return (
     <div className="bg-brand-bg min-h-screen pt-32 pb-24 px-4">
@@ -32,7 +36,7 @@ const RequestDelivery: React.FC = () => {
           </p>
         </div>
 
-        <DeliveryEstimator reference={reference} item={item} />
+        <DeliveryEstimator reference={reference} item={item} origin={origin} large={large} />
       </div>
     </div>
   );

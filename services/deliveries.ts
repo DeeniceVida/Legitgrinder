@@ -44,6 +44,10 @@ export interface Delivery {
   parcelReceiptUrl?: string;
   /** admin = you created it · customer = they booked it themselves. */
   source?: string;
+  /** doorstep = to their door · parcel = only as far as the courier office. */
+  deliveryType?: string;
+  courierName?: string;
+  customerEmail?: string;
   riderNotes?: string;
   notes?: string;
   collectedAt?: string;
@@ -73,6 +77,9 @@ const toDelivery = (d: any): Delivery => ({
   parcelRef: d.parcel_ref || undefined,
   parcelReceiptUrl: d.parcel_receipt_url || undefined,
   source: d.source || undefined,
+  deliveryType: d.delivery_type || undefined,
+  courierName: d.courier_name || undefined,
+  customerEmail: d.customer_email || undefined,
   riderNotes: d.rider_notes || undefined,
   notes: d.notes || undefined,
   collectedAt: d.collected_at || undefined,
@@ -270,6 +277,8 @@ export const uploadReceipt = async (
 export interface DeliveryStatusView {
   ok: boolean;
   error?: string;
+  deliveryType?: string;
+  courierName?: string;
   customerName?: string;
   item?: string;
   invoiceNumber?: string;
@@ -314,8 +323,11 @@ export const fetchDeliveryStatus = async (token: string): Promise<DeliveryStatus
 export const requestDelivery = async (r: {
   customerName?: string;
   customerPhone?: string;
+  customerEmail?: string;
   item?: string;
   originId: string;
+  deliveryType: 'doorstep' | 'parcel';
+  courierName?: string;
   lat: number;
   lng: number;
   label?: string;
@@ -327,8 +339,11 @@ export const requestDelivery = async (r: {
     const { data, error } = await supabase.rpc('request_delivery', {
       p_customer_name: r.customerName ?? null,
       p_customer_phone: r.customerPhone ?? null,
+      p_customer_email: r.customerEmail ?? null,
       p_item: r.item ?? null,
       p_origin_id: r.originId,
+      p_delivery_type: r.deliveryType,
+      p_courier_name: r.courierName ?? null,
       p_lat: r.lat,
       p_lng: r.lng,
       p_label: r.label ?? null,
@@ -349,5 +364,45 @@ export const requestDelivery = async (r: {
     };
   } catch (e: any) {
     return { ok: false, error: 'We could not book that. Please try again or message us.' };
+  }
+};
+
+/**
+ * Email the customer their delivery receipt, right after the rider uploads it.
+ *
+ * The address is fetched through a function keyed on the rider's own token, so
+ * a rider can only ever pull the address for a job that is actually theirs —
+ * the page never reads the deliveries table.
+ */
+export const emailDeliveryReceipt = async (
+  token: string,
+  deliveryId: string,
+): Promise<{ sent: boolean; reason?: string }> => {
+  try {
+    const { data, error } = await supabase.rpc('delivery_receipt_recipient', {
+      p_token: token,
+      p_delivery_id: deliveryId,
+    });
+    if (error || !data?.ok) return { sent: false, reason: 'lookup-failed' };
+    if (!data.email) return { sent: false, reason: 'no-email' };
+
+    const res = await fetch('/api/delivery-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        to: data.email,
+        customerName: data.customerName,
+        item: data.item,
+        courierName: data.courierName,
+        parcelFeeKES: data.parcelFeeKES,
+        parcelRef: data.parcelRef,
+        receiptUrl: data.receiptUrl,
+        trackUrl: `${window.location.origin}/delivery/${data.customerToken}`,
+      }),
+    });
+    return { sent: res.ok };
+  } catch {
+    return { sent: false, reason: 'network' };
   }
 };

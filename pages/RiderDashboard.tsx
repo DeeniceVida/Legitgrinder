@@ -5,7 +5,7 @@ import {
   Phone, MapPin, Receipt, CurrencyDollar,
 } from '@phosphor-icons/react';
 import {
-  Delivery, DeliveryStatus, fetchRiderJobs, riderUpdateJob, uploadReceipt,
+  Delivery, DeliveryStatus, fetchRiderJobs, riderUpdateJob, uploadReceipt, emailDeliveryReceipt,
 } from '../services/deliveries';
 import { originById } from '../utils/delivery';
 
@@ -246,6 +246,10 @@ const JobCard: React.FC<{
     const res = await riderUpdateJob(token, job.id, pin, { receiptUrl: up.url });
     setUploading(false);
     if (!res.ok) { onError(res.error || 'Saved the photo but could not attach it.'); return; }
+    // Their copy, straight away — this is the WhatsApp forwarding that the
+    // whole feature exists to remove. Best-effort: the receipt is already on
+    // their tracking link whether or not the email lands.
+    emailDeliveryReceipt(token, job.id).catch(() => {});
     onSaved();
   };
 
@@ -319,10 +323,11 @@ const JobCard: React.FC<{
         </div>
       </div>
 
-      {/* Courier leg — the reason this page exists */}
+      {/* Courier leg — parcel jobs only. A doorstep job never sees this. */}
+      {job.deliveryType === 'parcel' && (
       <div className="border-t border-white/10 p-5 space-y-3">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">
-          Sending it onward? (Wells Fargo, courier…)
+          {job.courierName ? `At ${job.courierName}` : 'At the courier'} — the customer pays, you record it
         </p>
 
         {job.parcelReceiptUrl ? (
@@ -330,7 +335,7 @@ const JobCard: React.FC<{
             className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-4">
             <CheckCircle size={20} weight="fill" className="text-emerald-400 shrink-0" />
             <span className="text-[12px] text-emerald-200 font-medium">
-              Receipt uploaded — the customer can see it. Tap to view.
+              Receipt uploaded — the customer has it. Tap to view.
             </span>
           </a>
         ) : (
@@ -341,16 +346,16 @@ const JobCard: React.FC<{
               className="w-full h-12 rounded-full bg-[#FF9900] text-white font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
               {uploading
                 ? <><CircleNotch size={15} className="animate-spin" /> Uploading…</>
-                : <><Camera size={16} weight="fill" /> Photograph the receipt</>}
+                : <><Camera size={16} weight="fill" /> Photograph their receipt</>}
             </button>
           </>
         )}
 
         <div className="grid grid-cols-2 gap-2">
           <input value={service} onChange={e => setService(e.target.value)}
-            placeholder="Service (Wells Fargo)" className={field} />
+            placeholder={job.courierName || "Which courier"} className={field} />
           <input value={fee} onChange={e => setFee(e.target.value.replace(/[^0-9]/g, ''))}
-            inputMode="numeric" placeholder="What it cost" className={field} />
+            inputMode="numeric" placeholder="What they paid" className={field} />
         </div>
         <input value={ref} onChange={e => setRef(e.target.value)}
           placeholder="Waybill / reference number" className={field} />
@@ -359,6 +364,7 @@ const JobCard: React.FC<{
           {saved ? <><CheckCircle size={15} weight="fill" className="text-emerald-400" /> Saved</> : <><Receipt size={15} weight="duotone" /> Save these details</>}
         </button>
       </div>
+      )}
 
       {/* Progress */}
       <div className="border-t border-white/10 p-5">
@@ -370,7 +376,7 @@ const JobCard: React.FC<{
         ) : (
           <button onClick={() => onStatus(job, 'delivered')} disabled={busy}
             className="w-full h-12 rounded-full bg-emerald-500 text-white font-black uppercase text-[10px] tracking-widest disabled:opacity-50">
-            {busy ? 'Saving…' : 'Mark delivered'}
+            {busy ? 'Saving…' : job.deliveryType === 'parcel' ? 'Handed to the courier' : 'Mark delivered'}
           </button>
         )}
       </div>

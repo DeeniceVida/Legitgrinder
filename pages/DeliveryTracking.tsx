@@ -114,8 +114,8 @@ const DeliveryTracking: React.FC = () => {
             {(d.parcelFeeKES != null || d.parcelService) && (
               <div className="flex justify-between items-baseline pt-3 border-t border-neutral-100">
                 <span className="text-[13px] text-gray-500">
-                  Courier{d.parcelService ? ` · ${d.parcelService}` : ''}
-                  <span className="block text-[11px] text-gray-400">Charged at cost — receipt below</span>
+                  Courier{(d.courierName || d.parcelService) ? ` · ${d.courierName || d.parcelService}` : ''}
+                  <span className="block text-[11px] text-gray-400">Paid by you at their counter — receipt below</span>
                 </span>
                 <span className="text-[15px] font-black text-gray-900">{money(d.parcelFeeKES) || 'Pending'}</span>
               </div>
@@ -144,8 +144,10 @@ const DeliveryTracking: React.FC = () => {
           <div className="flex items-start gap-3 bg-white border border-gray-100 rounded-[1.75rem] p-5">
             <MapPin size={18} weight="duotone" className="text-gray-300 shrink-0 mt-0.5" />
             <p className="text-[12.5px] text-gray-400 font-light leading-relaxed">
-              If we're sending this onward by courier, the receipt appears here as soon as
-              {d.riderFirstName ? ` ${d.riderFirstName}` : ' the rider'} has paid it.
+              {d.deliveryType === 'parcel'
+                ? <>You pay {d.courierName || 'the courier'} directly at their counter — whatever they
+                  charge. {d.riderFirstName || 'The rider'} photographs the receipt and it appears here.</>
+                : <>{d.riderFirstName || 'The rider'} will bring it to the pin you dropped.</>}
             </p>
           </div>
         )}

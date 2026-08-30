@@ -40,10 +40,21 @@ interface Props {
   reference?: string;
   /** What is being delivered, when we already know. */
   item?: string;
+  /**
+   * The owner's calls, arriving in the link — not the customer's to make.
+   * The package sits in ONE place, and only he has seen how big it is.
+   */
+  origin?: 'cbd' | 'industrial';
+  large?: boolean;
 }
 
-const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
-  const [originId, setOriginId] = useState<'cbd' | 'industrial'>('cbd');
+const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originProp, large }) => {
+  const originId = originProp || 'cbd';
+  const bulky = large === true;
+  /** Doorstep or as far as a courier's counter. The first thing we ask. */
+  const [mode, setMode] = useState<'doorstep' | 'parcel' | null>(null);
+  const [courier, setCourier] = useState('');
+  const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
@@ -51,7 +62,6 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
   /** Set once it's booked — their own link to watch it. */
   const [bookedToken, setBookedToken] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ lat: number; lng: number } | null>(null);
-  const [bulky, setBulky] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [routed, setRouted] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -92,7 +102,10 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
       dropMarker.current = null;
       setMapReady(false);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // Depends on `mode` because the map container is only rendered once a
+    // delivery type is chosen. With an empty dependency list this ran on mount,
+    // found no container, and never ran again — no map ever appeared.
+  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the origin marker on whichever pickup point is selected.
   //
@@ -168,20 +181,28 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
   };
 
   /** Book it: creates the job, puts it on the rider's phone, tells the owner. */
+  /** Book it: creates the job, puts it on the rider's phone, tells the owner. */
   const submit = async () => {
-    if (!drop || !quote) return;
+    if (!drop || !quote || !mode) return;
     if (!name.trim()) { setFormError('We need a name for the delivery.'); return; }
     if (phone.trim().replace(/\D/g, '').length < 9) { setFormError('A phone number the rider can call, please.'); return; }
+    if (mode === 'parcel' && !courier.trim()) { setFormError('Which courier are you sending it with?'); return; }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setFormError('That email address does not look right.'); return;
+    }
     setFormError(null);
     setSending(true);
 
     const res = await requestDelivery({
       customerName: name.trim(),
       customerPhone: phone.trim(),
+      customerEmail: email.trim() || undefined,
       item,
       originId,
+      deliveryType: mode,
+      courierName: mode === 'parcel' ? courier.trim() : undefined,
       lat: drop.lat, lng: drop.lng,
-      label: `${drop.lat.toFixed(5)}, ${drop.lng.toFixed(5)}`,
+      label: mode === 'parcel' ? `${courier.trim()} office` : `${drop.lat.toFixed(5)}, ${drop.lng.toFixed(5)}`,
       km: quote.km,
       bulky,
       reference,
@@ -200,6 +221,8 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
         customerPhone: phone.trim(),
         item, reference,
         origin: origin.name,
+        deliveryType: mode,
+        courierName: mode === 'parcel' ? courier.trim() : undefined,
         mapUrl: `https://www.google.com/maps?q=${drop.lat.toFixed(6)},${drop.lng.toFixed(6)}`,
         km: quote.km,
         bulky,
@@ -224,9 +247,15 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
         </span>
         <h2 className="text-2xl font-bold tracking-tighter mb-2">A rider is on it.</h2>
         <p className="text-gray-500 font-light text-sm leading-relaxed mb-6 max-w-sm mx-auto">
-          Your delivery has been sent to a rider and to LegitGrinder. Keep this link — it
-          shows you where your item has got to, and carries the courier receipt if we send
-          it onward.
+          {mode === 'parcel' ? (
+            <>
+              Your parcel is going to <strong className="text-gray-900">{courier.trim()}</strong>. Keep this link —
+              the rider uploads the receipt to it once your parcel is booked in
+              {email.trim() ? ', and we will email you a copy' : ''}.
+            </>
+          ) : (
+            <>Keep this link — it shows you where your item has got to, right up to the door.</>
+          )}
         </p>
         <a
           href={`/delivery/${bookedToken}`}
@@ -238,6 +267,8 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
     );
   }
 
+  const field = 'w-full h-[50px] bg-white/10 border border-white/20 rounded-2xl px-4 text-sm font-medium text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-500';
+
   return (
     <div className="bg-white rounded-[1.75rem] border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-6 md:px-8 pt-7 pb-5">
@@ -246,147 +277,207 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item }) => {
           Where should we bring it?
         </h2>
         <p className="text-gray-500 font-light text-sm leading-relaxed">
-          Drop a pin where you want it delivered. You see the fee before you confirm anything —
-          KES {RATE_PER_KM} per kilometre, minimum {money(MINIMUM_FEE)}.
+          KES {RATE_PER_KM} per kilometre from where your item is, minimum {money(MINIMUM_FEE)}.
+          You see the fee before you confirm anything.
         </p>
       </div>
 
-      {/* Pickup point */}
-      <div className="px-6 md:px-8 pb-4">
-        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Rider collects from</p>
+      {/* THE FIRST QUESTION. Everything after it differs, so it is asked before
+          the map rather than after. */}
+      <div className="px-6 md:px-8 pb-5">
+        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">How do you want it?</p>
         <div className="grid sm:grid-cols-2 gap-2">
-          {ORIGINS.map(o => (
-            <button
-              key={o.id}
-              onClick={() => setOriginId(o.id)}
-              aria-pressed={originId === o.id}
-              className={`text-left px-4 py-3 rounded-2xl border transition-all ${originId === o.id
-                ? 'border-[#3D8593] bg-[#3D8593]/5'
-                : 'border-gray-200 bg-white hover:border-[#3D8593]/50'}`}
-            >
-              <span className={`block text-[13px] font-black ${originId === o.id ? 'text-[#3D8593]' : 'text-gray-900'}`}>{o.name}</span>
-              <span className="block text-[11px] font-medium text-gray-400 mt-0.5 leading-snug">{o.detail}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Map */}
-      <div className="px-6 md:px-8">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Tap the map to drop your pin</p>
           <button
-            onClick={useMyLocation}
-            className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#3D8593] hover:underline"
+            onClick={() => { setMode('doorstep'); setDrop(null); }}
+            aria-pressed={mode === 'doorstep'}
+            className={`text-left px-4 py-4 rounded-2xl border transition-all ${mode === 'doorstep'
+              ? 'border-[#3D8593] bg-[#3D8593]/5'
+              : 'border-gray-200 bg-white hover:border-[#3D8593]/50'}`}
           >
-            <Crosshair size={13} weight="bold" /> Use my location
+            <span className={`block text-[13px] font-black ${mode === 'doorstep' ? 'text-[#3D8593]' : 'text-gray-900'}`}>
+              To my door
+            </span>
+            <span className="block text-[11px] font-medium text-gray-400 mt-0.5 leading-snug">
+              Anywhere in Nairobi
+            </span>
+          </button>
+          <button
+            onClick={() => { setMode('parcel'); setDrop(null); }}
+            aria-pressed={mode === 'parcel'}
+            className={`text-left px-4 py-4 rounded-2xl border transition-all ${mode === 'parcel'
+              ? 'border-[#FF9900] bg-[#FF9900]/5'
+              : 'border-gray-200 bg-white hover:border-[#FF9900]/50'}`}
+          >
+            <span className={`block text-[13px] font-black ${mode === 'parcel' ? 'text-[#FF9900]' : 'text-gray-900'}`}>
+              To a courier
+            </span>
+            <span className="block text-[11px] font-medium text-gray-400 mt-0.5 leading-snug">
+              I am outside Nairobi
+            </span>
           </button>
         </div>
-        <div
-          ref={mapEl}
-          className="w-full h-[300px] md:h-[380px] rounded-2xl overflow-hidden border border-gray-200 z-0"
-        />
       </div>
 
-      {/* Options + quote */}
-      <div className="px-6 md:px-8 py-6 space-y-4">
-        <label className="flex items-start gap-3 cursor-pointer">
+      {mode === 'parcel' && (
+        <div className="px-6 md:px-8 pb-4">
+          <label htmlFor="courier" className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">
+            Which courier?
+          </label>
           <input
-            type="checkbox"
-            checked={bulky}
-            onChange={e => setBulky(e.target.checked)}
-            className="mt-0.5 w-4 h-4 accent-[#3D8593]"
+            id="courier"
+            value={courier}
+            onChange={e => setCourier(e.target.value)}
+            placeholder="e.g. Wells Fargo, Easy Coach"
+            className="w-full h-[50px] bg-neutral-50 border border-gray-200 rounded-2xl px-4 text-sm font-medium outline-none focus:border-[#FF9900] transition-colors"
           />
-          <span>
-            <span className="block text-[13px] font-bold text-gray-900">Is it bigger than a 27-inch monitor?</span>
-            <span className="block text-[11px] font-medium text-gray-400">
-              Anything larger than that needs more than a backpack — adds {money(BULKY_SURCHARGE)}.
-            </span>
-          </span>
-        </label>
-
-        {!drop ? (
-          <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-100 rounded-2xl p-5">
-            <MapPin size={20} weight="duotone" className="text-gray-300 shrink-0" />
-            <p className="text-[13px] font-medium text-gray-400">
-              Drop a pin above to see your fee.
-            </p>
-          </div>
-        ) : (
-          <div className="bg-[#0f1a1c] rounded-2xl p-6 text-white">
-            {busy || !quote ? (
-              <p className="flex items-center gap-2 text-sm font-medium text-neutral-300">
-                <CircleNotch size={16} className="animate-spin" /> Measuring the route…
-              </p>
-            ) : (
-              <>
-                <div className="flex items-end justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Estimated rider fee</p>
-                    <p className="text-4xl font-black tracking-tight">{money(quote.total)}</p>
-                  </div>
-                  <div className="text-right text-[11px] font-medium text-neutral-400 leading-relaxed">
-                    <p>~{quote.km} km {routed ? 'by road' : '(approx.)'}</p>
-                    {/* Never print an equation that doesn't hold: the fee is
-                        rounded up to the nearest 10, so "7 × 50 = 360" would be
-                        visibly wrong arithmetic on the customer's screen. */}
-                    <p>
-                      {quote.atMinimum
-                        ? `Minimum fare ${money(MINIMUM_FEE)}`
-                        : `${quote.km} km × ${money(RATE_PER_KM)} → ${money(quote.distanceFee)}`}
-                    </p>
-                    {quote.surcharge > 0 && <p>Bulky item + {money(quote.surcharge)}</p>}
-                  </div>
-                </div>
-
-                {outOfArea && (
-                  <p className="mt-4 text-[12px] font-medium text-[#FF9900] leading-relaxed">
-                    That pin is outside Nairobi — we'll need to confirm whether a rider can reach it.
-                  </p>
-                )}
-
-                {/* Who it's for. Asked only once a fee exists, so nobody fills
-                    in a form before knowing what it costs. */}
-                <div className="mt-5 space-y-2">
-                  <input
-                    value={name} onChange={e => setName(e.target.value)}
-                    placeholder="Your name"
-                    className="w-full h-[50px] bg-white/10 border border-white/20 rounded-2xl px-4 text-sm font-medium text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-500"
-                  />
-                  <input
-                    value={phone} onChange={e => setPhone(e.target.value)}
-                    inputMode="tel" placeholder="Phone the rider should call"
-                    className="w-full h-[50px] bg-white/10 border border-white/20 rounded-2xl px-4 text-sm font-medium text-white outline-none focus:border-[#3D8593] placeholder:text-neutral-500"
-                  />
-                  {formError && <p className="text-[12px] font-bold text-rose-400">{formError}</p>}
-                  <button
-                    onClick={submit}
-                    disabled={sending}
-                    className="w-full h-[54px] bg-[#FF9900] text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] hover:bg-white hover:text-[#0f1a1c] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                  >
-                    {sending ? <><CircleNotch size={16} className="animate-spin" /> Sending…</> : <>Send this to a rider</>}
-                  </button>
-                  <button
-                    onClick={askOnWhatsApp}
-                    className="w-full h-[46px] border border-white/20 text-neutral-300 rounded-full font-black uppercase text-[10px] tracking-[0.2em] hover:border-[#25D366] hover:text-[#25D366] transition-all flex items-center justify-center gap-2"
-                  >
-                    <WhatsappLogo size={16} weight="fill" /> Or ask on WhatsApp
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
-          <Info size={16} weight="duotone" className="text-[#FF9900] shrink-0 mt-0.5" />
-          <p className="text-[11.5px] font-medium text-amber-900/80 leading-relaxed">
-            This is an <strong>estimate</strong>, confirmed when we assign a rider — a closed road or a
-            long way round can move it. Sending your parcel onward by courier (Wells Fargo, a matatu
-            service) is charged separately <strong>at cost</strong>, and you get the receipt.
+          <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+            Your choice entirely — we do not pick for you.
           </p>
         </div>
-      </div>
+      )}
+
+      {mode && (
+        <>
+          {/* Map */}
+          <div className="px-6 md:px-8">
+            <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                {mode === 'parcel' ? 'Tap where the courier office is' : 'Tap the map to drop your pin'}
+              </p>
+              {mode === 'doorstep' && (
+                <button
+                  onClick={useMyLocation}
+                  className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-[#3D8593] hover:underline"
+                >
+                  <Crosshair size={13} weight="bold" /> Use my location
+                </button>
+              )}
+            </div>
+            <div
+              ref={mapEl}
+              className="w-full h-[300px] md:h-[380px] rounded-2xl overflow-hidden border border-gray-200 z-0"
+            />
+            {mode === 'parcel' && (
+              <p className="text-[11px] font-medium text-gray-400 mt-2">
+                The rider takes it there and hands it over — most courier offices are in the CBD.
+              </p>
+            )}
+          </div>
+
+          {/* Quote */}
+          <div className="px-6 md:px-8 py-6 space-y-4">
+            {!drop ? (
+              <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-100 rounded-2xl p-5">
+                <MapPin size={20} weight="duotone" className="text-gray-300 shrink-0" />
+                <p className="text-[13px] font-medium text-gray-400">
+                  {mode === 'parcel'
+                    ? 'Drop a pin on the courier office to see your fee.'
+                    : 'Drop a pin above to see your fee.'}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-[#0f1a1c] rounded-2xl p-6 text-white">
+                {busy || !quote ? (
+                  <p className="flex items-center gap-2 text-sm font-medium text-neutral-300">
+                    <CircleNotch size={16} className="animate-spin" /> Measuring the route…
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-3">
+                      {mode === 'parcel' ? 'The rider ride to the courier' : 'The rider fee'}
+                    </p>
+
+                    {/* Itemised, so the large-item charge is explained rather
+                        than appearing as a number nobody asked for. */}
+                    <div className="space-y-2 text-[13px]">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-neutral-400">
+                          {quote.km} km from {origin.name}
+                          {quote.atMinimum && <span className="text-neutral-500"> · minimum fare</span>}
+                        </span>
+                        <span className="font-bold tabular-nums">{money(quote.distanceFee)}</span>
+                      </div>
+                      {bulky && (
+                        <div className="flex justify-between gap-4">
+                          <span className="text-[#FF9900]">
+                            Large item
+                            <span className="block text-[11px] text-neutral-500 leading-snug">
+                              Yours is bigger than a 20-litre jerrycan
+                            </span>
+                          </span>
+                          <span className="font-bold tabular-nums text-[#FF9900]">+{money(quote.surcharge)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-4 pt-3 border-t border-white/15">
+                        <span className="font-black">Total</span>
+                        <span className="text-2xl font-black tracking-tight tabular-nums">{money(quote.total)}</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500">Paid to the rider on arrival.</p>
+                    </div>
+
+                    {mode === 'parcel' && (
+                      <div className="mt-4 bg-[#FF9900]/10 border border-[#FF9900]/25 rounded-2xl p-4">
+                        <p className="text-[12px] text-[#FFCB80] leading-relaxed">
+                          <strong className="text-[#FF9900]">The courier charge is not included.</strong> You pay
+                          {' '}{courier.trim() || 'the courier'} directly at their counter — whatever they charge is
+                          what you pay. The rider photographs the receipt so you have a copy.
+                        </p>
+                      </div>
+                    )}
+
+                    {outOfArea && (
+                      <p className="mt-4 text-[12px] font-medium text-[#FF9900] leading-relaxed">
+                        That pin is outside Nairobi — we will need to confirm whether a rider can reach it.
+                      </p>
+                    )}
+
+                    <div className="mt-5 space-y-2">
+                      <input
+                        value={name} onChange={e => setName(e.target.value)}
+                        placeholder="Your name" className={field}
+                      />
+                      <input
+                        value={phone} onChange={e => setPhone(e.target.value)}
+                        inputMode="tel" placeholder="Phone the rider should call" className={field}
+                      />
+                      <input
+                        value={email} onChange={e => setEmail(e.target.value)}
+                        inputMode="email" type="email"
+                        placeholder={mode === 'parcel' ? 'Email — where your receipt goes' : 'Email (optional)'}
+                        className={field}
+                      />
+                      {formError && <p className="text-[12px] font-bold text-rose-400">{formError}</p>}
+                      <button
+                        onClick={submit}
+                        disabled={sending}
+                        className="w-full h-[54px] bg-[#FF9900] text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] hover:bg-white hover:text-[#0f1a1c] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                      >
+                        {sending
+                          ? <><CircleNotch size={16} className="animate-spin" /> Sending…</>
+                          : <>Send this to a rider</>}
+                      </button>
+                      <button
+                        onClick={askOnWhatsApp}
+                        className="w-full h-[46px] border border-white/20 text-neutral-300 rounded-full font-black uppercase text-[10px] tracking-[0.2em] hover:border-[#25D366] hover:text-[#25D366] transition-all flex items-center justify-center gap-2"
+                      >
+                        <WhatsappLogo size={16} weight="fill" /> Or ask on WhatsApp
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+              <Info size={16} weight="duotone" className="text-[#FF9900] shrink-0 mt-0.5" />
+              <p className="text-[11.5px] font-medium text-amber-900/80 leading-relaxed">
+                This is an <strong>estimate</strong>, confirmed when we assign a rider — a closed road or a
+                long way round can move it.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
