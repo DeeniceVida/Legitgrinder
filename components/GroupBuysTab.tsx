@@ -219,13 +219,14 @@ const GroupBuysTab: React.FC = () => {
     setNotifying(true);
     setNotifyResult(null);
 
+    // Flipping the "arrived" flag is bookkeeping; telling buyers their order
+    // has landed is the point. A failure on the flag used to abort the whole
+    // thing, so a permissions hiccup on one column silently stopped four people
+    // being told anything. It is reported alongside now, not instead.
+    let flagWarning = '';
     if (!c.arrivedAt) {
       const mark = await markCampaignArrived(c.id);
-      if (!mark.success) {
-        setNotifying(false);
-        setNotifyResult({ ok: false, msg: mark.error || 'Could not mark the campaign as arrived.' });
-        return;
-      }
+      if (!mark.success) flagWarning = ` (Note: the campaign was not marked arrived — ${mark.error || 'the database refused it'})`;
     }
 
     const origin = window.location.origin;
@@ -248,10 +249,10 @@ const GroupBuysTab: React.FC = () => {
     setNotifyResult(res.success
       ? {
         ok: true,
-        msg: `Emailed ${res.sent} buyer${res.sent === 1 ? '' : 's'}.${noEmail > 0 ? ` ${noEmail} had no email on file.` : ''}`,
+        msg: `Emailed ${res.sent} buyer${res.sent === 1 ? '' : 's'}.${noEmail > 0 ? ` ${noEmail} had no email on file.` : ''}${flagWarning}`,
         recipients: res.recipients || withEmail.map(o => o.clientEmail!),
       }
-      : { ok: false, msg: res.error || 'The emails could not be sent.' });
+      : { ok: false, msg: (res.error || 'The emails could not be sent.') + flagWarning });
     load();
   };
 
@@ -342,16 +343,45 @@ const GroupBuysTab: React.FC = () => {
                   >
                     {copiedGroupMsg ? <><CheckCircle size={13} weight="fill" className="text-emerald-500" /> Copied</> : <><Copy size={13} weight="bold" /> Group message</>}
                   </button>
+                  {/* The wording and the jerrycan flag live behind this, so the
+                      main button can just do the thing. */}
                   <button
                     onClick={() => { setNotifyResult(null); setSendFor({ campaign: selectedCampaign, owing }); }}
+                    disabled={notifying || owing.length === 0}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-all disabled:opacity-40"
+                  >
+                    <PencilSimple size={13} weight="bold" /> Wording
+                  </button>
+                  {/*
+                    Sends on the click. It used to open a dialog, and a dialog
+                    is a second step that can be missed — or, being a fixed
+                    overlay inside a transformed ancestor, not even appear. A
+                    native confirm cannot be hidden by any CSS on this page.
+                  */}
+                  <button
+                    onClick={() => {
+                      const withEmail = owing.filter(o => (o.clientEmail || '').includes('@'));
+                      if (withEmail.length === 0) {
+                        setNotifyResult({ ok: false, msg: 'None of these buyers has an email address on file — WhatsApp them from the list below.' });
+                        return;
+                      }
+                      const ok = window.confirm(
+                        `Email ${withEmail.length} buyer${withEmail.length === 1 ? '' : 's'} that "${selectedCampaign.title}" has arrived?\n\n`
+                        + withEmail.map(o => `• ${o.clientName || o.orderCode} — ${o.clientEmail}`).join('\n')
+                        + `\n\nEach gets their own balance and pay link.`
+                      );
+                      if (!ok) return;
+                      setNotifyResult(null);
+                      handleArrivedAndNotify(selectedCampaign, owing);
+                    }}
                     disabled={notifying || owing.length === 0}
                     className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
                   >
                     {notifying
                       ? <><CircleNotch size={13} className="animate-spin" /> Emailing…</>
                       : arrived
-                        ? <><PaperPlaneTilt size={13} weight="fill" /> Resend balance emails…</>
-                        : <><Package size={13} weight="fill" /> Mark arrived &amp; email balances…</>}
+                        ? <><PaperPlaneTilt size={13} weight="fill" /> Resend balance emails</>
+                        : <><Package size={13} weight="fill" /> Mark arrived &amp; email balances</>}
                   </button>
                 </div>
               </div>
