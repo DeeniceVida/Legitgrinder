@@ -28,6 +28,27 @@ const pinIcon = L.divIcon({
   iconSize: [26, 26],
   iconAnchor: [13, 13],
 });
+/** Coordinates out of whatever was pasted, when they are already in the text. */
+const parsePastedLatLng = (raw: string): { lat: number; lng: number } | null => {
+  // Order matters. !3d/!4d is the PLACE pin; @lat,lng is only the map's
+  // viewport centre — on a real link the two sit ~280m apart, and taking @
+  // first would quietly bake that error into the fee.
+  const patterns = [
+    /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/,
+    /[?&]q=(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
+    /@(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/,
+    /^\s*(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/,
+  ];
+  for (const p of patterns) {
+    const m = raw.match(p);
+    if (m) {
+      const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+    }
+  }
+  return null;
+};
+
 const originIcon = L.divIcon({
   className: '',
   html: `<div style="width:20px;height:20px;border-radius:50%;background:#3D8593;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.35)"></div>`,
@@ -67,6 +88,10 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   const [busy, setBusy] = useState(false);
   const [outOfArea, setOutOfArea] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  /** A Google Maps link or raw coordinates, pasted instead of tapping. */
+  const [pasted, setPasted] = useState('');
+  const [resolvingPin, setResolvingPin] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -151,6 +176,53 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
     });
     return () => { cancelled = true; };
   }, [drop, originId, bulky]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * A pasted location. Raw coordinates and full maps URLs are read here; a
+   * shortened maps.app.goo.gl link has to be followed server-side because the
+   * browser can't, and that short form is exactly what Google's Share gives.
+   */
+  useEffect(() => {
+    const raw = pasted.trim();
+    setPinError(null);
+    if (!raw) { setResolvingPin(false); return; }
+
+    const local = parsePastedLatLng(raw);
+    if (local) {
+      setDrop(local);
+      mapRef.current?.setView([local.lat, local.lng], 15);
+      setResolvingPin(false);
+      return;
+    }
+    if (!/^https?:\/\//i.test(raw)) {
+      setPinError('Paste the whole link, or coordinates like -1.2854, 36.8266.');
+      return;
+    }
+
+    let dead = false;
+    setResolvingPin(true);
+    // Wait for them to finish pasting before hitting the server.
+    const t = setTimeout(() => {
+      fetch('/api/resolve-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: raw }),
+      })
+        .then(r => r.json())
+        .then(d => {
+          if (dead) return;
+          if (d?.success) {
+            setDrop({ lat: d.lat, lng: d.lng });
+            mapRef.current?.setView([d.lat, d.lng], 15);
+          } else {
+            setPinError(d?.error || 'We could not read a location from that link.');
+          }
+        })
+        .catch(() => { if (!dead) setPinError('We could not open that link. Tap the map instead.'); })
+        .finally(() => { if (!dead) setResolvingPin(false); });
+    }, 600);
+    return () => { dead = true; clearTimeout(t); };
+  }, [pasted]);
 
   const useMyLocation = () => {
     if (!navigator.geolocation) return;
@@ -357,6 +429,38 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
               ref={mapEl}
               className="w-full h-[300px] md:h-[380px] rounded-2xl overflow-hidden border border-gray-200 z-0"
             />
+
+            {/* Most people don't tap a map — they share their location from
+                Google Maps and paste the link. Shortened maps.app.goo.gl links
+                carry no coordinates until they're followed, which a browser
+                can't do, so the server follows it. */}
+            <div className="mt-3">
+              <label htmlFor="paste-pin" className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">
+                Or paste a Google Maps link
+              </label>
+              <input
+                id="paste-pin"
+                value={pasted}
+                onChange={e => setPasted(e.target.value)}
+                placeholder="https://maps.app.goo.gl/…"
+                className="w-full h-[50px] bg-neutral-50 border border-gray-200 rounded-2xl px-4 text-sm font-medium outline-none focus:border-[#3D8593] transition-colors"
+              />
+              {pasted.trim() && (
+                <p className={`text-[11px] font-bold mt-1.5 ${
+                  resolvingPin ? 'text-gray-400' : pinError ? 'text-rose-500' : 'text-emerald-600'}`}>
+                  {resolvingPin
+                    ? 'Opening that link…'
+                    : pinError
+                      ? pinError
+                      : 'Found it — check the orange pin on the map above.'}
+                </p>
+              )}
+              {!pasted.trim() && (
+                <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+                  In Google Maps: hold your spot → Share → Copy link → paste it here.
+                </p>
+              )}
+            </div>
             {mode === 'parcel' && (
               <p className="text-[11px] font-medium text-gray-400 mt-2">
                 The rider takes it there and hands it over — most courier offices are in the CBD.
