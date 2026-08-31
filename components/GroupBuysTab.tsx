@@ -337,6 +337,18 @@ const GroupBuysTab: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {/* Balances land in the database the moment they are paid,
+                      but the roster is loaded once — without this you had to
+                      reload the whole dashboard to see a payment arrive. */}
+                  <button
+                    onClick={load}
+                    disabled={loading}
+                    title="Check for payments that have just come in"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-all disabled:opacity-40"
+                  >
+                    <ArrowsClockwise size={13} weight="bold" className={loading ? 'animate-spin' : ''} />
+                    {loading ? 'Checking…' : 'Check payments'}
+                  </button>
                   <button
                     onClick={() => copyGroupMessage(selectedCampaign)}
                     className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white border border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-all"

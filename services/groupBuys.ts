@@ -380,3 +380,51 @@ export const setGroupCampaignStatus = async (id: string, status: 'open' | 'close
   const { error } = await supabase.from('group_campaigns').update({ status }).eq('id', id);
   return { success: !error, error: error?.message };
 };
+
+/**
+ * Tell the owner a group-buy balance has just been paid.
+ *
+ * The payment records itself either way — this is only the nudge, so it is
+ * best-effort and keepalive, and a failure here must never look to the buyer
+ * like their payment failed.
+ */
+export const notifyGroupBalancePaid = async (args: {
+  orderCode: string;
+  clientName?: string;
+  campaignTitle?: string;
+  amountKES: number;
+  balanceKES: number;
+  fullyPaid: boolean;
+  reference?: string;
+}): Promise<void> => {
+  try {
+    await fetch('/api/group-balance-paid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify(args),
+    });
+  } catch {
+    // Swallowed on purpose — see above.
+  }
+};
+
+/**
+ * How many buyers have cleared a balance since the owner last looked.
+ *
+ * Drives the badge on the Group Buys tab. Counting against a timestamp rather
+ * than a status means it clears itself when he opens the tab, instead of
+ * sitting there forever because nothing marks an order "collected".
+ */
+export const countGroupPaymentsSince = async (sinceISO: string): Promise<number> => {
+  try {
+    const { count, error } = await supabase
+      .from('group_orders')
+      .select('id', { count: 'exact', head: true })
+      .gt('balance_paid_at', sinceISO);
+    if (error) return 0;
+    return count || 0;
+  } catch {
+    return 0;
+  }
+};

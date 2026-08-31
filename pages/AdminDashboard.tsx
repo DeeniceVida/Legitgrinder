@@ -54,6 +54,7 @@ import {
 } from '../services/corporate';
 import { computeAttention } from '../utils/logistics';
 import { ProductEnquiry, fetchProductEnquiries, needsFollowUp } from '../services/enquiries';
+import { countGroupPaymentsSince } from '../services/groupBuys';
 import type { MessageIntent } from '../services/messageAgent';
 
 
@@ -311,6 +312,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [enquiries, setEnquiries] = useState<ProductEnquiry[]>([]);
   const loadEnquiries = () => { fetchProductEnquiries().then(setEnquiries).catch(() => {}); };
   useEffect(loadEnquiries, []);
+  /**
+   * Group-buy balances cleared since he last opened that tab. Counted against
+   * a timestamp rather than a status so the badge clears itself — nothing marks
+   * an order "collected", so a status-based count would sit there forever.
+   */
+  const GB_SEEN_KEY = 'lg.groupbuys.lastSeen';
+  const [newGroupPayments, setNewGroupPayments] = useState(0);
+  useEffect(() => {
+    let since = '';
+    try { since = localStorage.getItem(GB_SEEN_KEY) || ''; } catch { /* private window */ }
+    if (!since) {
+      since = new Date(Date.now() - 7 * 864e5).toISOString();
+      try { localStorage.setItem(GB_SEEN_KEY, since); } catch { /* ignore */ }
+    }
+    countGroupPaymentsSince(since).then(setNewGroupPayments).catch(() => {});
+  }, []);
+
+  // Opening the tab is the acknowledgement.
+  useEffect(() => {
+    if (activeTab !== 'groupbuys') return;
+    try { localStorage.setItem(GB_SEEN_KEY, new Date().toISOString()); } catch { /* ignore */ }
+    setNewGroupPayments(0);
+  }, [activeTab]);
+
   const openEnquiries = enquiries.filter(e => e.status === 'open');
   const chaseEnquiries = openEnquiries.filter(needsFollowUp);
   const freshEnquiries = openEnquiries.length - chaseEnquiries.length;
@@ -323,7 +348,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'invoices', name: 'Orders & Invoices', group: 'Main', badge: (newPaidOrderCount + attentionCount) || undefined, icon: <FileText className="w-4 h-4" /> },
     { id: 'products', name: 'Stock', group: 'Main', badge: openEnquiries.length || undefined, icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'deliveries', name: 'Riders & Deliveries', group: 'Main', badge: undefined, icon: <Truck className="w-4 h-4" /> },
-    { id: 'groupbuys', name: 'Group Buys', group: 'Main', icon: <Users className="w-4 h-4" /> },
+    { id: 'groupbuys', name: 'Group Buys', group: 'Main', badge: newGroupPayments || undefined, icon: <Users className="w-4 h-4" /> },
     // The corporate lines live behind one collapsible entry — they're catalogue
     // maintenance, not somewhere he needs to be every day.
     { id: 'corporate', name: 'Leads & Quotes', group: 'Main', section: 'corporate', badge: newCorporateCount || undefined, icon: <Buildings className="w-4 h-4" /> },

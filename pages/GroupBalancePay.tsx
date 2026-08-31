@@ -6,7 +6,7 @@ import {
 } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
 import { verifyPaystackPayment } from '../services/supabaseData';
-import { fetchGroupOrderByCode, recordGroupBalancePayment, PublicGroupOrder } from '../services/groupBuys';
+import { fetchGroupOrderByCode, recordGroupBalancePayment, notifyGroupBalancePaid, PublicGroupOrder } from '../services/groupBuys';
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
 
@@ -35,7 +35,19 @@ const GroupBalancePay: React.FC = () => {
   const handleSuccess = async (response: any) => {
     setPaid(true);
     verifyPaystackPayment(response.reference).catch(console.error);
-    await recordGroupBalancePayment(order!.orderCode, balance, response.reference);
+    const rec = await recordGroupBalancePayment(order!.orderCode, balance, response.reference);
+
+    // Tell the owner. The WhatsApp hand-off below only arrives if the buyer
+    // presses send, so a closed tab used to mean a silently settled balance.
+    notifyGroupBalancePaid({
+      orderCode: order!.orderCode,
+      clientName: order!.clientName,
+      campaignTitle: order!.campaignTitle,
+      amountKES: balance,
+      balanceKES: rec.balanceKES ?? 0,
+      fullyPaid: rec.fullyPaid ?? false,
+      reference: response.reference,
+    });
 
     // Let the admin know without them having to watch the dashboard.
     const msg = encodeURIComponent(
