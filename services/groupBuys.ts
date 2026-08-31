@@ -161,14 +161,26 @@ export const recordGroupBalancePayment = async (
 
 /** Admin: mark the campaign's stock as landed (drives the balance emails). */
 export const markCampaignArrived = async (id: string): Promise<{ success: boolean; error?: string }> => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('group_campaigns')
     .update({ arrived_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    // Ask for the row back. Without this an update that RLS filtered down to
+    // zero rows returns no error and no data, and the old code read that as
+    // success — the campaign was never marked arrived and nothing said so.
+    .select('id');
   if (error && /arrived_at/.test(error.message)) {
     return { success: false, error: 'Run add_group_balance_payments.sql in Supabase first — the arrived_at column does not exist yet.' };
   }
-  return { success: !error, error: error?.message };
+  if (error) return { success: false, error: error.message };
+  if (!data || data.length === 0) {
+    return {
+      success: false,
+      error: 'The campaign could not be marked as arrived — the database refused the change. '
+        + 'Usually this means your admin session has expired: sign out and back in, then try again.',
+    };
+  }
+  return { success: true };
 };
 
 /** Admin: email every buyer with an outstanding balance their own pay link. */
@@ -181,23 +193,49 @@ export const sendGroupBalanceEmails = async (args: {
     email: string; name?: string; orderCode: string; units?: number; color?: string;
     totalKES: number; paidKES: number; balanceKES: number; payUrl: string;
   }[];
-}): Promise<{ success: boolean; sent?: number; skipped?: number; error?: string }> => {
+}): Promise<{ success: boolean; sent?: number; skipped?: number; recipients?: string[]; error?: string }> => {
+  const emails = (args.recipients || []).map(r => r.email).filter(Boolean);
   try {
     const res = await fetch('/api/group-balance-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(args)
     });
-    const data = await res.json();
-    const emails = (args.recipients || []).map(r => r.email).filter(Boolean);
-    if (!res.ok || !data.success) {
-      logSentEmail({ kind: 'group-balance', recipient: emails, status: 'failed', error: data.error, reference: args.campaignTitle });
-      return { success: false, error: data.error || 'The emails could not be sent.' };
+
+    // A Pages Function that is missing or has crashed answers with an HTML
+    // error page, and res.json() then throws. Reading the body as text first
+    // means the real status reaches the screen instead of a parser error.
+    const raw = await res.text();
+    let data: any = null;
+    try { data = JSON.parse(raw); } catch { /* not JSON — handled below */ }
+
+    if (!data) {
+      const msg = `The email service answered with something unreadable (HTTP ${res.status}). `
+        + `This usually means the site has not finished deploying — wait a minute and try again.`;
+      logSentEmail({ kind: 'group-balance', recipient: emails, status: 'failed', error: msg, reference: args.campaignTitle });
+      return { success: false, error: msg };
     }
-    logSentEmail({ kind: 'group-balance', recipient: emails, subject: `Balance due · ${args.campaignTitle || 'group buy'}`, status: 'sent', reference: args.campaignTitle });
-    return { success: true, sent: data.sent, skipped: data.skipped };
+
+    if (!res.ok || !data.success) {
+      const msg = data.error || (data.errors?.length ? data.errors[0] : `The emails could not be sent (HTTP ${res.status}).`);
+      logSentEmail({ kind: 'group-balance', recipient: emails, status: 'failed', error: msg, reference: args.campaignTitle });
+      return { success: false, error: msg };
+    }
+
+    logSentEmail({
+      kind: 'group-balance',
+      recipient: data.recipients?.length ? data.recipients : emails,
+      subject: `Balance due · ${args.campaignTitle || 'group buy'}`,
+      status: 'sent', reference: args.campaignTitle,
+    });
+    return { success: true, sent: data.sent, skipped: data.skipped, recipients: data.recipients };
   } catch (e: any) {
-    return { success: false, error: e.message || 'Could not reach the email service (live site only).' };
+    // This path used to log NOTHING, so a failure here left no trace anywhere
+    // — the Sent Emails tab stayed empty and there was no way to tell whether
+    // buyers had been written to at all.
+    const msg = e?.message || 'Could not reach the email service (live site only).';
+    logSentEmail({ kind: 'group-balance', recipient: emails, status: 'failed', error: msg, reference: args.campaignTitle });
+    return { success: false, error: msg };
   }
 };
 

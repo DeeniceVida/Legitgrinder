@@ -106,6 +106,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const subject = `Your ${p.campaignTitle} has arrived — balance due`;
     let sent = 0;
+    const delivered: string[] = [];
+    const failures: string[] = [];
     for (let i = 0; i < list.length; i += 100) {
       const chunk = list.slice(i, i + 100);
       const batch = chunk.map(r => ({
@@ -116,11 +118,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(batch),
       });
-      if (res.ok) sent += chunk.length;
-      else console.error('Resend batch failed:', await res.text());
+      if (res.ok) {
+        sent += chunk.length;
+        delivered.push(...chunk.map(r => r.email.trim()));
+      } else {
+        // Resend's own words, not a shrug. "Emailing failed" with no reason is
+        // how you end up unable to tell whether buyers were told anything.
+        const detail = await res.text();
+        console.error('Resend batch failed:', detail);
+        failures.push(detail.slice(0, 300));
+      }
     }
 
-    return new Response(JSON.stringify({ success: sent > 0, sent, skipped: (p.recipients || []).length - list.length }), { headers: cors });
+    return new Response(JSON.stringify({
+      success: sent > 0,
+      sent,
+      skipped: (p.recipients || []).length - list.length,
+      recipients: delivered,
+      errors: failures,
+    }), { headers: cors });
   } catch (err: any) {
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: cors });
   }

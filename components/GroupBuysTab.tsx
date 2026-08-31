@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   UsersThree, Plus, LinkSimple, Copy, CheckCircle, CircleNotch, MagnifyingGlass,
-  WhatsappLogo, LockSimple, LockSimpleOpen, CurrencyDollar, Package, ArrowLeft,
+  WhatsappLogo, LockSimple, LockSimpleOpen, CurrencyDollar, Package, ArrowLeft, WarningCircle,
   PencilSimple, Clock, ArrowsClockwise, PaperPlaneTilt
 } from '@phosphor-icons/react';
 import {
@@ -45,7 +45,7 @@ const GroupBuysTab: React.FC = () => {
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   const [view, setView] = useState<'all' | 'running' | 'past'>('all');
   const [notifying, setNotifying] = useState(false);
-  const [notifyResult, setNotifyResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [notifyResult, setNotifyResult] = useState<{ ok: boolean; msg: string; recipients?: string[] } | null>(null);
   const [copiedGroupMsg, setCopiedGroupMsg] = useState(false);
   /** The send dialog — replaces a blind confirm() you couldn't edit anything in. */
   const [sendFor, setSendFor] = useState<{ campaign: GroupCampaign; owing: GroupOrder[] } | null>(null);
@@ -212,7 +212,6 @@ const GroupBuysTab: React.FC = () => {
     const withEmail = owing.filter(o => (o.clientEmail || '').includes('@'));
     const noEmail = owing.length - withEmail.length;
 
-    setSendFor(null);
     // Remember it for next time, so the address is typed once.
     try { localStorage.setItem(NOTE_STORAGE_KEY, collectionNote); } catch { /* private window */ }
 
@@ -246,8 +245,12 @@ const GroupBuysTab: React.FC = () => {
 
     setNotifying(false);
     setNotifyResult(res.success
-      ? { ok: true, msg: `✅ Emailed ${res.sent} buyer${res.sent === 1 ? '' : 's'}.${noEmail > 0 ? ` ${noEmail} had no email — WhatsApp them below.` : ''}` }
-      : { ok: false, msg: `❌ ${res.error || 'The emails could not be sent.'}` });
+      ? {
+        ok: true,
+        msg: `Emailed ${res.sent} buyer${res.sent === 1 ? '' : 's'}.${noEmail > 0 ? ` ${noEmail} had no email on file.` : ''}`,
+        recipients: res.recipients || withEmail.map(o => o.clientEmail!),
+      }
+      : { ok: false, msg: res.error || 'The emails could not be sent.' });
     load();
   };
 
@@ -588,6 +591,41 @@ const GroupBuysTab: React.FC = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto px-7 py-6 space-y-5">
+                {/* The report of what happened lives HERE, in front of you,
+                    not on a card further down the page you already scrolled
+                    past. It stays until you close the dialog. */}
+                {notifyResult && (
+                  <div className={`rounded-2xl p-5 border ${notifyResult.ok
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : 'bg-rose-50 border-rose-200'}`}>
+                    <p className={`text-[15px] font-black tracking-tight flex items-center gap-2 ${notifyResult.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      {notifyResult.ok
+                        ? <><CheckCircle size={18} weight="fill" /> Sent</>
+                        : <><WarningCircle size={18} weight="fill" /> Not sent</>}
+                    </p>
+                    <p className={`text-[13px] font-medium mt-1.5 leading-relaxed ${notifyResult.ok ? 'text-emerald-900/80' : 'text-rose-900/80'}`}>
+                      {notifyResult.msg}
+                    </p>
+                    {notifyResult.ok && notifyResult.recipients?.length ? (
+                      <div className="mt-3 pt-3 border-t border-emerald-200/60">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70 mb-1.5">
+                          Went to
+                        </p>
+                        <ul className="space-y-0.5">
+                          {notifyResult.recipients.map(e => (
+                            <li key={e} className="text-[12px] font-medium text-emerald-900/80 lowercase">{e}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    <p className={`text-[11px] font-medium mt-3 ${notifyResult.ok ? 'text-emerald-700/70' : 'text-rose-700/70'}`}>
+                      {notifyResult.ok
+                        ? 'Also logged in Operations → Sent Emails.'
+                        : 'This attempt is logged in Operations → Sent Emails with the reason.'}
+                    </p>
+                  </div>
+                )}
+
                 <p className="text-[13px] text-gray-500 font-medium leading-relaxed">
                   Each buyer gets their own email with their own balance and pay link — nobody sees anyone else's.
                 </p>
@@ -642,17 +680,17 @@ const GroupBuysTab: React.FC = () => {
 
               <div className="px-7 py-5 border-t border-neutral-100 flex justify-end gap-2">
                 <button
-                  onClick={() => setSendFor(null)}
+                  onClick={() => { setSendFor(null); setNotifyResult(null); }}
                   className="px-5 py-3 rounded-full border border-neutral-200 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition-colors"
                 >
-                  Cancel
+                  {notifyResult ? 'Close' : 'Cancel'}
                 </button>
                 <button
                   onClick={() => handleArrivedAndNotify(sendFor.campaign, sendFor.owing)}
-                  disabled={withEmail.length === 0}
+                  disabled={withEmail.length === 0 || notifying}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
                 >
-                  <PaperPlaneTilt size={13} weight="fill" /> Send {withEmail.length} email{withEmail.length === 1 ? '' : 's'}
+                  <PaperPlaneTilt size={13} weight="fill" /> {notifying ? 'Sending…' : notifyResult?.ok ? 'Send again' : `Send ${withEmail.length} email${withEmail.length === 1 ? '' : 's'}`}
                 </button>
               </div>
             </div>
