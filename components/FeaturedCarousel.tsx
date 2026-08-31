@@ -3,6 +3,7 @@ import { CaretLeft, CaretRight, ArrowRight, WhatsappLogo } from '@phosphor-icons
 import { Product, Availability } from '../types';
 import { WHATSAPP_NUMBER } from '../constants';
 import SafeImage from './SafeImage';
+import { fromPriceOf, isAccessory } from '../utils/productPricing';
 
 interface FeaturedCarouselProps {
   products: Product[];
@@ -39,7 +40,7 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
   if (count === 0) return null;
 
   const askOnWhatsApp = (p: Product) => {
-    const msg = encodeURIComponent(`Hi LegitGrinder! I'm interested in the ${p.name} (KES ${(p.discountPriceKES || p.priceKES).toLocaleString()}). Is it available?`);
+    const msg = encodeURIComponent(`Hi LegitGrinder! I'm interested in the ${p.name} (KES ${fromPriceOf(p).toLocaleString()}). Is it available?`);
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank', 'noopener');
   };
 
@@ -56,9 +57,14 @@ const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({ products, onOpen })
       <div className="relative grid">
         {products.map((p, i) => {
           const theme = THEMES[i % THEMES.length];
-          const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0);
-          const base = p.discountPriceKES || p.priceKES;
-          const displayPrice = pv.length ? base + Math.min(...pv.map(v => v.priceKES)) : base;
+          // Was `base + cheapest variant` — the pre-2026-08 additive reading.
+          // Variant prices are ABSOLUTE now, so that DOUBLED anything whose
+          // single variant carries the item's own price: the 8,100 air fryer
+          // advertised itself at 16,200 on the front page. fromPriceOf is the
+          // one place that knows the rule, and it excludes accessories too, so
+          // a pegboard never advertises at its container's price.
+          const pv = (p.variations || []).filter(v => (v.priceKES || 0) > 0 && !isAccessory(v));
+          const displayPrice = fromPriceOf(p);
           const isFrom = pv.length > 0;
           const onSale = !!p.discountPriceKES && !isFrom;
           const inStock = p.availability === Availability.LOCAL && (p.stockCount || 0) > 0;
