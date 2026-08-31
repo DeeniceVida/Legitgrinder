@@ -75,8 +75,6 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   /** Doorstep or as far as a courier's counter. The first thing we ask. */
   const [mode, setMode] = useState<'doorstep' | 'parcel' | null>(null);
   const [courier, setCourier] = useState('');
-  const [receiverName, setReceiverName] = useState('');
-  const [receiverPhone, setReceiverPhone] = useState('');
   const [receiverDest, setReceiverDest] = useState('');
   const [parcelNotes, setParcelNotes] = useState('');
   const [email, setEmail] = useState('');
@@ -264,11 +262,11 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
     if (!name.trim()) { setFormError('We need a name for the delivery.'); return; }
     if (phone.trim().replace(/\D/g, '').length < 9) { setFormError('A phone number the rider can call, please.'); return; }
     if (mode === 'parcel') {
-      // Exactly what the courier will ask for at the counter.
-      if (!courier.trim()) { setFormError('Which courier are you sending it with?'); return; }
-      if (!receiverName.trim()) { setFormError('Who is receiving it? The courier needs a name.'); return; }
-      if (receiverPhone.trim().replace(/\D/g, '').length < 9) { setFormError('The courier needs a phone number for the receiver.'); return; }
-      if (!receiverDest.trim()) { setFormError('Which town is it going to?'); return; }
+      // The customer IS the receiver, so their own name and phone are what the
+      // courier writes on the waybill — there is no second person to ask about.
+      if (!courier.trim()) { setFormError('Which courier should we send it with?'); return; }
+      if (!receiverDest.trim()) { setFormError('Which town are you collecting from?'); return; }
+      if (!email.trim()) { setFormError('We need an email to send your receipt to.'); return; }
     }
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setFormError('That email address does not look right.'); return;
@@ -284,8 +282,8 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
       originId,
       deliveryType: mode,
       courierName: mode === 'parcel' ? courier.trim() : undefined,
-      receiverName: mode === 'parcel' ? receiverName.trim() : undefined,
-      receiverPhone: mode === 'parcel' ? receiverPhone.trim() : undefined,
+      receiverName: mode === 'parcel' ? name.trim() : undefined,
+      receiverPhone: mode === 'parcel' ? phone.trim() : undefined,
       receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
       parcelNotes: mode === 'parcel' ? (parcelNotes.trim() || undefined) : undefined,
       lat: drop?.lat, lng: drop?.lng,
@@ -311,7 +309,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
         deliveryType: mode,
         courierName: mode === 'parcel' ? courier.trim() : undefined,
         mapUrl: drop ? `https://www.google.com/maps?q=${drop.lat.toFixed(6)},${drop.lng.toFixed(6)}` : undefined,
-        receiverName: mode === 'parcel' ? receiverName.trim() : undefined,
+        receiverName: mode === 'parcel' ? name.trim() : undefined,
         receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
         km: shownQuote.km,
         bulky,
@@ -436,43 +434,29 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
             </p>
           </div>
 
-          {/* Two people are involved and the form used to ask for a name and a
-              phone twice without saying whose. Each block now names its person
-              before asking anything. */}
+          {/* ONE person, not two. We are the sender — the parcel goes out in
+              LegitGrinder's name — and the customer is the receiver, waiting
+              upcountry. Asking them for "sender" details was asking them to
+              fill in us. */}
           <div className="border-t border-neutral-100 pt-4">
-            <p className="text-[13px] font-black text-gray-900 mb-0.5">1 · You, the sender</p>
+            <p className="text-[13px] font-black text-gray-900 mb-0.5">Your details, as the receiver</p>
             <p className="text-[11px] font-medium text-gray-400 mb-2.5">
-              So we can reach you about this parcel. Your receipt goes to your email.
+              We send it in LegitGrinder's name. This is what {courier.trim() || 'the courier'} writes
+              on the waybill and uses to call you when it arrives.
             </p>
             <div className="space-y-2">
               <input value={name} onChange={e => setName(e.target.value)}
                 placeholder="Your full name" className={plain} />
               <input value={phone} onChange={e => setPhone(e.target.value)}
-                inputMode="tel" placeholder="Your phone" className={plain} />
+                inputMode="tel" placeholder="Your phone — the courier will call this" className={plain} />
+              <input value={receiverDest} onChange={e => setReceiverDest(e.target.value)}
+                placeholder="Town you are collecting from — e.g. Nakuru, Kisumu" className={plain} />
               <input value={email} onChange={e => setEmail(e.target.value)}
                 inputMode="email" type="email" placeholder="Your email — where the receipt goes" className={plain} />
-            </div>
-          </div>
-
-          <div className="border-t border-neutral-100 pt-4">
-            <p className="text-[13px] font-black text-gray-900 mb-0.5">2 · Who collects it upcountry</p>
-            <p className="text-[11px] font-medium text-gray-400 mb-2.5">
-              Exactly as {courier.trim() || 'the courier'} will write it on the waybill.
-            </p>
-            <div className="space-y-2">
-              <input value={receiverName} onChange={e => setReceiverName(e.target.value)}
-                placeholder="Receiver's full name" className={plain} />
-              <input value={receiverPhone} onChange={e => setReceiverPhone(e.target.value)}
-                inputMode="tel" placeholder="Receiver's phone" className={plain} />
-              <input value={receiverDest} onChange={e => setReceiverDest(e.target.value)}
-                placeholder="Town it is going to — e.g. Nakuru, Kisumu" className={plain} />
               <textarea value={parcelNotes} onChange={e => setParcelNotes(e.target.value)}
-                rows={2} placeholder="Anything else the courier should know (optional)"
+                rows={2} placeholder="Anything else the courier should note (optional)"
                 className={plain + ' h-auto py-3 resize-none'} />
             </div>
-            <p className="text-[11px] font-medium text-gray-400 mt-2">
-              Sending it to yourself? Put your own name and phone here too.
-            </p>
           </div>
         </div>
       )}
