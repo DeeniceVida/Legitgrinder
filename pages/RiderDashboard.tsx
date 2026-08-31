@@ -231,7 +231,7 @@ const JobCard: React.FC<{
   const fileRef = useRef<HTMLInputElement>(null);
 
   const origin = originById(job.originId);
-  const navUrl = job.dropLat != null && job.dropLng != null
+  const navUrl = job.deliveryType !== 'parcel' && job.dropLat != null && job.dropLng != null
     ? `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${job.dropLat},${job.dropLng}&travelmode=driving`
     : null;
 
@@ -298,14 +298,42 @@ const JobCard: React.FC<{
           </p>
           <p className="text-[12px] text-neutral-300 flex items-start gap-2">
             <MapPin size={15} weight="duotone" className="text-[#FF9900] shrink-0 mt-0.5" />
-            {job.dropLabel || 'Pinned location'}
-            {job.distanceKm != null && <span className="text-neutral-500"> · ~{job.distanceKm} km</span>}
+            {job.deliveryType === 'parcel'
+              ? <>Drop at {job.courierName || 'the courier'} in town</>
+              : <>{job.dropLabel || 'Pinned location'}{job.distanceKm != null && <span className="text-neutral-500"> · ~{job.distanceKm} km</span>}</>}
           </p>
           <p className="text-[12px] text-neutral-300 flex items-center gap-2">
             <CurrencyDollar size={15} weight="duotone" className="text-emerald-400 shrink-0" />
             Your fee: <strong className="text-white">{money(job.deliveryFeeKES)}</strong>
           </p>
         </div>
+
+        {/* What the courier will ask for at the counter. Read it straight off
+            the phone rather than calling anyone back. */}
+        {job.deliveryType === 'parcel' && (job.receiverName || job.receiverDestination) && (
+          <div className="bg-[#FF9900]/10 border border-[#FF9900]/25 rounded-2xl p-4 mb-4">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#FF9900] mb-2">
+              Give the courier
+            </p>
+            <div className="space-y-1 text-[12.5px]">
+              {job.receiverName && (
+                <p className="text-white"><span className="text-neutral-400">Receiver</span> {job.receiverName}</p>
+              )}
+              {job.receiverPhone && (
+                <p className="text-white">
+                  <span className="text-neutral-400">Phone</span>{' '}
+                  <a href={`tel:${job.receiverPhone}`} className="underline decoration-white/30">{job.receiverPhone}</a>
+                </p>
+              )}
+              {job.receiverDestination && (
+                <p className="text-white"><span className="text-neutral-400">Going to</span> {job.receiverDestination}</p>
+              )}
+              {job.parcelNotes && (
+                <p className="text-neutral-300 pt-1.5 mt-1.5 border-t border-white/10 leading-relaxed">{job.parcelNotes}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           {navUrl && (

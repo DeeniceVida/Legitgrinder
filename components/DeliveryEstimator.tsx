@@ -75,6 +75,10 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   /** Doorstep or as far as a courier's counter. The first thing we ask. */
   const [mode, setMode] = useState<'doorstep' | 'parcel' | null>(null);
   const [courier, setCourier] = useState('');
+  const [receiverName, setReceiverName] = useState('');
+  const [receiverPhone, setReceiverPhone] = useState('');
+  const [receiverDest, setReceiverDest] = useState('');
+  const [parcelNotes, setParcelNotes] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -238,7 +242,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   };
 
   const askOnWhatsApp = () => {
-    if (!drop || !quote) return;
+    if (!shownQuote) return;
     const mapLink = `https://www.google.com/maps?q=${drop.lat.toFixed(6)},${drop.lng.toFixed(6)}`;
     const msg = encodeURIComponent(
       `Hi LegitGrinder, I'd like delivery.\n\n` +
@@ -255,10 +259,17 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   /** Book it: creates the job, puts it on the rider's phone, tells the owner. */
   /** Book it: creates the job, puts it on the rider's phone, tells the owner. */
   const submit = async () => {
-    if (!drop || !quote || !mode) return;
+    if (!mode || !shownQuote) return;
+    if (mode === 'doorstep' && !drop) return;
     if (!name.trim()) { setFormError('We need a name for the delivery.'); return; }
     if (phone.trim().replace(/\D/g, '').length < 9) { setFormError('A phone number the rider can call, please.'); return; }
-    if (mode === 'parcel' && !courier.trim()) { setFormError('Which courier are you sending it with?'); return; }
+    if (mode === 'parcel') {
+      // Exactly what the courier will ask for at the counter.
+      if (!courier.trim()) { setFormError('Which courier are you sending it with?'); return; }
+      if (!receiverName.trim()) { setFormError('Who is receiving it? The courier needs a name.'); return; }
+      if (receiverPhone.trim().replace(/\D/g, '').length < 9) { setFormError('The courier needs a phone number for the receiver.'); return; }
+      if (!receiverDest.trim()) { setFormError('Which town is it going to?'); return; }
+    }
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setFormError('That email address does not look right.'); return;
     }
@@ -273,9 +284,13 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
       originId,
       deliveryType: mode,
       courierName: mode === 'parcel' ? courier.trim() : undefined,
-      lat: drop.lat, lng: drop.lng,
-      label: mode === 'parcel' ? `${courier.trim()} office` : `${drop.lat.toFixed(5)}, ${drop.lng.toFixed(5)}`,
-      km: quote.km,
+      receiverName: mode === 'parcel' ? receiverName.trim() : undefined,
+      receiverPhone: mode === 'parcel' ? receiverPhone.trim() : undefined,
+      receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
+      parcelNotes: mode === 'parcel' ? (parcelNotes.trim() || undefined) : undefined,
+      lat: drop?.lat, lng: drop?.lng,
+      label: drop ? `${drop.lat.toFixed(5)}, ${drop.lng.toFixed(5)}` : undefined,
+      km: shownQuote.km,
       bulky,
       reference,
     });
@@ -295,10 +310,12 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
         origin: origin.name,
         deliveryType: mode,
         courierName: mode === 'parcel' ? courier.trim() : undefined,
-        mapUrl: `https://www.google.com/maps?q=${drop.lat.toFixed(6)},${drop.lng.toFixed(6)}`,
-        km: quote.km,
+        mapUrl: drop ? `https://www.google.com/maps?q=${drop.lat.toFixed(6)},${drop.lng.toFixed(6)}` : undefined,
+        receiverName: mode === 'parcel' ? receiverName.trim() : undefined,
+        receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
+        km: shownQuote.km,
         bulky,
-        feeKES: res.deliveryFeeKES ?? quote.total,
+        feeKES: res.deliveryFeeKES ?? shownQuote.total,
         assigned: res.assigned,
         trackUrl: `${window.location.origin}/delivery/${res.customerToken}`,
       }),
@@ -309,6 +326,15 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   };
 
   const money = (n: number) => `KES ${n.toLocaleString()}`;
+  /**
+   * A parcel is a flat drop-off at a counter in town — every courier office
+   * falls inside the minimum fare from either pickup point, so measuring a
+   * route would produce the same number with extra steps and a wrong pin
+   * would produce a wrong one. The server prices it identically.
+   */
+  const shownQuote = mode === 'parcel' ? quoteDelivery(0, bulky) : quote;
+
+  const plain = 'w-full h-[50px] bg-neutral-50 border border-gray-200 rounded-2xl px-4 text-sm font-medium outline-none focus:border-[#FF9900] transition-colors';
 
   /* Booked — nothing else on this page matters now. */
   if (bookedToken) {
@@ -390,27 +416,53 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
         </div>
       </div>
 
+      {/* A parcel needs no map. The rider goes to a counter in town, and what
+          matters is what the COURIER will ask for in order to book it. */}
       {mode === 'parcel' && (
-        <div className="px-6 md:px-8 pb-4">
-          <label htmlFor="courier" className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">
-            Which courier?
-          </label>
-          <input
-            id="courier"
-            value={courier}
-            onChange={e => setCourier(e.target.value)}
-            placeholder="e.g. Wells Fargo, Easy Coach"
-            className="w-full h-[50px] bg-neutral-50 border border-gray-200 rounded-2xl px-4 text-sm font-medium outline-none focus:border-[#FF9900] transition-colors"
-          />
-          <p className="text-[11px] font-medium text-gray-400 mt-1.5">
-            Your choice entirely — we do not pick for you.
-          </p>
+        <div className="px-6 md:px-8 pb-4 space-y-4">
+          <div>
+            <label htmlFor="courier" className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5">
+              Which courier?
+            </label>
+            <input
+              id="courier"
+              value={courier}
+              onChange={e => setCourier(e.target.value)}
+              placeholder="e.g. Wells Fargo, Easy Coach"
+              className={plain}
+            />
+            <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+              Your choice entirely — we do not pick for you.
+            </p>
+          </div>
+
+          <div className="border-t border-neutral-100 pt-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2.5">
+              Who is receiving it?
+            </p>
+            <div className="space-y-2">
+              <input value={receiverName} onChange={e => setReceiverName(e.target.value)}
+                placeholder="Receiver's full name" className={plain} />
+              <input value={receiverPhone} onChange={e => setReceiverPhone(e.target.value)}
+                inputMode="tel" placeholder="Receiver's phone" className={plain} />
+              <input value={receiverDest} onChange={e => setReceiverDest(e.target.value)}
+                placeholder="Town it is going to — e.g. Nakuru, Kisumu" className={plain} />
+              <textarea value={parcelNotes} onChange={e => setParcelNotes(e.target.value)}
+                rows={2} placeholder="Anything else the courier should know (optional)"
+                className={plain + ' h-auto py-3 resize-none'} />
+            </div>
+            <p className="text-[11px] font-medium text-gray-400 mt-2">
+              This is what the courier asks for at the counter. Give it exactly as they will need it.
+            </p>
+          </div>
         </div>
       )}
 
       {mode && (
         <>
-          {/* Map */}
+          {/* Map — DOORSTEP ONLY. A parcel is dropped at a counter in town, so
+              a pin would be asking for a location nobody travels to. */}
+          {mode === 'doorstep' && (
           <div className="px-6 md:px-8">
             <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
@@ -461,34 +513,28 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                 </p>
               )}
             </div>
-            {mode === 'parcel' && (
-              <p className="text-[11px] font-medium text-gray-400 mt-2">
-                The rider takes it there and hands it over — most courier offices are in the CBD.
-              </p>
-            )}
           </div>
+          )}
 
           {/* Quote */}
           <div className="px-6 md:px-8 py-6 space-y-4">
-            {!drop ? (
+            {mode === 'doorstep' && !drop ? (
               <div className="flex items-center gap-3 bg-neutral-50 border border-neutral-100 rounded-2xl p-5">
                 <MapPin size={20} weight="duotone" className="text-gray-300 shrink-0" />
                 <p className="text-[13px] font-medium text-gray-400">
-                  {mode === 'parcel'
-                    ? 'Drop a pin on the courier office to see your fee.'
-                    : 'Drop a pin above to see your fee.'}
+                  Drop a pin above to see your fee.
                 </p>
               </div>
             ) : (
               <div className="bg-[#0f1a1c] rounded-2xl p-6 text-white">
-                {busy || !quote ? (
+                {busy || !shownQuote ? (
                   <p className="flex items-center gap-2 text-sm font-medium text-neutral-300">
                     <CircleNotch size={16} className="animate-spin" /> Measuring the route…
                   </p>
                 ) : (
                   <>
                     <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-3">
-                      {mode === 'parcel' ? 'The rider ride to the courier' : 'The rider fee'}
+                      {mode === 'parcel' ? 'Drop-off at the courier' : 'The rider fee'}
                     </p>
 
                     {/* Itemised, so the large-item charge is explained rather
@@ -496,10 +542,11 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                     <div className="space-y-2 text-[13px]">
                       <div className="flex justify-between gap-4">
                         <span className="text-neutral-400">
-                          {quote.km} km from {origin.name}
-                          {quote.atMinimum && <span className="text-neutral-500"> · minimum fare</span>}
+                          {mode === 'parcel'
+                            ? <>Ride from {origin.name} to {courier.trim() || 'the courier'}</>
+                            : <>{shownQuote.km} km from {origin.name}{shownQuote.atMinimum && <span className="text-neutral-500"> · minimum fare</span>}</>}
                         </span>
-                        <span className="font-bold tabular-nums">{money(quote.distanceFee)}</span>
+                        <span className="font-bold tabular-nums">{money(shownQuote.distanceFee)}</span>
                       </div>
                       {bulky && (
                         <div className="flex justify-between gap-4">
@@ -509,12 +556,12 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                               Yours is bigger than a 20-litre jerrycan
                             </span>
                           </span>
-                          <span className="font-bold tabular-nums text-[#FF9900]">+{money(quote.surcharge)}</span>
+                          <span className="font-bold tabular-nums text-[#FF9900]">+{money(shownQuote.surcharge)}</span>
                         </div>
                       )}
                       <div className="flex justify-between gap-4 pt-3 border-t border-white/15">
                         <span className="font-black">Total</span>
-                        <span className="text-2xl font-black tracking-tight tabular-nums">{money(quote.total)}</span>
+                        <span className="text-2xl font-black tracking-tight tabular-nums">{money(shownQuote.total)}</span>
                       </div>
                       <p className="text-[11px] text-neutral-500">Paid to the rider on arrival.</p>
                     </div>

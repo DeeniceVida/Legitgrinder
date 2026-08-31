@@ -48,6 +48,10 @@ export interface Delivery {
   deliveryType?: string;
   courierName?: string;
   customerEmail?: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  receiverDestination?: string;
+  parcelNotes?: string;
   riderNotes?: string;
   notes?: string;
   collectedAt?: string;
@@ -80,6 +84,10 @@ const toDelivery = (d: any): Delivery => ({
   deliveryType: d.delivery_type || undefined,
   courierName: d.courier_name || undefined,
   customerEmail: d.customer_email || undefined,
+  receiverName: d.receiver_name || undefined,
+  receiverPhone: d.receiver_phone || undefined,
+  receiverDestination: d.receiver_destination || undefined,
+  parcelNotes: d.parcel_notes || undefined,
   riderNotes: d.rider_notes || undefined,
   notes: d.notes || undefined,
   collectedAt: d.collected_at || undefined,
@@ -279,6 +287,9 @@ export interface DeliveryStatusView {
   error?: string;
   deliveryType?: string;
   courierName?: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  receiverDestination?: string;
   customerName?: string;
   item?: string;
   invoiceNumber?: string;
@@ -328,8 +339,12 @@ export const requestDelivery = async (r: {
   originId: string;
   deliveryType: 'doorstep' | 'parcel';
   courierName?: string;
-  lat: number;
-  lng: number;
+  receiverName?: string;
+  receiverPhone?: string;
+  receiverDestination?: string;
+  parcelNotes?: string;
+  lat?: number;
+  lng?: number;
   label?: string;
   km: number;
   bulky?: boolean;
@@ -344,12 +359,16 @@ export const requestDelivery = async (r: {
       p_origin_id: r.originId,
       p_delivery_type: r.deliveryType,
       p_courier_name: r.courierName ?? null,
-      p_lat: r.lat,
-      p_lng: r.lng,
+      p_lat: r.lat ?? null,
+      p_lng: r.lng ?? null,
       p_label: r.label ?? null,
       p_km: r.km,
       p_bulky: r.bulky ?? false,
       p_reference: r.reference ?? null,
+      p_receiver_name: r.receiverName ?? null,
+      p_receiver_phone: r.receiverPhone ?? null,
+      p_receiver_dest: r.receiverDestination ?? null,
+      p_parcel_notes: r.parcelNotes ?? null,
     });
     if (error) {
       console.error('request_delivery failed:', error.message);
