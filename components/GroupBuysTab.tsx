@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   UsersThree, Plus, LinkSimple, Copy, CheckCircle, CircleNotch, MagnifyingGlass,
   WhatsappLogo, LockSimple, LockSimpleOpen, CurrencyDollar, Package, ArrowLeft, WarningCircle,
@@ -349,13 +350,18 @@ const GroupBuysTab: React.FC = () => {
                     {notifying
                       ? <><CircleNotch size={13} className="animate-spin" /> Emailing…</>
                       : arrived
-                        ? <><PaperPlaneTilt size={13} weight="fill" /> Resend balance emails</>
-                        : <><Package size={13} weight="fill" /> Mark arrived &amp; email balances</>}
+                        ? <><PaperPlaneTilt size={13} weight="fill" /> Resend balance emails…</>
+                        : <><Package size={13} weight="fill" /> Mark arrived &amp; email balances…</>}
                   </button>
                 </div>
               </div>
-              {notifyResult && (
-                <p className={`text-xs font-bold mt-4 ${notifyResult.ok ? 'text-emerald-700' : 'text-rose-600'}`}>{notifyResult.msg}</p>
+              {notifyResult && !sendFor && (
+                <div className={`mt-4 rounded-2xl border p-4 ${notifyResult.ok ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                  <p className={`text-[13px] font-black flex items-center gap-2 ${notifyResult.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {notifyResult.ok ? <><CheckCircle size={16} weight="fill" /> Sent</> : <><WarningCircle size={16} weight="fill" /> Not sent</>}
+                  </p>
+                  <p className={`text-[12px] font-medium mt-1 ${notifyResult.ok ? 'text-emerald-900/80' : 'text-rose-900/80'}`}>{notifyResult.msg}</p>
+                </div>
               )}
             </div>
           );
@@ -580,7 +586,7 @@ const GroupBuysTab: React.FC = () => {
         const withEmail = sendFor.owing.filter(o => (o.clientEmail || '').includes('@'));
         const noEmail = sendFor.owing.length - withEmail.length;
         const owed = sendFor.owing.reduce((s, o) => s + Math.max(o.totalKES - o.amountPaidKES, 0), 0);
-        return (
+        return createPortal((
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
             <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
               <div className="px-7 py-5 border-b border-neutral-100">
@@ -695,7 +701,7 @@ const GroupBuysTab: React.FC = () => {
               </div>
             </div>
           </div>
-        );
+        ), document.body);
       })()}
     </div>
   );
