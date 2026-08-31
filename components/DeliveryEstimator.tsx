@@ -436,9 +436,28 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
             </p>
           </div>
 
+          {/* Two people are involved and the form used to ask for a name and a
+              phone twice without saying whose. Each block now names its person
+              before asking anything. */}
           <div className="border-t border-neutral-100 pt-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2.5">
-              Who is receiving it?
+            <p className="text-[13px] font-black text-gray-900 mb-0.5">1 · You, the sender</p>
+            <p className="text-[11px] font-medium text-gray-400 mb-2.5">
+              So we can reach you about this parcel. Your receipt goes to your email.
+            </p>
+            <div className="space-y-2">
+              <input value={name} onChange={e => setName(e.target.value)}
+                placeholder="Your full name" className={plain} />
+              <input value={phone} onChange={e => setPhone(e.target.value)}
+                inputMode="tel" placeholder="Your phone" className={plain} />
+              <input value={email} onChange={e => setEmail(e.target.value)}
+                inputMode="email" type="email" placeholder="Your email — where the receipt goes" className={plain} />
+            </div>
+          </div>
+
+          <div className="border-t border-neutral-100 pt-4">
+            <p className="text-[13px] font-black text-gray-900 mb-0.5">2 · Who collects it upcountry</p>
+            <p className="text-[11px] font-medium text-gray-400 mb-2.5">
+              Exactly as {courier.trim() || 'the courier'} will write it on the waybill.
             </p>
             <div className="space-y-2">
               <input value={receiverName} onChange={e => setReceiverName(e.target.value)}
@@ -452,7 +471,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                 className={plain + ' h-auto py-3 resize-none'} />
             </div>
             <p className="text-[11px] font-medium text-gray-400 mt-2">
-              This is what the courier asks for at the counter. Give it exactly as they will need it.
+              Sending it to yourself? Put your own name and phone here too.
             </p>
           </div>
         </div>
@@ -563,15 +582,19 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                         <span className="font-black">Total</span>
                         <span className="text-2xl font-black tracking-tight tabular-nums">{money(shownQuote.total)}</span>
                       </div>
-                      <p className="text-[11px] text-neutral-500">Paid to the rider on arrival.</p>
+                      <p className="text-[11px] text-neutral-500">
+                        {mode === 'parcel'
+                          ? 'We will confirm this with you before the rider sets off.'
+                          : 'Paid to the rider on arrival.'}
+                      </p>
                     </div>
 
                     {mode === 'parcel' && (
                       <div className="mt-4 bg-[#FF9900]/10 border border-[#FF9900]/25 rounded-2xl p-4">
                         <p className="text-[12px] text-[#FFCB80] leading-relaxed">
-                          <strong className="text-[#FF9900]">The courier charge is not included.</strong> You pay
-                          {' '}{courier.trim() || 'the courier'} directly at their counter — whatever they charge is
-                          what you pay. The rider photographs the receipt so you have a copy.
+                          <strong className="text-[#FF9900]">{courier.trim() || 'The courier'}'s own charge is separate</strong> and
+                          is settled with them directly — whatever they charge is what is paid, and it is not
+                          part of the fee above. The rider photographs the receipt so you have a copy of it.
                         </p>
                       </div>
                     )}
@@ -583,20 +606,25 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                     )}
 
                     <div className="mt-5 space-y-2">
-                      <input
-                        value={name} onChange={e => setName(e.target.value)}
-                        placeholder="Your name" className={field}
-                      />
-                      <input
-                        value={phone} onChange={e => setPhone(e.target.value)}
-                        inputMode="tel" placeholder="Phone the rider should call" className={field}
-                      />
-                      <input
-                        value={email} onChange={e => setEmail(e.target.value)}
-                        inputMode="email" type="email"
-                        placeholder={mode === 'parcel' ? 'Email — where your receipt goes' : 'Email (optional)'}
-                        className={field}
-                      />
+                      {/* A parcel already collected these above, under a
+                          heading that says whose they are. Asking again here
+                          is what made two names and two phones confusing. */}
+                      {mode === 'doorstep' && (
+                        <>
+                          <input
+                            value={name} onChange={e => setName(e.target.value)}
+                            placeholder="Your name" className={field}
+                          />
+                          <input
+                            value={phone} onChange={e => setPhone(e.target.value)}
+                            inputMode="tel" placeholder="Phone the rider should call" className={field}
+                          />
+                          <input
+                            value={email} onChange={e => setEmail(e.target.value)}
+                            inputMode="email" type="email" placeholder="Email (optional)" className={field}
+                          />
+                        </>
+                      )}
                       {formError && <p className="text-[12px] font-bold text-rose-400">{formError}</p>}
                       <button
                         onClick={submit}
