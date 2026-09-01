@@ -8,7 +8,7 @@ import {
 import {
   GroupCampaign, GroupColor, GroupOrder, fetchGroupCampaigns, fetchGroupOrders,
   createGroupCampaign, updateGroupCampaign, setGroupCampaignStatus,
-  markCampaignArrived, sendGroupBalanceEmails
+  markCampaignArrived, sendGroupBalanceEmails, recordGroupBalancePayment
 } from '../services/groupBuys';
 import { normalizeKenyanPhone } from '../utils/phone';
 
@@ -52,6 +52,30 @@ const GroupBuysTab: React.FC = () => {
   const [sendFor, setSendFor] = useState<{ campaign: GroupCampaign; owing: GroupOrder[] } | null>(null);
   /** Whether THIS campaign is items bigger than a jerrycan — rides in the delivery link. */
   const [largeItems, setLargeItems] = useState(false);
+  /** Recording a payment that came in outside the pay link — Till, cash, transfer. */
+  const [payFor, setPayFor] = useState<GroupOrder | null>(null);
+  const [payAmount, setPayAmount] = useState('');
+  const [payHow, setPayHow] = useState('');
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  const savePayment = async () => {
+    if (!payFor) return;
+    const amount = parseInt(payAmount, 10);
+    const outstanding = Math.max(payFor.totalKES - payFor.amountPaidKES, 0);
+    if (!Number.isFinite(amount) || amount <= 0) { setPayError('How much did they pay?'); return; }
+    if (amount > outstanding) { setPayError(`That is more than the ${outstanding.toLocaleString()} outstanding.`); return; }
+    if (!payHow.trim()) { setPayError('Note how it came in — Till, cash, transfer.'); return; }
+
+    setPaying(true); setPayError(null);
+    // The same function the pay link uses, so a Till payment and a card payment
+    // land in exactly one place and the roster can never disagree with itself.
+    const res = await recordGroupBalancePayment(payFor.orderCode, amount, `MANUAL · ${payHow.trim()}`);
+    setPaying(false);
+    if (!res.success) { setPayError(res.error || 'Could not record that.'); return; }
+    setPayFor(null);
+    load();
+  };
   const [collectionNote, setCollectionNote] = useState(() => {
     try { return localStorage.getItem(NOTE_STORAGE_KEY) || DEFAULT_COLLECTION_NOTE; }
     catch { return DEFAULT_COLLECTION_NOTE; }
@@ -448,10 +472,24 @@ const GroupBuysTab: React.FC = () => {
                       {o.joinedGroup ? <CheckCircle size={18} weight="fill" className="text-emerald-500 inline" /> : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-3.5 text-right">
-                      <button onClick={() => waBalance(o, selectedCampaign.title)} title="WhatsApp balance request"
-                        className="p-2 bg-[#25D366]/10 text-[#1eb955] rounded-xl hover:bg-[#25D366] hover:text-white transition-all">
-                        <WhatsappLogo size={15} weight="fill" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Not everyone uses the pay link. Someone settling on
+                            the Till has still paid, and the roster has to be
+                            able to say so or it stops matching reality. */}
+                        {balance > 0 && (
+                          <button
+                            onClick={() => { setPayFor(o); setPayAmount(String(balance)); setPayHow(''); setPayError(null); }}
+                            title="They paid another way — record it"
+                            className="px-3 py-2 bg-[#3D8593]/10 text-[#3D8593] rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#3D8593] hover:text-white transition-all"
+                          >
+                            Record payment
+                          </button>
+                        )}
+                        <button onClick={() => waBalance(o, selectedCampaign.title)} title="WhatsApp balance request"
+                          className="p-2 bg-[#25D366]/10 text-[#1eb955] rounded-xl hover:bg-[#25D366] hover:text-white transition-all">
+                          <WhatsappLogo size={15} weight="fill" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -745,6 +783,76 @@ const GroupBuysTab: React.FC = () => {
           </div>
         ), document.body);
       })()}
+
+      {/* Recording a payment that arrived off-platform. Through a portal for
+          the same reason as the send dialog: a fixed overlay rendered inside
+          this tree can be trapped by a transformed ancestor. */}
+      {payFor && createPortal((
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="px-7 py-5 border-b border-neutral-100">
+              <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">Record a payment</h3>
+              <p className="text-[11px] font-bold text-gray-400 mt-1.5">
+                {payFor.clientName || payFor.orderCode} · {payFor.orderCode} · owes KES{' '}
+                {Math.max(payFor.totalKES - payFor.amountPaidKES, 0).toLocaleString()}
+              </p>
+            </div>
+
+            <div className="px-7 py-6 space-y-4">
+              <div>
+                <label className={label}>How much did they pay?</label>
+                <input
+                  value={payAmount}
+                  onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); setPayError(null); }}
+                  inputMode="numeric"
+                  className={input + ' font-black text-lg'}
+                />
+                <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+                  Defaults to the whole balance. Change it for a part payment.
+                </p>
+              </div>
+
+              <div>
+                <label className={label}>How did it come in?</label>
+                <input
+                  value={payHow}
+                  onChange={e => { setPayHow(e.target.value); setPayError(null); }}
+                  placeholder="e.g. Till 853 7538 · SGH4K2LM9P"
+                  className={input}
+                />
+                <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+                  Kept against the order, so months later you can still show what settled it.
+                </p>
+              </div>
+
+              {payError && (
+                <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-100 rounded-xl p-3.5">
+                  <WarningCircle size={15} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
+                  <p className="text-[12.5px] font-medium text-rose-900">{payError}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-7 py-5 border-t border-neutral-100 flex justify-end gap-2">
+              <button
+                onClick={() => setPayFor(null)}
+                className="px-5 py-3 rounded-full border border-neutral-200 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={savePayment}
+                disabled={paying}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
+              >
+                {paying
+                  ? <><CircleNotch size={13} className="animate-spin" /> Saving…</>
+                  : <><CurrencyDollar size={13} weight="bold" /> Record it</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      ), document.body)}
     </div>
   );
 };
