@@ -316,6 +316,214 @@ const GroupBuysTab: React.FC = () => {
     return <div className="flex items-center justify-center py-24"><CircleNotch size={30} className="text-[#3D8593] animate-spin" /></div>;
   }
 
+  /**
+   * THE DIALOGS LIVE HERE, NOT INSIDE ONE RETURN.
+   *
+   * This component returns from two places — the roster view when a campaign
+   * is open, and the campaigns list otherwise. Both dialogs were written into
+   * the LIST return, while the buttons that open them live in the ROSTER. So
+   * opening a campaign, clicking Record payment or the send button, set the
+   * state and rendered nothing at all: the markup was in a branch that was not
+   * mounted. Held in a variable and rendered by BOTH returns, they work from
+   * either view.
+   */
+  const overlays = (
+    <>
+        {/* SEND BALANCE EMAILS — the collection wording is the last thing you see
+            before it goes out, because it is the part that changes. */}
+        {sendFor && (() => {
+          const withEmail = sendFor.owing.filter(o => (o.clientEmail || '').includes('@'));
+          const noEmail = sendFor.owing.length - withEmail.length;
+          const owed = sendFor.owing.reduce((s, o) => s + Math.max(o.totalKES - o.amountPaidKES, 0), 0);
+          return createPortal((
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+              <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+                <div className="px-7 py-5 border-b border-neutral-100">
+                  <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">Email {withEmail.length} buyer{withEmail.length === 1 ? '' : 's'}</h3>
+                  <p className="text-[11px] font-bold text-gray-400 mt-1.5">
+                    “{sendFor.campaign.title}” has arrived · KES {owed.toLocaleString()} outstanding
+                  </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-7 py-6 space-y-5">
+                  {/* The report of what happened lives HERE, in front of you,
+                      not on a card further down the page you already scrolled
+                      past. It stays until you close the dialog. */}
+                  {notifyResult && (
+                    <div className={`rounded-2xl p-5 border ${notifyResult.ok
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-rose-50 border-rose-200'}`}>
+                      <p className={`text-[15px] font-black tracking-tight flex items-center gap-2 ${notifyResult.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {notifyResult.ok
+                          ? <><CheckCircle size={18} weight="fill" /> Sent</>
+                          : <><WarningCircle size={18} weight="fill" /> Not sent</>}
+                      </p>
+                      <p className={`text-[13px] font-medium mt-1.5 leading-relaxed ${notifyResult.ok ? 'text-emerald-900/80' : 'text-rose-900/80'}`}>
+                        {notifyResult.msg}
+                      </p>
+                      {notifyResult.ok && notifyResult.recipients?.length ? (
+                        <div className="mt-3 pt-3 border-t border-emerald-200/60">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70 mb-1.5">
+                            Went to
+                          </p>
+                          <ul className="space-y-0.5">
+                            {notifyResult.recipients.map(e => (
+                              <li key={e} className="text-[12px] font-medium text-emerald-900/80 lowercase">{e}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      <p className={`text-[11px] font-medium mt-3 ${notifyResult.ok ? 'text-emerald-700/70' : 'text-rose-700/70'}`}>
+                        {notifyResult.ok
+                          ? 'Also logged in Operations → Sent Emails.'
+                          : 'This attempt is logged in Operations → Sent Emails with the reason.'}
+                      </p>
+                    </div>
+                  )}
+
+                  <p className="text-[13px] text-gray-500 font-medium leading-relaxed">
+                    Each buyer gets their own email with their own balance and pay link — nobody sees anyone else's.
+                  </p>
+
+                  <div>
+                    <label className={label}>Collection &amp; delivery <span className="text-neutral-300 normal-case font-medium">— appears in the 📍 box</span></label>
+                    <textarea
+                      value={collectionNote}
+                      onChange={(e) => setCollectionNote(e.target.value)}
+                      rows={6}
+                      className={input + ' resize-none leading-relaxed'}
+                    />
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-[10px] font-medium text-gray-400">Saved for next time.</p>
+                      {collectionNote !== DEFAULT_COLLECTION_NOTE && (
+                        <button
+                          onClick={() => setCollectionNote(DEFAULT_COLLECTION_NOTE)}
+                          className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline"
+                        >
+                          Reset to default
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Rides in the delivery button's link. Without it every buyer
+                      who picks delivery is quoted 150 short of what the rider
+                      will actually want for a big load. */}
+                  <label className="flex items-start gap-3 cursor-pointer bg-neutral-50 border border-neutral-100 rounded-xl p-4">
+                    <input type="checkbox" checked={largeItems} onChange={e => setLargeItems(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-[#FF9900]" />
+                    <span>
+                      <span className="block text-[13px] font-bold text-gray-900">
+                        These are bigger than a 20-litre jerrycan
+                      </span>
+                      <span className="block text-[11px] font-medium text-gray-400 leading-relaxed">
+                        Adds KES 150 to any delivery booked from this email, shown to the buyer as an
+                        explained line. Leave it off for small items.
+                      </span>
+                    </span>
+                  </label>
+
+                  {noEmail > 0 && (
+                    <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                      <p className="text-[12px] font-medium text-amber-900/80 leading-relaxed">
+                        <strong>{noEmail} buyer{noEmail === 1 ? ' has' : 's have'} no email on file</strong> and will not receive
+                        this. WhatsApp them from the list — their button is already there.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-7 py-5 border-t border-neutral-100 flex justify-end gap-2">
+                  <button
+                    onClick={() => { setSendFor(null); setNotifyResult(null); }}
+                    className="px-5 py-3 rounded-full border border-neutral-200 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition-colors"
+                  >
+                    {notifyResult ? 'Close' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={() => handleArrivedAndNotify(sendFor.campaign, sendFor.owing)}
+                    disabled={withEmail.length === 0 || notifying}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
+                  >
+                    <PaperPlaneTilt size={13} weight="fill" /> {notifying ? 'Sending…' : notifyResult?.ok ? 'Send again' : `Send ${withEmail.length} email${withEmail.length === 1 ? '' : 's'}`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ), document.body);
+        })()}
+
+        {/* Recording a payment that arrived off-platform. Through a portal for
+            the same reason as the send dialog: a fixed overlay rendered inside
+            this tree can be trapped by a transformed ancestor. */}
+        {payFor && createPortal((
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+              <div className="px-7 py-5 border-b border-neutral-100">
+                <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">Record a payment</h3>
+                <p className="text-[11px] font-bold text-gray-400 mt-1.5">
+                  {payFor.clientName || payFor.orderCode} · {payFor.orderCode} · owes KES{' '}
+                  {Math.max(payFor.totalKES - payFor.amountPaidKES, 0).toLocaleString()}
+                </p>
+              </div>
+
+              <div className="px-7 py-6 space-y-4">
+                <div>
+                  <label className={label}>How much did they pay?</label>
+                  <input
+                    value={payAmount}
+                    onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); setPayError(null); }}
+                    inputMode="numeric"
+                    className={input + ' font-black text-lg'}
+                  />
+                  <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+                    Defaults to the whole balance. Change it for a part payment.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={label}>How did it come in?</label>
+                  <input
+                    value={payHow}
+                    onChange={e => { setPayHow(e.target.value); setPayError(null); }}
+                    placeholder="e.g. Till 853 7538 · SGH4K2LM9P"
+                    className={input}
+                  />
+                  <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+                    Kept against the order, so months later you can still show what settled it.
+                  </p>
+                </div>
+
+                {payError && (
+                  <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-100 rounded-xl p-3.5">
+                    <WarningCircle size={15} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
+                    <p className="text-[12.5px] font-medium text-rose-900">{payError}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-7 py-5 border-t border-neutral-100 flex justify-end gap-2">
+                <button
+                  onClick={() => setPayFor(null)}
+                  className="px-5 py-3 rounded-full border border-neutral-200 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={savePayment}
+                  disabled={paying}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
+                >
+                  {paying
+                    ? <><CircleNotch size={13} className="animate-spin" /> Saving…</>
+                    : <><CurrencyDollar size={13} weight="bold" /> Record it</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        ), document.body)}
+    </>
+  );
   // ── Roster view ──────────────────────────────────────────────────────────
   if (selectedCampaign) {
     return (
@@ -500,6 +708,7 @@ const GroupBuysTab: React.FC = () => {
             </tbody>
           </table>
         </div>
+        {overlays}
       </div>
     );
   }
@@ -660,199 +869,7 @@ const GroupBuysTab: React.FC = () => {
         </div>
       )}
 
-      {/* SEND BALANCE EMAILS — the collection wording is the last thing you see
-          before it goes out, because it is the part that changes. */}
-      {sendFor && (() => {
-        const withEmail = sendFor.owing.filter(o => (o.clientEmail || '').includes('@'));
-        const noEmail = sendFor.owing.length - withEmail.length;
-        const owed = sendFor.owing.reduce((s, o) => s + Math.max(o.totalKES - o.amountPaidKES, 0), 0);
-        return createPortal((
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-            <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
-              <div className="px-7 py-5 border-b border-neutral-100">
-                <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">Email {withEmail.length} buyer{withEmail.length === 1 ? '' : 's'}</h3>
-                <p className="text-[11px] font-bold text-gray-400 mt-1.5">
-                  “{sendFor.campaign.title}” has arrived · KES {owed.toLocaleString()} outstanding
-                </p>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-7 py-6 space-y-5">
-                {/* The report of what happened lives HERE, in front of you,
-                    not on a card further down the page you already scrolled
-                    past. It stays until you close the dialog. */}
-                {notifyResult && (
-                  <div className={`rounded-2xl p-5 border ${notifyResult.ok
-                    ? 'bg-emerald-50 border-emerald-200'
-                    : 'bg-rose-50 border-rose-200'}`}>
-                    <p className={`text-[15px] font-black tracking-tight flex items-center gap-2 ${notifyResult.ok ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      {notifyResult.ok
-                        ? <><CheckCircle size={18} weight="fill" /> Sent</>
-                        : <><WarningCircle size={18} weight="fill" /> Not sent</>}
-                    </p>
-                    <p className={`text-[13px] font-medium mt-1.5 leading-relaxed ${notifyResult.ok ? 'text-emerald-900/80' : 'text-rose-900/80'}`}>
-                      {notifyResult.msg}
-                    </p>
-                    {notifyResult.ok && notifyResult.recipients?.length ? (
-                      <div className="mt-3 pt-3 border-t border-emerald-200/60">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700/70 mb-1.5">
-                          Went to
-                        </p>
-                        <ul className="space-y-0.5">
-                          {notifyResult.recipients.map(e => (
-                            <li key={e} className="text-[12px] font-medium text-emerald-900/80 lowercase">{e}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                    <p className={`text-[11px] font-medium mt-3 ${notifyResult.ok ? 'text-emerald-700/70' : 'text-rose-700/70'}`}>
-                      {notifyResult.ok
-                        ? 'Also logged in Operations → Sent Emails.'
-                        : 'This attempt is logged in Operations → Sent Emails with the reason.'}
-                    </p>
-                  </div>
-                )}
-
-                <p className="text-[13px] text-gray-500 font-medium leading-relaxed">
-                  Each buyer gets their own email with their own balance and pay link — nobody sees anyone else's.
-                </p>
-
-                <div>
-                  <label className={label}>Collection &amp; delivery <span className="text-neutral-300 normal-case font-medium">— appears in the 📍 box</span></label>
-                  <textarea
-                    value={collectionNote}
-                    onChange={(e) => setCollectionNote(e.target.value)}
-                    rows={6}
-                    className={input + ' resize-none leading-relaxed'}
-                  />
-                  <div className="flex items-center justify-between mt-1.5">
-                    <p className="text-[10px] font-medium text-gray-400">Saved for next time.</p>
-                    {collectionNote !== DEFAULT_COLLECTION_NOTE && (
-                      <button
-                        onClick={() => setCollectionNote(DEFAULT_COLLECTION_NOTE)}
-                        className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:underline"
-                      >
-                        Reset to default
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Rides in the delivery button's link. Without it every buyer
-                    who picks delivery is quoted 150 short of what the rider
-                    will actually want for a big load. */}
-                <label className="flex items-start gap-3 cursor-pointer bg-neutral-50 border border-neutral-100 rounded-xl p-4">
-                  <input type="checkbox" checked={largeItems} onChange={e => setLargeItems(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 accent-[#FF9900]" />
-                  <span>
-                    <span className="block text-[13px] font-bold text-gray-900">
-                      These are bigger than a 20-litre jerrycan
-                    </span>
-                    <span className="block text-[11px] font-medium text-gray-400 leading-relaxed">
-                      Adds KES 150 to any delivery booked from this email, shown to the buyer as an
-                      explained line. Leave it off for small items.
-                    </span>
-                  </span>
-                </label>
-
-                {noEmail > 0 && (
-                  <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                    <p className="text-[12px] font-medium text-amber-900/80 leading-relaxed">
-                      <strong>{noEmail} buyer{noEmail === 1 ? ' has' : 's have'} no email on file</strong> and will not receive
-                      this. WhatsApp them from the list — their button is already there.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="px-7 py-5 border-t border-neutral-100 flex justify-end gap-2">
-                <button
-                  onClick={() => { setSendFor(null); setNotifyResult(null); }}
-                  className="px-5 py-3 rounded-full border border-neutral-200 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition-colors"
-                >
-                  {notifyResult ? 'Close' : 'Cancel'}
-                </button>
-                <button
-                  onClick={() => handleArrivedAndNotify(sendFor.campaign, sendFor.owing)}
-                  disabled={withEmail.length === 0 || notifying}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
-                >
-                  <PaperPlaneTilt size={13} weight="fill" /> {notifying ? 'Sending…' : notifyResult?.ok ? 'Send again' : `Send ${withEmail.length} email${withEmail.length === 1 ? '' : 's'}`}
-                </button>
-              </div>
-            </div>
-          </div>
-        ), document.body);
-      })()}
-
-      {/* Recording a payment that arrived off-platform. Through a portal for
-          the same reason as the send dialog: a fixed overlay rendered inside
-          this tree can be trapped by a transformed ancestor. */}
-      {payFor && createPortal((
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
-            <div className="px-7 py-5 border-b border-neutral-100">
-              <h3 className="text-lg font-black text-gray-900 tracking-tight leading-none">Record a payment</h3>
-              <p className="text-[11px] font-bold text-gray-400 mt-1.5">
-                {payFor.clientName || payFor.orderCode} · {payFor.orderCode} · owes KES{' '}
-                {Math.max(payFor.totalKES - payFor.amountPaidKES, 0).toLocaleString()}
-              </p>
-            </div>
-
-            <div className="px-7 py-6 space-y-4">
-              <div>
-                <label className={label}>How much did they pay?</label>
-                <input
-                  value={payAmount}
-                  onChange={e => { setPayAmount(e.target.value.replace(/[^0-9]/g, '')); setPayError(null); }}
-                  inputMode="numeric"
-                  className={input + ' font-black text-lg'}
-                />
-                <p className="text-[11px] font-medium text-gray-400 mt-1.5">
-                  Defaults to the whole balance. Change it for a part payment.
-                </p>
-              </div>
-
-              <div>
-                <label className={label}>How did it come in?</label>
-                <input
-                  value={payHow}
-                  onChange={e => { setPayHow(e.target.value); setPayError(null); }}
-                  placeholder="e.g. Till 853 7538 · SGH4K2LM9P"
-                  className={input}
-                />
-                <p className="text-[11px] font-medium text-gray-400 mt-1.5">
-                  Kept against the order, so months later you can still show what settled it.
-                </p>
-              </div>
-
-              {payError && (
-                <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-100 rounded-xl p-3.5">
-                  <WarningCircle size={15} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
-                  <p className="text-[12.5px] font-medium text-rose-900">{payError}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="px-7 py-5 border-t border-neutral-100 flex justify-end gap-2">
-              <button
-                onClick={() => setPayFor(null)}
-                className="px-5 py-3 rounded-full border border-neutral-200 text-gray-500 text-[10px] font-black uppercase tracking-widest hover:bg-neutral-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={savePayment}
-                disabled={paying}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-all disabled:opacity-40"
-              >
-                {paying
-                  ? <><CircleNotch size={13} className="animate-spin" /> Saving…</>
-                  : <><CurrencyDollar size={13} weight="bold" /> Record it</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      ), document.body)}
+    {overlays}
     </div>
   );
 };
