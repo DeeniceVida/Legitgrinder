@@ -104,3 +104,16 @@ export const STATUS_SEQUENCE = [
   OrderStatus.READY_FOR_COLLECTION,
   OrderStatus.DELIVERED
 ];
+
+/**
+ * Where money is sent. Shown on anything asking to be paid — the invoice PDF,
+ * the emailed invoice, the printed statement — and never on a receipt, where
+ * payment instructions would only confuse someone who has already paid.
+ *
+ * Also copied into functions/api/send-email.ts, which is bundled separately by
+ * Cloudflare and cannot import this file. Change both together.
+ */
+export const PAY_DETAILS = {
+  paybill: '542542',
+  account: '02309134826150',
+};

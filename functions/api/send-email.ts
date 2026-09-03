@@ -28,6 +28,12 @@ interface EmailPayload {
     attachment?: { filename: string; content: string };  // base64 PDF (no data: prefix)
 }
 
+/**
+ * Kept in step with PAY_DETAILS in constants.ts, which this file cannot
+ * import — Cloudflare bundles Pages Functions separately. Change both.
+ */
+const PAY_DETAILS = { paybill: '542542', account: '02309134826150' };
+
 const LOGO = 'https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg';
 // Replies go to invoices@legitgrinder.com itself (forwarded to the owner's inbox
 // by Cloudflare Email Routing), so customers only ever see the business address.
@@ -118,6 +124,25 @@ export function buildHtml(p: EmailPayload): string {
       ${(!fullyPaid && p.payUrl) ? `
       <div style="text-align:center;margin:28px 0 8px;">
         <a href="${esc(p.payUrl)}" style="display:inline-block;background:#0f1a1c;color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:14px 32px;border-radius:999px;">${isReceipt ? 'Pay Balance' : 'Pay Now'} — ${money(balance, cur)}</a>
+      </div>` : ''}
+
+      ${!fullyPaid ? `
+      <div style="margin:22px 0 4px;background:#f2f8f8;border:1px solid #d8e8e8;border-radius:12px;padding:16px 20px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#3D8593;margin-bottom:10px;">Or pay by M-Pesa</div>
+        <table style="border-collapse:collapse;">
+          <tr>
+            <td style="font-size:13px;color:#6b7677;padding:3px 16px 3px 0;">Paybill</td>
+            <td style="font-size:17px;font-weight:800;color:#0f1a1c;letter-spacing:1px;">${esc(PAY_DETAILS.paybill)}</td>
+          </tr>
+          <tr>
+            <td style="font-size:13px;color:#6b7677;padding:3px 16px 3px 0;">Account number</td>
+            <td style="font-size:17px;font-weight:800;color:#0f1a1c;letter-spacing:1px;">${esc(PAY_DETAILS.account)}</td>
+          </tr>
+        </table>
+        <div style="font-size:12px;color:#6b7677;margin-top:10px;line-height:1.55;">
+          Please quote <strong style="color:#0f1a1c;">${esc(p.invoiceNumber)}</strong> and send us the M-Pesa
+          message, so we can match your payment to this order.
+        </div>
       </div>` : ''}
 
       ${p.trackUrl ? `

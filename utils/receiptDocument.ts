@@ -3,6 +3,8 @@
 // (logo watermark, accent bar, teal totals) so the customer gets a clean,
 // downloadable document.
 
+import { PAY_DETAILS } from '../constants';
+
 const LOGO = 'https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg';
 
 export interface DocumentData {
@@ -98,6 +100,25 @@ export function buildDocumentHtml(d: DocumentData): string {
           ${d.reference ? `<div style="margin-top:20px;font-size:12px;color:#9aa4a4;">Reference: ${esc(d.reference)}</div>` : ''}
 
           ${d.deliveryNote ? `<div style="margin-top:18px;background:#f2f8f8;border:1px solid #d8e8e8;border-radius:10px;padding:12px 16px;"><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#3D8593;margin-bottom:4px;">Delivery</div><div style="font-size:12px;color:#3f4a4b;line-height:1.6;white-space:pre-wrap;">${esc(d.deliveryNote)}</div></div>` : ''}
+
+          ${!fullyPaid ? `
+          <div style="margin-top:24px;background:#f2f8f8;border:1px solid #d8e8e8;border-radius:10px;padding:14px 18px;">
+            <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#3D8593;margin-bottom:8px;">How to pay</div>
+            <table style="border-collapse:collapse;">
+              <tr>
+                <td style="font-size:12.5px;color:#6b7677;padding:2px 14px 2px 0;">M-Pesa Paybill</td>
+                <td style="font-size:15px;font-weight:800;color:#0f1a1c;letter-spacing:1px;">${esc(PAY_DETAILS.paybill)}</td>
+              </tr>
+              <tr>
+                <td style="font-size:12.5px;color:#6b7677;padding:2px 14px 2px 0;">Account number</td>
+                <td style="font-size:15px;font-weight:800;color:#0f1a1c;letter-spacing:1px;">${esc(PAY_DETAILS.account)}</td>
+              </tr>
+            </table>
+            <div style="font-size:11.5px;color:#6b7677;margin-top:8px;">
+              Please quote <strong style="color:#0f1a1c;">${esc(d.invoiceNumber)}</strong> when you pay, and send the
+              M-Pesa message so we can match it to your order.
+            </div>
+          </div>` : ''}
 
           <div style="margin-top:24px;background:#fff8ed;border:1px solid #fde4bf;border-radius:10px;padding:12px 16px;">
             <div style="font-size:11px;color:#a86b12;line-height:1.5;">Order processing: orders are placed 1 business day after payment is confirmed — the time it takes for funds to settle.</div>

@@ -16,7 +16,7 @@ import {
 import * as XLSX from 'xlsx';
 import { syncBackMarketPrices } from '../services/scraper';
 import { seedFullInventory } from '../services/syncLinks';
-import { WHATSAPP_NUMBER } from '../constants';
+import { WHATSAPP_NUMBER, PAY_DETAILS } from '../constants';
 import { supabase } from '../lib/supabase';
 import { calculateFinalPrice, updatePricelistItem, updateConsultation, createProduct, updateProduct, deleteProduct, createBlog, updateBlog, deleteBlog, updateClient, deleteClient, fetchSourcingRequests, updateSourcingStatus, updateInvoiceStatus as updateInvoiceStatusInDB, updateInvoicePaymentStatus, updateInvoiceDetails, fetchVisitCount, createEBook, updateEBook, deleteEBook, fetchEBooks, createManualInvoice, deleteInvoice, sendInvoiceEmail, markReviewRequested, notifyBackInStock, fetchWaitlistCounts,
   ShippingAgent, fetchShippingAgents, createShippingAgent, deleteShippingAgent, setInvoiceShippingAgent,
@@ -5126,9 +5126,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         ${isStatement ? `
                         <div style="margin-top:20px;background:#f8fafa;border:1px solid #eef0ef;border-radius:10px;padding:14px 18px;">
                           <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#9aa4a4;margin-bottom:5px;">How to pay</div>
-                          <div style="font-size:12.5px;color:#3f4a4b;line-height:1.6;">
-                            M-Pesa, card or bank transfer: <strong style="color:#0f1a1c;">${payUrl}</strong><br/>
-                            Or reply on WhatsApp and we will send the link. Please quote <strong>${inv.invoiceNumber}</strong>.
+                          <div style="font-size:12.5px;color:#3f4a4b;line-height:1.8;">
+                            <strong style="color:#0f1a1c;">M-Pesa Paybill ${PAY_DETAILS.paybill}</strong> &nbsp;·&nbsp;
+                            Account <strong style="color:#0f1a1c;">${PAY_DETAILS.account}</strong><br/>
+                            Or pay by card here: <strong style="color:#0f1a1c;">${payUrl}</strong><br/>
+                            Please quote <strong>${inv.invoiceNumber}</strong> and send us the M-Pesa message.
                           </div>
                         </div>
                         <div class="thanks">This is a statement of account, not a receipt — <strong>${balStr}</strong> remains payable on ${inv.invoiceNumber}.</div>
