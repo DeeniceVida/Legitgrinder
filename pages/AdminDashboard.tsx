@@ -2189,6 +2189,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               const dispTotal = inv.totalKES ? `${inv.currency || 'KES'} ${inv.totalKES.toLocaleString()}` : 'TBD';
                               const dispUnit = inv.totalKES ? (inv.totalKES / (inv.quantity || 1)).toLocaleString() : 'TBD';
 
+                              // The paybill is a shilling account, so it only gets an amount when
+                              // the invoice is priced in shillings. A USD quote gets the paybill
+                              // and a "confirm the rate first" line instead of a number that would
+                              // be wrong the moment it printed. A settled invoice gets no pay box.
+                              const balanceDue = Math.max(0, (inv.totalKES || 0) - (inv.amountPaidKES || 0));
+                              const showPayBox = !inv.isPaid && balanceDue > 0;
+                              const payIsKES = (inv.currency || 'KES') === 'KES';
+                              const dueLabel = payIsKES ? `KES ${balanceDue.toLocaleString()}` : '';
+                              const partPaid = (inv.amountPaidKES || 0) > 0;
+
                               printWin.document.write(`
                                 <html>
                                   <head>
@@ -2208,7 +2218,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       th { background: #3d8593; color: white; padding: 15px; text-align: left; text-transform: uppercase; font-size: 12px; font-weight: 900; letter-spacing: 1px; }
                                       td { padding: 20px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
                                       .total-row td { border: none; padding-top: 30px; font-size: 18px; font-weight: 900; text-align: right; }
-                                      .terms { margin-top: 60px; border-top: 2px solid #000; padding-top: 20px; }
+                                      /* The pay box sits ABOVE the terms and is boxed, because this is the
+                                         one thing the client has to act on. Terms are read once; the paybill
+                                         is squinted at while the phone is already open. */
+                                      .pay { margin-top: 45px; border: 2px solid #3d8593; border-radius: 10px; padding: 18px 22px; page-break-inside: avoid; }
+                                      .pay h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #3d8593; margin-bottom: 14px; }
+                                      .pay-grid { display: flex; gap: 34px; flex-wrap: wrap; margin-bottom: 14px; }
+                                      .pay-grid span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 900; margin-bottom: 3px; }
+                                      .pay-grid strong { font-size: 17px; font-weight: 900; letter-spacing: 0.5px; }
+                                      .pay ol { margin: 0 0 10px 18px; padding: 0; }
+                                      .pay li { font-size: 12.5px; color: #333; line-height: 1.7; }
+                                      .pay-note { font-size: 11.5px; color: #777; font-style: italic; margin: 0; }
+                                      .terms { margin-top: 35px; border-top: 2px solid #000; padding-top: 20px; }
                                       .terms h2 { font-size: 14px; font-weight: 900; text-transform: uppercase; margin-bottom: 15px; }
                                       .terms p { font-size: 13px; color: #444; margin: 8px 0; line-height: 1.6; }
                                       .footer { margin-top: 100px; text-align: center; font-size: 12px; font-weight: 500; color: #999; }
@@ -2261,10 +2282,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         </tr>
                                       </tbody>
                                     </table>
+                                    ${showPayBox ? `
+                                    <div class="pay">
+                                      <h2>How to pay</h2>
+                                      <div class="pay-grid">
+                                        <div><span>M-Pesa Paybill</span><strong>${PAY_DETAILS.paybill}</strong></div>
+                                        <div><span>Account number</span><strong>${PAY_DETAILS.account}</strong></div>
+                                        ${payIsKES ? `<div><span>${partPaid ? 'Balance due' : 'Amount'}</span><strong>${dueLabel}</strong></div>` : ''}
+                                      </div>
+                                      <ol>
+                                        <li>Go to M-Pesa &rarr; Lipa na M-Pesa &rarr; Pay Bill.</li>
+                                        <li>Business number <strong>${PAY_DETAILS.paybill}</strong>, account <strong>${PAY_DETAILS.account}</strong>.</li>
+                                        ${payIsKES
+                                          ? `<li>Enter <strong>${dueLabel}</strong> and confirm with your M-Pesa PIN.</li>`
+                                          : `<li>This invoice is in ${inv.currency}. Confirm the shilling amount with us before paying &mdash; the rate moves.</li>`}
+                                        <li>Forward the M-Pesa confirmation message to us on WhatsApp, quoting invoice <strong>${inv.invoiceNumber || inv.id}</strong>.</li>
+                                      </ol>
+                                      <p class="pay-note">Your order is placed once payment reflects. Cash is accepted at the pickup point by prior arrangement.</p>
+                                    </div>` : ''}
                                     <div class="terms">
                                       <h2>Terms and Conditions</h2>
                                       <p>The total fee is all inclusive to Nairobi, the client will cater for delivery to their home/work location.</p>
-                                      <p>Payment is done via mobile money/cash.</p>
                                       <p>Shipping duration via air(2 weeks) sea(30-45days)</p>
                                     </div>
                                     <div class="footer">LegitGrinder KE deals in imports</div>
@@ -4768,7 +4806,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       .total-band { background:#4f46e5; color:white; font-size:18px; font-weight:900; }
                       .total-band td { padding:18px 12px; border:none; text-align:right; }
                       .total-band td:first-child { text-align:left; }
-                      .terms { margin-top:50px; border-top:2px solid #eee; padding-top:20px; }
+                      .pay { margin-top:40px; border:2px solid #4f46e5; border-radius:10px; padding:16px 20px; page-break-inside:avoid; }
+                      .pay h2 { font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:#4f46e5; margin-bottom:12px; }
+                      .pay-grid { display:flex; gap:30px; flex-wrap:wrap; margin-bottom:12px; }
+                      .pay-grid span { display:block; font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#999; font-weight:900; margin-bottom:3px; }
+                      .pay-grid strong { font-size:16px; font-weight:900; letter-spacing:0.5px; }
+                      .pay ol { margin:0 0 8px 18px; padding:0; }
+                      .pay li { font-size:12px; color:#333; line-height:1.7; }
+                      .pay-note { font-size:11px; color:#888; font-style:italic; margin:0; }
+                      .terms { margin-top:30px; border-top:2px solid #eee; padding-top:20px; }
                       .terms h2 { font-size:13px; font-weight:900; text-transform:uppercase; margin-bottom:10px; }
                       .terms p { font-size:12px; color:#555; margin:6px 0; line-height:1.6; }
                       .footer { margin-top:60px; text-align:center; font-size:11px; color:#bbb; }
@@ -4801,10 +4847,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td style="font-weight:900;">${imageInvoiceCurrency} ${grandTotal.toLocaleString()}</td>
                       </tr></tfoot>
                     </table>
+                    <div class="pay">
+                      <h2>How to pay</h2>
+                      <div class="pay-grid">
+                        <div><span>M-Pesa Paybill</span><strong>${PAY_DETAILS.paybill}</strong></div>
+                        <div><span>Account number</span><strong>${PAY_DETAILS.account}</strong></div>
+                        ${imageInvoiceCurrency === 'KES'
+                          ? `<div><span>Amount</span><strong>KES ${grandTotal.toLocaleString()}</strong></div>`
+                          : ''}
+                      </div>
+                      <ol>
+                        <li>Go to M-Pesa &rarr; Lipa na M-Pesa &rarr; Pay Bill.</li>
+                        <li>Business number <strong>${PAY_DETAILS.paybill}</strong>, account <strong>${PAY_DETAILS.account}</strong>.</li>
+                        ${imageInvoiceCurrency === 'KES'
+                          ? `<li>Enter <strong>KES ${grandTotal.toLocaleString()}</strong> and confirm with your M-Pesa PIN.</li>`
+                          : `<li>This quote is in USD. Confirm the shilling amount with us before paying &mdash; the rate moves.</li>`}
+                        <li>Forward the M-Pesa confirmation message to us on WhatsApp so we can match it to this invoice.</li>
+                      </ol>
+                      <p class="pay-note">Your order is placed once payment reflects. Cash is accepted at the pickup point by prior arrangement.</p>
+                    </div>
                     <div class="terms">
                       <h2>Terms &amp; Conditions</h2>
                       <p>The total fee is all inclusive to Nairobi. Client caters for delivery to their home/work location.</p>
-                      <p>Payment via mobile money/cash. Shipping: Air (2 weeks) | Sea (30–45 days).</p>
+                      <p>Shipping: Air (2 weeks) | Sea (30–45 days).</p>
                     </div>
                     <div class="footer">LegitGrinder KE – Deals in Imports | Integrity First</div>
                     </body></html>
