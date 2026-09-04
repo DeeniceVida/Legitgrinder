@@ -44,7 +44,23 @@ export const parseLatLng = (raw: string): { lat: number; lng: number } | null =>
   return null;
 };
 
-const DeliveriesPanel: React.FC = () => {
+/** Hand-off from an invoice: everything we already know, so nothing is retyped. */
+export interface DeliveryPrefill {
+  customerName?: string;
+  customerPhone?: string;
+  itemDescription?: string;
+  invoiceNumber?: string;
+  /** Bumped by the caller so the same invoice can be sent through twice. */
+  nonce: number;
+}
+
+interface Props {
+  prefill?: DeliveryPrefill | null;
+  /** Told once the prefill has been consumed, so it is not re-applied. */
+  onPrefillUsed?: () => void;
+}
+
+const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
   const [rows, setRows] = useState<Delivery[]>([]);
   const [riders, setRiders] = useState<Rider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +100,18 @@ const DeliveriesPanel: React.FC = () => {
   const [km, setKm] = useState<number | null>(null);
   const [measuring, setMeasuring] = useState(false);
 
+  /**
+   * Doorstep or parcel — the choice that decides whether the rider's phone
+   * shows the courier section and the receipt upload at all.
+   */
+  const [mode, setMode] = useState<'doorstep' | 'parcel'>('doorstep');
+  const [courier, setCourier] = useState('');
+  const [receiverName, setReceiverName] = useState('');
+  const [receiverPhone, setReceiverPhone] = useState('');
+  const [receiverDest, setReceiverDest] = useState('');
+  const [parcelNotes, setParcelNotes] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+
   const load = () => {
     setLoading(true);
     Promise.all([fetchDeliveries(), fetchRiders()]).then(([d, r]) => {
@@ -93,6 +121,27 @@ const DeliveriesPanel: React.FC = () => {
     }).finally(() => setLoading(false));
   };
   useEffect(load, []);
+
+  /**
+   * An invoice was sent here with "Arrange delivery". Open the form with what
+   * we already know filled in — the whole point is that the owner does not
+   * retype a name, a phone and an item he has already typed once.
+   *
+   * Keyed on nonce, not on the object, so sending the SAME invoice through a
+   * second time still reopens the form.
+   */
+  useEffect(() => {
+    if (!prefill) return;
+    setAdding(true);
+    setBuilding(false);
+    setCustomerName(prefill.customerName || '');
+    setCustomerPhone(prefill.customerPhone || '');
+    setItem(prefill.itemDescription || '');
+    setInvoiceNumber(prefill.invoiceNumber || '');
+    setError(null);
+    onPrefillUsed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill?.nonce]);
 
   const parsed = useMemo(() => parseLatLng(pin), [pin]);
   /** Filled in when a shortened link had to be resolved server-side. */
@@ -142,22 +191,44 @@ const DeliveriesPanel: React.FC = () => {
     return () => { dead = true; };
   }, [coords, originId]);
 
-  const quote = km != null ? quoteDelivery(km, bulky) : null;
+  /**
+   * A parcel is a flat drop at a counter in town: every courier office falls
+   * inside the minimum fare from either pickup point, so measuring a route
+   * returns the same number with extra steps. Priced identically to the
+   * customer-facing estimator, deliberately — the two must never disagree.
+   */
+  const quote = mode === 'parcel'
+    ? quoteDelivery(0, bulky)
+    : (km != null ? quoteDelivery(km, bulky) : null);
 
   const save = async () => {
-    if (!coords) { setError('Paste the customer\'s pin — a Google Maps link or "lat, lng".'); return; }
+    // A parcel has no destination pin — the rider goes to a counter in town,
+    // not to the receiver. Demanding one would make the job unbookable.
+    if (mode === 'doorstep' && !coords) {
+      setError('Paste the customer\'s pin — a Google Maps link or "lat, lng".'); return;
+    }
+    if (mode === 'parcel' && !courier.trim()) {
+      setError('Which courier is it going with? The customer chooses; type what they told you.'); return;
+    }
     setBusy('new'); setError(null);
     const res = await createDelivery({
       riderId: riderId || undefined,
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
       itemDescription: item.trim() || undefined,
+      invoiceNumber: invoiceNumber.trim() || undefined,
       originId,
-      dropLat: coords.lat, dropLng: coords.lng,
+      dropLat: coords?.lat, dropLng: coords?.lng,
       dropLabel: dropLabel.trim() || undefined,
-      distanceKm: quote?.km,
+      distanceKm: mode === 'parcel' ? undefined : quote?.km,
       isBulky: bulky,
       deliveryFeeKES: quote?.total,
+      deliveryType: mode,
+      courierName: mode === 'parcel' ? courier.trim() : undefined,
+      receiverName: mode === 'parcel' ? (receiverName.trim() || customerName.trim()) : undefined,
+      receiverPhone: mode === 'parcel' ? (receiverPhone.trim() || customerPhone.trim()) : undefined,
+      receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
+      parcelNotes: mode === 'parcel' ? parcelNotes.trim() : undefined,
     });
     setBusy(null);
     if (!res.success) {
@@ -177,6 +248,8 @@ const DeliveriesPanel: React.FC = () => {
 
     setCustomerName(''); setCustomerPhone(''); setItem(''); setPin(''); setDropLabel('');
     setBulky(false); setKm(null); setAdding(false);
+    setMode('doorstep'); setCourier(''); setReceiverName(''); setReceiverPhone('');
+    setReceiverDest(''); setParcelNotes(''); setInvoiceNumber('');
     load();
   };
 
@@ -369,6 +442,39 @@ const DeliveriesPanel: React.FC = () => {
 
         {adding && (
           <div className="bg-neutral-50/60 border border-neutral-100 rounded-2xl p-5 space-y-4">
+            {invoiceNumber && (
+              <div className="flex items-center gap-2 bg-teal-50 border border-teal-100 rounded-xl px-4 py-2.5">
+                <Receipt size={14} weight="duotone" className="text-[#3D8593] shrink-0" />
+                <p className="text-[12px] font-bold text-[#276a76]">
+                  From invoice {invoiceNumber} — check the details, then choose how it travels.
+                </p>
+              </div>
+            )}
+
+            {/* THE choice this whole form turns on. Parcel puts the courier
+                section and the receipt upload on the rider's phone; doorstep
+                deliberately never shows either. */}
+            <div>
+              <label className={lbl}>How does it travel?</label>
+              <div className="grid sm:grid-cols-2 gap-2">
+                {([
+                  { id: 'doorstep', name: 'Doorstep', note: 'Rider takes it to their door' },
+                  { id: 'parcel', name: 'Parcel', note: 'Rider drops at a courier counter' },
+                ] as const).map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setMode(m.id); setError(null); }}
+                    className={`text-left px-4 py-3 rounded-xl border transition-all ${mode === m.id
+                      ? 'border-[#3D8593] bg-[#3D8593]/10'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300'}`}
+                  >
+                    <span className={`block text-[12.5px] font-black ${mode === m.id ? 'text-[#276a76]' : 'text-gray-700'}`}>{m.name}</span>
+                    <span className="block text-[11px] font-medium text-gray-400 mt-0.5">{m.note}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <label className={lbl}>Customer</label>
@@ -385,31 +491,74 @@ const DeliveriesPanel: React.FC = () => {
               <input value={item} onChange={e => setItem(e.target.value)} className={input} placeholder="Pegboard 90x30 White + container" />
             </div>
 
-            <div>
-              <label className={lbl}>
-                Their pin <span className="text-neutral-300 normal-case font-medium">— paste the Google Maps link they sent, or "lat, lng"</span>
-              </label>
-              <input value={pin} onChange={e => setPin(e.target.value)} className={input} placeholder="https://maps.app.goo.gl/… or -1.2854, 36.8266" />
-              {pin && resolving && (
-                <p className="text-[11px] font-bold text-gray-400 mt-1.5">Opening that link…</p>
-              )}
-              {pin && !coords && !resolving && (
-                <p className="text-[11px] font-bold text-rose-500 mt-1.5">
-                  No location in that. Shortened links only resolve on the live site — locally, open it and paste the full URL.
-                </p>
-              )}
-              {coords && (
-                <p className="text-[11px] font-bold text-emerald-600 mt-1.5">
-                  Found {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
-                </p>
-              )}
-            </div>
+            {mode === 'doorstep' && (
+              <div>
+                <label className={lbl}>
+                  Their pin <span className="text-neutral-300 normal-case font-medium">— paste the Google Maps link they sent, or "lat, lng"</span>
+                </label>
+                <input value={pin} onChange={e => setPin(e.target.value)} className={input} placeholder="https://maps.app.goo.gl/… or -1.2854, 36.8266" />
+                {pin && resolving && (
+                  <p className="text-[11px] font-bold text-gray-400 mt-1.5">Opening that link…</p>
+                )}
+                {pin && !coords && !resolving && (
+                  <p className="text-[11px] font-bold text-rose-500 mt-1.5">
+                    No location in that. Shortened links only resolve on the live site — locally, open it and paste the full URL.
+                  </p>
+                )}
+                {coords && (
+                  <p className="text-[11px] font-bold text-emerald-600 mt-1.5">
+                    Found {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Parcel: no pin, no map. The rider goes to a counter in town —
+                the receiver's address is the courier's problem, not ours. */}
+            {mode === 'parcel' && (
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4">
+                <div>
+                  <label className={lbl}>
+                    Courier <span className="text-neutral-300 normal-case font-medium">— whichever the customer chose</span>
+                  </label>
+                  <input value={courier} onChange={e => setCourier(e.target.value)} className={input}
+                    placeholder="Easy Coach, Modern Coast, G4S…" />
+                  <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+                    The customer pays the courier directly at the counter. The rider only records what they paid.
+                  </p>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={lbl}>Receiver's name</label>
+                    <input value={receiverName} onChange={e => setReceiverName(e.target.value)} className={input}
+                      placeholder={customerName.trim() || 'Same as customer'} />
+                  </div>
+                  <div>
+                    <label className={lbl}>Receiver's phone</label>
+                    <input value={receiverPhone} onChange={e => setReceiverPhone(e.target.value)} className={input}
+                      placeholder={customerPhone.trim() || 'Same as customer'} />
+                  </div>
+                </div>
+                <div>
+                  <label className={lbl}>Collecting in</label>
+                  <input value={receiverDest} onChange={e => setReceiverDest(e.target.value)} className={input}
+                    placeholder="Kisumu, Nakuru, Eldoret…" />
+                </div>
+                <div>
+                  <label className={lbl}>Anything the rider should know</label>
+                  <input value={parcelNotes} onChange={e => setParcelNotes(e.target.value)} className={input}
+                    placeholder="Optional" />
+                </div>
+              </div>
+            )}
 
             <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className={lbl}>Area / landmark</label>
-                <input value={dropLabel} onChange={e => setDropLabel(e.target.value)} className={input} placeholder="Westlands, Rhapta Road" />
-              </div>
+              {mode === 'doorstep' && (
+                <div>
+                  <label className={lbl}>Area / landmark</label>
+                  <input value={dropLabel} onChange={e => setDropLabel(e.target.value)} className={input} placeholder="Westlands, Rhapta Road" />
+                </div>
+              )}
               <div>
                 <label className={lbl}>Rider collects from</label>
                 <select value={originId} onChange={e => setOriginId(e.target.value)} className={input}>
@@ -432,7 +581,9 @@ const DeliveriesPanel: React.FC = () => {
               </div>
               <label className="flex items-center gap-2.5 cursor-pointer pb-2.5">
                 <input type="checkbox" checked={bulky} onChange={e => setBulky(e.target.checked)} className="w-4 h-4 accent-[#3D8593]" />
-                <span className="text-[13px] font-bold text-gray-700">Bigger than a 27" monitor (+150)</span>
+                {/* Jerrycan, not "27-inch monitor" — a yardstick everyone can
+                    picture. Same wording the customer-facing page uses. */}
+                <span className="text-[13px] font-bold text-gray-700">Bigger than a 20-litre jerrycan (+150)</span>
               </label>
             </div>
 
@@ -440,13 +591,15 @@ const DeliveriesPanel: React.FC = () => {
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Rider fee</p>
                 <p className="text-2xl font-black text-white tracking-tight">
-                  {measuring ? 'Measuring…' : quote ? money(quote.total) : '—'}
+                  {mode === 'doorstep' && measuring ? 'Measuring…' : quote ? money(quote.total) : '—'}
                 </p>
               </div>
               {quote && (
                 <p className="text-[11px] font-medium text-neutral-400 text-right">
-                  ~{quote.km} km from {originById(originId).name}
-                  {quote.atMinimum && <><br />Minimum fare applied</>}
+                  {mode === 'parcel'
+                    ? <>Flat drop at the counter<br />from {originById(originId).name}</>
+                    : <>~{quote.km} km from {originById(originId).name}</>}
+                  {mode === 'doorstep' && quote.atMinimum && <><br />Minimum fare applied</>}
                   {quote.surcharge > 0 && <><br />Bulky +{money(quote.surcharge)}</>}
                 </p>
               )}
@@ -454,7 +607,7 @@ const DeliveriesPanel: React.FC = () => {
 
             <button
               onClick={save}
-              disabled={busy === 'new' || !coords}
+              disabled={busy === 'new' || (mode === 'doorstep' ? !coords : !courier.trim())}
               className="w-full h-12 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40"
             >
               {busy === 'new' ? 'Creating…' : 'Create delivery'}

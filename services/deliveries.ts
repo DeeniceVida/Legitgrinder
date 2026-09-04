@@ -125,7 +125,26 @@ export const createDelivery = async (d: {
   isBulky?: boolean;
   deliveryFeeKES?: number;
   notes?: string;
+  /**
+   * doorstep = to their door · parcel = only as far as the courier counter.
+   *
+   * This used to be missing here, so every delivery the owner created by hand
+   * fell back to the column default of 'doorstep' — and the rider's courier
+   * section, receipt upload included, is gated on 'parcel'. The feature was
+   * built and reachable only by customers using the booking link.
+   */
+  deliveryType?: 'doorstep' | 'parcel';
+  courierName?: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  receiverDestination?: string;
+  parcelNotes?: string;
 }): Promise<{ success: boolean; error?: string; customerToken?: string }> => {
+  const isParcel = d.deliveryType === 'parcel';
+  if (isParcel && !d.courierName?.trim()) {
+    return { success: false, error: 'Name the courier the customer chose.' };
+  }
+
   const { data, error } = await supabase
     .from('deliveries')
     .insert({
@@ -142,6 +161,15 @@ export const createDelivery = async (d: {
       is_bulky: d.isBulky || false,
       delivery_fee_kes: d.deliveryFeeKES ?? null,
       notes: d.notes || null,
+      delivery_type: isParcel ? 'parcel' : 'doorstep',
+      // Only ever written for a parcel. A doorstep job carrying a courier name
+      // would put a courier section on the rider's phone for a job that never
+      // goes near one.
+      courier_name: isParcel ? d.courierName!.trim() : null,
+      receiver_name: isParcel ? (d.receiverName?.trim() || null) : null,
+      receiver_phone: isParcel ? (d.receiverPhone?.trim() || null) : null,
+      receiver_destination: isParcel ? (d.receiverDestination?.trim() || null) : null,
+      parcel_notes: isParcel ? (d.parcelNotes?.trim() || null) : null,
     })
     .select('customer_token')
     .maybeSingle();

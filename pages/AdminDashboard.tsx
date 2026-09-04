@@ -39,7 +39,7 @@ import ChairsTab from '../components/ChairsTab';
 import EnquiriesPanel from '../components/EnquiriesPanel';
 import AudiencePanel from '../components/AudiencePanel';
 import RidersPanel from '../components/RidersPanel';
-import DeliveriesPanel from '../components/DeliveriesPanel';
+import DeliveriesPanel, { DeliveryPrefill } from '../components/DeliveriesPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import { effectiveStock } from '../utils/productPricing';
 import SupervisorPanel from '../components/SupervisorPanel';
@@ -123,6 +123,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }, [products]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'monitors' | 'invoices' | 'products' | 'deliveries' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
+  /**
+   * An invoice on its way to Riders & Deliveries. Carries what we already
+   * know so the delivery form opens filled in rather than blank — the item is
+   * already described on the invoice; typing it again is how the two records
+   * end up disagreeing.
+   */
+  const [deliveryPrefill, setDeliveryPrefill] = useState<DeliveryPrefill | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncingMaster, setSyncingMaster] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -2183,6 +2190,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </button>
                           <button
                             onClick={() => {
+                              // Hand this invoice to Riders & Deliveries. The
+                              // nonce lets the same invoice be sent twice —
+                              // two boxes, two riders, two separate jobs.
+                              setDeliveryPrefill({
+                                customerName: inv.clientName,
+                                customerPhone: inv.clientWhatsapp,
+                                itemDescription: inv.items?.length
+                                  ? inv.items.map(i => i.description).filter(Boolean).join(', ')
+                                  : inv.productName,
+                                invoiceNumber: inv.invoiceNumber,
+                                nonce: Date.now(),
+                              });
+                              setActiveTab('deliveries');
+                            }}
+                            className={`p-2 rounded-2xl transition-all ${inv.status === OrderStatus.READY_FOR_COLLECTION
+                              ? 'bg-amber-50 text-[#FF9900] hover:bg-[#FF9900] hover:text-white'
+                              : 'bg-neutral-100 text-gray-500 hover:bg-[#3D8593] hover:text-white'}`}
+                            title={inv.status === OrderStatus.READY_FOR_COLLECTION
+                              ? 'Ready to collect — arrange delivery for this order'
+                              : 'Arrange delivery for this order'}
+                          >
+                            <Truck className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
                               const printWin = window.open('', '', 'width=900,height=1000');
                               if (!printWin) return;
                               const logoUrl = "https://res.cloudinary.com/dsthpp4oj/image/upload/v1766830586/legitGrinder_PNG_3x-100_oikrja.jpg";
@@ -3225,7 +3257,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'deliveries' && (
           <div className="space-y-6 animate-in fade-in duration-700">
             <RidersPanel />
-            <DeliveriesPanel />
+            <DeliveriesPanel
+              prefill={deliveryPrefill}
+              onPrefillUsed={() => setDeliveryPrefill(null)}
+            />
           </div>
         )}
 
