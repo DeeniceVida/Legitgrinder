@@ -177,7 +177,13 @@ export const createDelivery = async (d: {
       origin_id: d.originId,
       drop_lat: d.dropLat ?? null,
       drop_lng: d.dropLng ?? null,
-      drop_label: d.dropLabel || null,
+      // A parcel has no area to label, so without this the dashboard row falls
+      // back to "Pinned" — which is exactly what a parcel is not. Built the
+      // same way request_delivery builds it, so a job you create and a job the
+      // customer books read identically in the list.
+      drop_label: isParcel
+        ? [d.courierName?.trim(), d.receiverDestination?.trim()].filter(Boolean).join(' → ') || null
+        : (d.dropLabel || null),
       distance_km: d.distanceKm ?? null,
       is_bulky: d.isBulky || false,
       delivery_fee_kes: d.deliveryFeeKES ?? null,
