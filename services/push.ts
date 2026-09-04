@@ -13,6 +13,19 @@ import { VAPID_PUBLIC_KEY } from '../constants';
  * key never reaches the browser.
  */
 
+/**
+ * The migration has not been run yet. Two audiences need two answers: the
+ * owner can fix it and should be told which file to run; a rider cannot and
+ * should not be shown our schema. Same test, different wording.
+ */
+const migrationMissing = (msg?: string): boolean =>
+  /schema cache|does not exist|function public\./i.test(msg || '');
+
+const ADMIN_MIGRATION_HINT =
+  'Run add_rider_push.sql in Supabase first — the alerts table does not exist yet.';
+const RIDER_MIGRATION_HINT =
+  'Alerts are not switched on yet. Ask LegitGrinder to finish setting them up.';
+
 export const pushSupported = (): boolean =>
   typeof navigator !== 'undefined' &&
   'serviceWorker' in navigator &&
@@ -118,7 +131,7 @@ export const enablePush = async (token: string, pin?: string): Promise<PushResul
     p_auth: keyOf(sub, 'auth'),
     p_ua: navigator.userAgent.slice(0, 300),
   });
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: migrationMissing(error.message) ? RIDER_MIGRATION_HINT : error.message };
   const r = data as { ok?: boolean; error?: string; needsPin?: boolean };
   if (!r?.ok) return { success: false, error: r?.error || 'Could not save the alert setting.', needsPin: r?.needsPin };
   return { success: true };
@@ -135,7 +148,7 @@ export const disablePush = async (token: string, pin?: string): Promise<PushResu
   const { data, error } = await supabase.rpc('rider_delete_push', {
     p_token: token, p_pin: pin || null, p_endpoint: endpoint,
   });
-  if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: migrationMissing(error.message) ? RIDER_MIGRATION_HINT : error.message };
   const r = data as { ok?: boolean; error?: string };
   return r?.ok ? { success: true } : { success: false, error: r?.error || 'Could not turn alerts off.' };
 };
@@ -183,7 +196,9 @@ export const notifyRider = async (opts: {
       .from('rider_push_subscriptions')
       .select('endpoint,p256dh,auth')
       .eq('rider_id', opts.riderId);
-    if (error) return { success: false, sent: 0, error: error.message };
+    if (error) {
+      return { success: false, sent: 0, error: migrationMissing(error.message) ? ADMIN_MIGRATION_HINT : error.message };
+    }
     if (!subs?.length) {
       return { success: false, sent: 0, error: 'That rider has not turned on alerts yet.' };
     }
