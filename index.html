@@ -66,6 +66,15 @@
   <link rel="icon" type="image/png" href="/favicon-192.png" sizes="192x192">
   <link rel="apple-touch-icon" sizes="180x180" href="/favicon-192.png">
 
+  <!-- Installable app. The rider dashboard swaps this link at runtime for a
+       manifest whose start_url is that rider's own page, so their installed
+       app opens on their jobs instead of the shop. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LegitGrinder">
+
   <link
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Instrument+Serif:ital@0;1&display=swap"
     rel="stylesheet">

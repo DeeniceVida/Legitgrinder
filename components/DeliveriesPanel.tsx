@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Truck, Plus, LinkSimple, Check, Trash, WarningCircle, Receipt, ArrowsClockwise, Motorcycle,
+  BellRinging,
 } from '@phosphor-icons/react';
+import { notifyRider } from '../services/push';
 import { Delivery, fetchDeliveries, createDelivery, deleteDelivery, updateDelivery } from '../services/deliveries';
 import { Rider, fetchRiders } from '../services/riders';
 import { ORIGINS, originById, quoteDelivery, estimatedRoadKm, fetchRoadKm } from '../utils/delivery';
@@ -49,6 +51,8 @@ const DeliveriesPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  /** Result of the last push — a buzz you cannot see is a buzz you cannot trust. */
+  const [alerted, setAlerted] = useState<{ ok: boolean; text: string } | null>(null);
   const [adding, setAdding] = useState(false);
 
   // Link builder — the owner's two decisions, encoded into the URL.
@@ -162,9 +166,45 @@ const DeliveriesPanel: React.FC = () => {
         : res.error || 'Could not create that delivery.');
       return;
     }
+    // Tell the rider before clearing the form — the fields are the message.
+    if (riderId) {
+      await alertRider(riderId, {
+        item: item.trim() || undefined,
+        where: dropLabel.trim() || undefined,
+        fee: quote?.total,
+      });
+    }
+
     setCustomerName(''); setCustomerPhone(''); setItem(''); setPin(''); setDropLabel('');
     setBulky(false); setKm(null); setAdding(false);
     load();
+  };
+
+  /**
+   * Buzz the rider's phone about a job now on their list.
+   *
+   * Never allowed to fail the assignment. The delivery row is already saved by
+   * the time this runs; if the push does not land, the job is still assigned
+   * and the rider still sees it when they open the app. What must NOT happen is
+   * a silent failure — so the outcome is always reported either way.
+   */
+  const alertRider = async (rid: string, about: { item?: string; where?: string; fee?: number }) => {
+    const rider = riders.find(r => r.id === rid);
+    if (!rider) return;
+    const first = rider.name.split(' ')[0];
+
+    const bits = [about.item || 'A package', about.where ? `→ ${about.where}` : '']
+      .filter(Boolean).join(' ');
+    const res = await notifyRider({
+      riderId: rid,
+      riderToken: rider.accessToken,
+      title: 'New delivery for you',
+      body: about.fee ? `${bits} · KES ${about.fee.toLocaleString()}` : bits,
+    });
+
+    setAlerted(res.success
+      ? { ok: true, text: `${first}'s phone buzzed${res.sent > 1 ? ` (${res.sent} devices)` : ''}.` }
+      : { ok: false, text: `Assigned, but ${first} was not alerted — ${res.error}` });
   };
 
   const copyCustomerLink = (d: Delivery) => {
@@ -183,7 +223,15 @@ const DeliveriesPanel: React.FC = () => {
 
   const reassign = async (d: Delivery, newRiderId: string) => {
     setBusy(d.id);
-    await updateDelivery(d.id, { riderId: newRiderId });
+    const res = await updateDelivery(d.id, { riderId: newRiderId });
+    // Only buzz a rider the job actually moved TO, and only if it moved.
+    if (res.success && newRiderId && newRiderId !== d.riderId) {
+      await alertRider(newRiderId, {
+        item: d.itemDescription,
+        where: d.dropLabel,
+        fee: d.deliveryFeeKES,
+      });
+    }
     setBusy(null); load();
   };
 
@@ -235,6 +283,18 @@ const DeliveriesPanel: React.FC = () => {
           <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl p-4">
             <WarningCircle size={16} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
             <p className="text-sm font-medium text-rose-900">{error}</p>
+          </div>
+        )}
+
+        {alerted && (
+          <div className={`flex items-start gap-3 rounded-xl p-4 border ${
+            alerted.ok ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
+          }`}>
+            <BellRinging size={16} weight="duotone" className={`shrink-0 mt-0.5 ${alerted.ok ? 'text-emerald-600' : 'text-[#FF9900]'}`} />
+            <p className={`text-sm font-medium flex-1 ${alerted.ok ? 'text-emerald-900' : 'text-amber-900'}`}>{alerted.text}</p>
+            <button onClick={() => setAlerted(null)} className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-600">
+              Dismiss
+            </button>
           </div>
         )}
 

@@ -1,0 +1,17 @@
+{
+  "id": "/?app=shop",
+  "name": "LegitGrinder",
+  "short_name": "LegitGrinder",
+  "description": "Kenya's premium bridge to global tech markets — sourcing, imports and doorstep delivery.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#3D8593",
+  "categories": ["shopping", "business"],
+  "icons": [
+    { "src": "/favicon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

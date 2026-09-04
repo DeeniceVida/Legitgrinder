@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Motorcycle, Plus, Trash, Star, Check, X, WarningCircle, LinkSimple } from '@phosphor-icons/react';
+import { Motorcycle, Plus, Trash, Star, Check, X, WarningCircle, LinkSimple, BellRinging } from '@phosphor-icons/react';
 import { Rider, fetchRiders, createRider, updateRider, setDefaultRider, deleteRider, setRiderPin } from '../services/riders';
 import { rotateRiderToken } from '../services/deliveries';
+import { notifyRider } from '../services/push';
 import { normalizeKenyanPhone } from '../utils/phone';
 
 /**
@@ -18,6 +19,8 @@ const RidersPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  /** Confirmation for actions with no visible effect on this screen, like a test push. */
+  const [note, setNote] = useState<string | null>(null);
   const [pinFor, setPinFor] = useState<string | null>(null);
   const [pinValue, setPinValue] = useState('');
   const [name, setName] = useState('');
@@ -85,6 +88,30 @@ const RidersPanel: React.FC = () => {
     });
   };
 
+  /**
+   * Buzz a rider's phone on demand.
+   *
+   * Worth having as its own button: the alternative way to find out whether
+   * alerts work is to assign a real delivery and hope, which is not a test.
+   * Says plainly which of the three things went wrong — nobody has turned
+   * alerts on, the deployment has no VAPID key, or the push was rejected.
+   */
+  const testAlert = async (r: Rider) => {
+    setBusy(r.id); setError(null); setNote(null);
+    const res = await notifyRider({
+      riderId: r.id,
+      riderToken: r.accessToken,
+      title: 'Test alert',
+      body: `Hi ${r.name.split(' ')[0]} — this is LegitGrinder checking your alerts work. No job attached.`,
+    });
+    setBusy(null);
+    if (res.success) {
+      setNote(`Sent to ${r.name.split(' ')[0]}${res.sent > 1 ? ` on ${res.sent} devices` : ''}. Their phone should buzz within a few seconds.`);
+    } else {
+      setError(`Could not alert ${r.name.split(' ')[0]} — ${res.error}`);
+    }
+  };
+
   /** Kill the old link. Use it the day a rider stops working with you. */
   const revoke = async (r: Rider) => {
     if (!confirm(
@@ -129,6 +156,16 @@ const RidersPanel: React.FC = () => {
           <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl p-4">
             <WarningCircle size={16} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
             <p className="text-sm font-medium text-rose-900">{error}</p>
+          </div>
+        )}
+
+        {note && (
+          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+            <BellRinging size={16} weight="duotone" className="text-emerald-600 shrink-0 mt-0.5" />
+            <p className="text-sm font-medium text-emerald-900 flex-1">{note}</p>
+            <button onClick={() => setNote(null)} className="text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-neutral-600">
+              Dismiss
+            </button>
           </div>
         )}
 
@@ -200,6 +237,14 @@ const RidersPanel: React.FC = () => {
                     title="The PIN they type after opening their link"
                   >
                     Set PIN
+                  </button>
+                  <button
+                    onClick={() => testAlert(r)}
+                    disabled={busy === r.id}
+                    className="px-3 py-2 rounded-xl border border-neutral-200 text-gray-500 text-[9px] font-black uppercase tracking-widest hover:border-[#3D8593] hover:text-[#3D8593] transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                    title="Buzz their phone now, to check alerts are working"
+                  >
+                    <BellRinging size={12} weight="bold" /> Test alert
                   </button>
                   <button
                     onClick={() => revoke(r)}

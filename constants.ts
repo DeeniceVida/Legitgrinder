@@ -117,3 +117,15 @@ export const PAY_DETAILS = {
   paybill: '542542',
   account: '02309134826150',
 };
+
+/**
+ * VAPID public key for Web Push. Public by design — it is handed to the push
+ * service by every subscribing browser, and its only job is to let that service
+ * verify our signature. The matching PRIVATE key lives solely in Cloudflare env
+ * as VAPID_PRIVATE_KEY and must never be committed.
+ *
+ * Also duplicated in functions/api/notify-rider.ts, which Cloudflare bundles
+ * separately and cannot import this file. Change both together.
+ */
+export const VAPID_PUBLIC_KEY =
+  'BEp4EM-2WbhM0vhjic3giif6dvuoIAfjvEumd9OBBV4zIeM_5NB_vEoodUCrlWyaKPJO_uwDx3NE9mgYM9HFd4s';

@@ -8,6 +8,7 @@ import {
   Delivery, DeliveryStatus, fetchRiderJobs, riderUpdateJob, uploadReceipt, emailDeliveryReceipt,
 } from '../services/deliveries';
 import { originById } from '../utils/delivery';
+import RiderAlerts from '../components/RiderAlerts';
 
 /**
  * A rider's own page — /rider/<token>.
@@ -175,6 +176,8 @@ const RiderDashboard: React.FC = () => {
             <p className="text-sm text-rose-200 font-medium">{error}</p>
           </div>
         )}
+
+        <RiderAlerts token={token} pin={pin || undefined} onNeedsPin={() => setNeedsPin(true)} />
 
         <div className="space-y-4">
           {open.map(job => (
