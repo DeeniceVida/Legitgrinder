@@ -6,8 +6,9 @@ import {
 } from '@phosphor-icons/react';
 import {
   Delivery, DeliveryStatus, fetchRiderJobs, riderUpdateJob, uploadReceipt, emailDeliveryReceipt,
+  riderSetEta,
 } from '../services/deliveries';
-import { originById } from '../utils/delivery';
+import { originById, ETA_CHOICES, EtaChoice, etaLabel, sinceLabel } from '../utils/delivery';
 import RiderAlerts from '../components/RiderAlerts';
 
 /**
@@ -256,6 +257,32 @@ const JobCard: React.FC<{
     onSaved();
   };
 
+  /**
+   * Tell the customer and the office where you have got to.
+   *
+   * Optimistic: the chip lights up the instant it is tapped. A rider taps this
+   * one-handed at a junction — waiting on a round trip over a patchy 3G
+   * connection before anything moves reads as a dead button, and they tap it
+   * again. Rolled back if the save actually fails.
+   */
+  const [etaBusy, setEtaBusy] = useState(false);
+  const [etaLocal, setEtaLocal] = useState<{ code: string; minutes?: number; at: string } | null>(null);
+  const currentEta = etaLocal || (job.riderEtaCode
+    ? { code: job.riderEtaCode, minutes: job.riderEtaMinutes, at: job.riderEtaAt || new Date().toISOString() }
+    : null);
+
+  const chooseEta = async (choice: EtaChoice) => {
+    const same = currentEta?.code === choice.code && currentEta?.minutes === choice.minutes;
+    const next = same ? null : { code: choice.code, minutes: choice.minutes, at: new Date().toISOString() };
+    const previous = etaLocal;
+    setEtaLocal(next);
+    setEtaBusy(true);
+    const res = await riderSetEta(token, job.id, pin, next ? choice.code : null, next ? choice.minutes ?? null : null);
+    setEtaBusy(false);
+    if (!res.ok) { setEtaLocal(previous); onError(res.error || 'Could not update your status.'); return; }
+    onSaved();
+  };
+
   const saveParcel = async () => {
     const res = await riderUpdateJob(token, job.id, pin, {
       parcelService: service.trim() || undefined,
@@ -311,6 +338,34 @@ const JobCard: React.FC<{
           </p>
         </div>
 
+        {/* The door, not the gate. A pin gets a rider to the estate; without
+            this they stand outside ringing the customer, which is the single
+            most common way a delivery loses ten minutes. */}
+        {job.deliveryType !== 'parcel'
+          && (job.dropBuilding || job.dropUnit || job.dropGate || job.dropInstructions) && (
+          <div className="bg-[#3D8593]/10 border border-[#3D8593]/25 rounded-2xl p-4 mb-4">
+            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#7fc2ce] mb-2">
+              Finding the door
+            </p>
+            <div className="space-y-1 text-[12.5px]">
+              {job.dropBuilding && (
+                <p className="text-white"><span className="text-neutral-400">Building</span> {job.dropBuilding}</p>
+              )}
+              {job.dropUnit && (
+                <p className="text-white"><span className="text-neutral-400">House / unit</span> {job.dropUnit}</p>
+              )}
+              {job.dropGate && (
+                <p className="text-white"><span className="text-neutral-400">Gate</span> {job.dropGate}</p>
+              )}
+              {job.dropInstructions && (
+                <p className="text-neutral-300 pt-1.5 mt-1.5 border-t border-white/10 leading-relaxed">
+                  {job.dropInstructions}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* What the courier will ask for at the counter. Read it straight off
             the phone rather than calling anyone back. */}
         {job.deliveryType === 'parcel' && (job.receiverName || job.receiverDestination) && (
@@ -352,6 +407,49 @@ const JobCard: React.FC<{
             </a>
           )}
         </div>
+
+        {/* Where you are. One tap, and the customer and the office both see it
+            without anyone making a phone call. Hidden once delivered — a
+            status on a finished job is just clutter. */}
+        {job.status !== 'delivered' && (
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <div className="flex items-baseline justify-between gap-2 mb-2.5">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500">
+                Tell them where you are
+              </p>
+              {currentEta && (
+                <span className="text-[10px] font-bold text-neutral-500">
+                  {sinceLabel(currentEta.at)}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {ETA_CHOICES.map(c => {
+                const on = currentEta?.code === c.code && currentEta?.minutes === c.minutes;
+                return (
+                  <button
+                    key={`${c.code}-${c.minutes ?? 0}`}
+                    onClick={() => chooseEta(c)}
+                    disabled={etaBusy}
+                    className={`px-3 py-2 rounded-full text-[10px] font-black uppercase tracking-wider transition-colors disabled:opacity-60 ${
+                      on
+                        ? 'bg-[#3D8593] text-white'
+                        : 'bg-white/5 border border-white/15 text-neutral-300 hover:border-white/30'
+                    }`}
+                  >
+                    {c.short}
+                  </button>
+                );
+              })}
+            </div>
+            {currentEta && (
+              <p className="text-[11px] text-neutral-500 mt-2.5">
+                They can see: <span className="text-neutral-300 font-medium">{etaLabel(currentEta.code, currentEta.minutes)}</span>
+                {' '}· tap again to clear
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Courier leg — parcel jobs only. A doorstep job never sees this. */}

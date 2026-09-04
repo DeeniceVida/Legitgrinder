@@ -57,6 +57,15 @@ export interface Delivery {
   collectedAt?: string;
   deliveredAt?: string;
   createdAt: string;
+  /** Doorstep only — a pin reaches the gate, these reach the door. */
+  dropBuilding?: string;
+  dropUnit?: string;
+  dropGate?: string;
+  dropInstructions?: string;
+  /** Where the rider says they have got to, and when they said it. */
+  riderEtaCode?: string;
+  riderEtaMinutes?: number;
+  riderEtaAt?: string;
 }
 
 const toDelivery = (d: any): Delivery => ({
@@ -93,6 +102,13 @@ const toDelivery = (d: any): Delivery => ({
   collectedAt: d.collected_at || undefined,
   deliveredAt: d.delivered_at || undefined,
   createdAt: d.created_at,
+  dropBuilding: d.drop_building || undefined,
+  dropUnit: d.drop_unit || undefined,
+  dropGate: d.drop_gate || undefined,
+  dropInstructions: d.drop_instructions || undefined,
+  riderEtaCode: d.rider_eta_code || undefined,
+  riderEtaMinutes: d.rider_eta_minutes != null ? Number(d.rider_eta_minutes) : undefined,
+  riderEtaAt: d.rider_eta_at || undefined,
 });
 
 /* ── Admin ──────────────────────────────────────────────────────────────── */
@@ -139,6 +155,11 @@ export const createDelivery = async (d: {
   receiverPhone?: string;
   receiverDestination?: string;
   parcelNotes?: string;
+  /** Doorstep only. Ignored for a parcel — nobody looks for a gate at a counter. */
+  dropBuilding?: string;
+  dropUnit?: string;
+  dropGate?: string;
+  dropInstructions?: string;
 }): Promise<{ success: boolean; error?: string; customerToken?: string }> => {
   const isParcel = d.deliveryType === 'parcel';
   if (isParcel && !d.courierName?.trim()) {
@@ -170,6 +191,10 @@ export const createDelivery = async (d: {
       receiver_phone: isParcel ? (d.receiverPhone?.trim() || null) : null,
       receiver_destination: isParcel ? (d.receiverDestination?.trim() || null) : null,
       parcel_notes: isParcel ? (d.parcelNotes?.trim() || null) : null,
+      drop_building: isParcel ? null : (d.dropBuilding?.trim() || null),
+      drop_unit: isParcel ? null : (d.dropUnit?.trim() || null),
+      drop_gate: isParcel ? null : (d.dropGate?.trim() || null),
+      drop_instructions: isParcel ? null : (d.dropInstructions?.trim() || null),
     })
     .select('customer_token')
     .maybeSingle();
@@ -275,6 +300,41 @@ export const riderUpdateJob = async (
 };
 
 /**
+ * The rider says how far off they are.
+ *
+ * Its own function rather than another argument on rider_update_job: PostgREST
+ * matches a function by its exact argument set, so widening that signature
+ * would mean dropping and recreating the one call every rider already depends
+ * on. Not worth the risk for a field that stands alone.
+ *
+ * Pass code = null to clear it.
+ */
+export const riderSetEta = async (
+  token: string,
+  deliveryId: string,
+  pin: string | undefined,
+  code: string | null,
+  minutes?: number | null,
+): Promise<{ ok: boolean; error?: string; needsPin?: boolean }> => {
+  try {
+    const { data, error } = await supabase.rpc('rider_set_eta', {
+      p_token: token,
+      p_pin: pin ?? null,
+      p_delivery_id: deliveryId,
+      p_code: code,
+      p_minutes: minutes ?? null,
+    });
+    if (error) {
+      console.error('rider_set_eta failed:', error.message);
+      return { ok: false, error: friendly(error.message) };
+    }
+    return { ok: !!data?.ok, error: data?.error, needsPin: data?.needsPin };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'Could not save that.' };
+  }
+};
+
+/**
  * Put a photo of the courier receipt in the bucket and hand back its URL.
  *
  * Named with a random prefix rather than anything guessable, and never
@@ -334,6 +394,13 @@ export interface DeliveryStatusView {
   collectedAt?: string;
   deliveredAt?: string;
   createdAt?: string;
+  dropBuilding?: string;
+  dropUnit?: string;
+  dropGate?: string;
+  dropInstructions?: string;
+  riderEtaCode?: string;
+  riderEtaMinutes?: number;
+  riderEtaAt?: string;
 }
 
 export const fetchDeliveryStatus = async (token: string): Promise<DeliveryStatusView> => {
@@ -377,6 +444,11 @@ export const requestDelivery = async (r: {
   km: number;
   bulky?: boolean;
   reference?: string;
+  /** Doorstep only — the detail a pin cannot carry. */
+  building?: string;
+  unit?: string;
+  gate?: string;
+  instructions?: string;
 }): Promise<{ ok: boolean; error?: string; customerToken?: string; deliveryFeeKES?: number; assigned?: boolean }> => {
   try {
     const { data, error } = await supabase.rpc('request_delivery', {
@@ -397,6 +469,10 @@ export const requestDelivery = async (r: {
       p_receiver_phone: r.receiverPhone ?? null,
       p_receiver_dest: r.receiverDestination ?? null,
       p_parcel_notes: r.parcelNotes ?? null,
+      p_building: r.building ?? null,
+      p_unit: r.unit ?? null,
+      p_gate: r.gate ?? null,
+      p_instructions: r.instructions ?? null,
     });
     if (error) {
       console.error('request_delivery failed:', error.message);

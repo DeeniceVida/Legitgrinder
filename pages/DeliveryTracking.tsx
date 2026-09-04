@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Package, CheckCircle, CircleNotch, WarningCircle, Receipt, MapPin, WhatsappLogo,
+  Package, CheckCircle, CircleNotch, WarningCircle, Receipt, MapPin, WhatsappLogo, Motorcycle,
 } from '@phosphor-icons/react';
 import { DeliveryStatusView, fetchDeliveryStatus } from '../services/deliveries';
+import { etaLabel, sinceLabel, etaIsStale } from '../utils/delivery';
 import { WHATSAPP_NUMBER } from '../constants';
 
 /**
@@ -72,6 +73,32 @@ const DeliveryTracking: React.FC = () => {
           {d.item || 'Your order'}
           {d.invoiceNumber && <span className="text-gray-400"> · {d.invoiceNumber}</span>}
         </p>
+
+        {/* What the rider last said. The single question this page exists to
+            answer — "where is it?" — and until now it could only say which
+            stage the job was at, not how far off the rider actually is. */}
+        {d.status !== 'delivered' && etaLabel(d.riderEtaCode, d.riderEtaMinutes) && (
+          <div className={`rounded-[1.75rem] border p-5 mb-5 flex items-start gap-3.5 ${
+            etaIsStale(d.riderEtaAt)
+              ? 'bg-gray-50 border-gray-100'
+              : 'bg-[#3D8593]/[0.07] border-[#3D8593]/20'
+          }`}>
+            <span className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+              etaIsStale(d.riderEtaAt) ? 'bg-gray-200 text-gray-500' : 'bg-[#3D8593] text-white'
+            }`}>
+              <Motorcycle size={19} weight="fill" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-bold tracking-tight text-[15px]">
+                {etaLabel(d.riderEtaCode, d.riderEtaMinutes)}
+              </p>
+              <p className="text-[12px] text-gray-500 font-light mt-0.5">
+                {d.riderFirstName || 'The rider'} said this {sinceLabel(d.riderEtaAt)}
+                {etaIsStale(d.riderEtaAt) && ' — it may be out of date'}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Progress */}
         <div className="bg-white rounded-[1.75rem] border border-gray-100 p-6 mb-5">

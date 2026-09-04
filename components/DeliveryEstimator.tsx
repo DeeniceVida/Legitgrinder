@@ -77,6 +77,11 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   const [courier, setCourier] = useState('');
   const [receiverDest, setReceiverDest] = useState('');
   const [parcelNotes, setParcelNotes] = useState('');
+  /** Doorstep only — the detail a map pin cannot carry. */
+  const [building, setBuilding] = useState('');
+  const [unit, setUnit] = useState('');
+  const [gate, setGate] = useState('');
+  const [instructions, setInstructions] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -286,6 +291,10 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
       receiverPhone: mode === 'parcel' ? phone.trim() : undefined,
       receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
       parcelNotes: mode === 'parcel' ? (parcelNotes.trim() || undefined) : undefined,
+      building: mode === 'doorstep' ? (building.trim() || undefined) : undefined,
+      unit: mode === 'doorstep' ? (unit.trim() || undefined) : undefined,
+      gate: mode === 'doorstep' ? (gate.trim() || undefined) : undefined,
+      instructions: mode === 'doorstep' ? (instructions.trim() || undefined) : undefined,
       lat: drop?.lat, lng: drop?.lng,
       label: drop ? `${drop.lat.toFixed(5)}, ${drop.lng.toFixed(5)}` : undefined,
       km: shownQuote.km,
@@ -607,6 +616,33 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                             value={email} onChange={e => setEmail(e.target.value)}
                             inputMode="email" type="email" placeholder="Email (optional)" className={field}
                           />
+
+                          {/* The pin gets the rider to the gate. This gets them
+                              to the door — asked once here instead of over the
+                              phone while they wait outside. */}
+                          <div className="pt-3 mt-1 border-t border-white/10">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-2">
+                              Help the rider find you
+                            </p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                value={building} onChange={e => setBuilding(e.target.value)}
+                                placeholder="Estate / apartment" className={field}
+                              />
+                              <input
+                                value={unit} onChange={e => setUnit(e.target.value)}
+                                placeholder="House number" className={field}
+                              />
+                            </div>
+                            <input
+                              value={gate} onChange={e => setGate(e.target.value)}
+                              placeholder="Which gate (optional)" className={`${field} mt-2`}
+                            />
+                            <input
+                              value={instructions} onChange={e => setInstructions(e.target.value)}
+                              placeholder="Anything else — landmark, floor, ask for… (optional)" className={`${field} mt-2`}
+                            />
+                          </div>
                         </>
                       )}
                       {formError && <p className="text-[12px] font-bold text-rose-400">{formError}</p>}

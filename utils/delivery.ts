@@ -154,3 +154,73 @@ export const fetchRoadKm = async (
 /** Nairobi's rough bounding box — a sanity check, not a service area. */
 export const isNearNairobi = (p: { lat: number; lng: number }): boolean =>
   p.lat > -1.55 && p.lat < -1.10 && p.lng > 36.60 && p.lng < 37.15;
+
+/* ── Where the rider has got to ──────────────────────────────────────────────
+ *
+ * The rider picks a code; every screen renders it from here. Three surfaces
+ * show this — the rider's own phone, the owner's dashboard and the customer's
+ * tracking page — and they must never word it differently, because the
+ * customer reads one and then rings the owner about the other.
+ */
+
+export type RiderEtaCode = 'on_my_way' | 'finishing_first' | 'eta' | 'traffic' | 'arrived';
+
+export interface EtaChoice {
+  code: RiderEtaCode;
+  /** Minutes, where the choice carries one. */
+  minutes?: number;
+  /** What the rider taps. */
+  short: string;
+}
+
+/** The rider's options, in the order they appear on their phone. */
+export const ETA_CHOICES: EtaChoice[] = [
+  { code: 'on_my_way', short: 'On my way' },
+  { code: 'eta', minutes: 15, short: '15 min away' },
+  { code: 'eta', minutes: 30, short: '30 min away' },
+  { code: 'eta', minutes: 60, short: 'About an hour' },
+  { code: 'finishing_first', short: 'Finishing another drop' },
+  { code: 'traffic', short: 'Held up in traffic' },
+  { code: 'arrived', short: "I've arrived" },
+];
+
+/** How it reads to a customer or the owner. */
+export const etaLabel = (code?: string | null, minutes?: number | null): string | null => {
+  switch (code) {
+    case 'on_my_way': return 'On the way now';
+    case 'finishing_first': return minutes
+      ? `Finishing another drop — about ${minutes} min`
+      : 'Finishing another drop first';
+    case 'eta': return minutes ? `About ${minutes} minutes away` : 'On the way';
+    case 'traffic': return minutes
+      ? `Held up in traffic — about ${minutes} min`
+      : 'Held up in traffic';
+    case 'arrived': return 'Arrived — calling you now';
+    default: return null;
+  }
+};
+
+/**
+ * "4 min ago". An ETA with no age is a promise with no expiry: "15 minutes
+ * away" said forty minutes ago should not read the same as one said just now.
+ */
+export const sinceLabel = (iso?: string | null, now: number = Date.now()): string | null => {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  const mins = Math.floor((now - t) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins === 1) return '1 min ago';
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs === 1) return 'an hour ago';
+  if (hrs < 24) return `${hrs} hours ago`;
+  return 'yesterday or earlier';
+};
+
+/** Old enough that it should not be trusted as current. */
+export const etaIsStale = (iso?: string | null, now: number = Date.now()): boolean => {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) && now - t > 45 * 60 * 1000;
+};

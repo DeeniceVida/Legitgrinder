@@ -6,7 +6,10 @@ import {
 import { notifyRider } from '../services/push';
 import { Delivery, fetchDeliveries, createDelivery, deleteDelivery, updateDelivery } from '../services/deliveries';
 import { Rider, fetchRiders } from '../services/riders';
-import { ORIGINS, originById, quoteDelivery, estimatedRoadKm, fetchRoadKm } from '../utils/delivery';
+import {
+  ORIGINS, originById, quoteDelivery, estimatedRoadKm, fetchRoadKm,
+  etaLabel, sinceLabel, etaIsStale,
+} from '../utils/delivery';
 
 /**
  * Admin → the delivery jobs themselves.
@@ -112,6 +115,12 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
   const [parcelNotes, setParcelNotes] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
 
+  /** Doorstep address detail — what gets the rider past the gate. */
+  const [dropBuilding, setDropBuilding] = useState('');
+  const [dropUnit, setDropUnit] = useState('');
+  const [dropGate, setDropGate] = useState('');
+  const [dropInstructions, setDropInstructions] = useState('');
+
   const load = () => {
     setLoading(true);
     Promise.all([fetchDeliveries(), fetchRiders()]).then(([d, r]) => {
@@ -142,6 +151,30 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
     onPrefillUsed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefill?.nonce]);
+
+  /**
+   * Live-ish: the rider's status is only useful if it is current, and nobody
+   * is going to sit here pressing refresh.
+   *
+   * Polling rather than a realtime subscription — one small query every 30s
+   * against a handful of rows, and it cannot silently stop working the way a
+   * dropped socket can. It refreshes `now` too, so "4 min ago" ages on screen
+   * instead of freezing at whatever it said when the tab was opened.
+   *
+   * Paused when the tab is hidden. A dashboard left open on a second monitor
+   * all week should not spend the week querying.
+   */
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const tick = () => {
+      if (document.hidden) return;
+      setNow(Date.now());
+      fetchDeliveries().then(setRows).catch(() => { /* next tick will retry */ });
+    };
+    const t = setInterval(tick, 30000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick); };
+  }, []);
 
   const parsed = useMemo(() => parseLatLng(pin), [pin]);
   /** Filled in when a shortened link had to be resolved server-side. */
@@ -229,6 +262,10 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
       receiverPhone: mode === 'parcel' ? (receiverPhone.trim() || customerPhone.trim()) : undefined,
       receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
       parcelNotes: mode === 'parcel' ? parcelNotes.trim() : undefined,
+      dropBuilding: mode === 'doorstep' ? dropBuilding.trim() : undefined,
+      dropUnit: mode === 'doorstep' ? dropUnit.trim() : undefined,
+      dropGate: mode === 'doorstep' ? dropGate.trim() : undefined,
+      dropInstructions: mode === 'doorstep' ? dropInstructions.trim() : undefined,
     });
     setBusy(null);
     if (!res.success) {
@@ -250,6 +287,7 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
     setBulky(false); setKm(null); setAdding(false);
     setMode('doorstep'); setCourier(''); setReceiverName(''); setReceiverPhone('');
     setReceiverDest(''); setParcelNotes(''); setInvoiceNumber('');
+    setDropBuilding(''); setDropUnit(''); setDropGate(''); setDropInstructions('');
     load();
   };
 
@@ -513,6 +551,39 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
               </div>
             )}
 
+            {/* A pin reaches the gate. These reach the door. The customer fills
+                these in themselves when they book — this is for the jobs you
+                create by hand, off a phone call. */}
+            {mode === 'doorstep' && (
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  Finding the door <span className="normal-case font-medium text-gray-300">— optional, saves the rider a phone call</span>
+                </p>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={lbl}>Estate / apartment</label>
+                    <input value={dropBuilding} onChange={e => setDropBuilding(e.target.value)} className={input}
+                      placeholder="Kileleshwa Heights" />
+                  </div>
+                  <div>
+                    <label className={lbl}>House / unit number</label>
+                    <input value={dropUnit} onChange={e => setDropUnit(e.target.value)} className={input}
+                      placeholder="B12" />
+                  </div>
+                </div>
+                <div>
+                  <label className={lbl}>Which gate</label>
+                  <input value={dropGate} onChange={e => setDropGate(e.target.value)} className={input}
+                    placeholder="Main gate off Gatundu Road" />
+                </div>
+                <div>
+                  <label className={lbl}>Anything else</label>
+                  <input value={dropInstructions} onChange={e => setDropInstructions(e.target.value)} className={input}
+                    placeholder="Ask for the caretaker, lift is on the left…" />
+                </div>
+              </div>
+            )}
+
             {/* Parcel: no pin, no map. The rider goes to a counter in town —
                 the receiver's address is the courier's problem, not ours. */}
             {mode === 'parcel' && (
@@ -645,6 +716,27 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
                   {d.dropLabel || 'Pinned'} · {d.distanceKm != null ? `~${d.distanceKm} km` : '—'} · {money(d.deliveryFeeKES)}
                   {d.parcelFeeKES != null && ` · courier ${money(d.parcelFeeKES)}`}
                 </p>
+
+                {/* The address detail the customer gave. Worth showing here so
+                    you can read it out if the rider rings you from the gate. */}
+                {(d.dropBuilding || d.dropUnit || d.dropGate) && (
+                  <p className="text-[10px] font-bold text-gray-400 mt-0.5">
+                    {[d.dropBuilding, d.dropUnit && `House ${d.dropUnit}`, d.dropGate]
+                      .filter(Boolean).join(' · ')}
+                  </p>
+                )}
+
+                {/* Where the rider says they are. Greyed once it is old enough
+                    to be a stale promise rather than a live one. */}
+                {d.status !== 'delivered' && etaLabel(d.riderEtaCode, d.riderEtaMinutes) && (
+                  <p className={`text-[10.5px] font-black mt-1.5 flex items-center gap-1.5 ${
+                    etaIsStale(d.riderEtaAt, now) ? 'text-gray-400' : 'text-[#3D8593]'
+                  }`}>
+                    <Motorcycle size={12} weight="fill" className="shrink-0" />
+                    {etaLabel(d.riderEtaCode, d.riderEtaMinutes)}
+                    <span className="font-bold text-gray-400">· {sinceLabel(d.riderEtaAt, now)}</span>
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center gap-2 shrink-0 flex-wrap">
