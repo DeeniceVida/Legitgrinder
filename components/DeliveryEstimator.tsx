@@ -266,6 +266,18 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
     if (mode === 'doorstep' && !drop) return;
     if (!name.trim()) { setFormError('We need a name for the delivery.'); return; }
     if (phone.trim().replace(/\D/g, '').length < 9) { setFormError('A phone number the rider can call, please.'); return; }
+    if (mode === 'doorstep') {
+      // Required, because a pin reaches the gate and not the door. Left
+      // optional, most people skipped both — and the rider ended up phoning
+      // from the street, which is the exact call this form exists to prevent.
+      // The gate and the free-text note stay optional; those genuinely are.
+      if (!building.trim()) {
+        setFormError('Which estate, apartment or building? Your pin gets the rider to the gate, not to your door.'); return;
+      }
+      if (!unit.trim()) {
+        setFormError('Your house or apartment number, please.'); return;
+      }
+    }
     if (mode === 'parcel') {
       // The customer IS the receiver, so their own name and phone are what the
       // courier writes on the waybill — there is no second person to ask about.
@@ -320,6 +332,11 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
         mapUrl: drop ? `https://www.google.com/maps?q=${drop.lat.toFixed(6)},${drop.lng.toFixed(6)}` : undefined,
         receiverName: mode === 'parcel' ? name.trim() : undefined,
         receiverDestination: mode === 'parcel' ? receiverDest.trim() : undefined,
+        // So the alert names the actual door, not just the area.
+        building: mode === 'doorstep' ? building.trim() : undefined,
+        unit: mode === 'doorstep' ? unit.trim() : undefined,
+        gate: mode === 'doorstep' ? gate.trim() : undefined,
+        instructions: mode === 'doorstep' ? instructions.trim() : undefined,
         km: shownQuote.km,
         bulky,
         feeKES: res.deliveryFeeKES ?? shownQuote.total,
@@ -621,17 +638,20 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                               to the door — asked once here instead of over the
                               phone while they wait outside. */}
                           <div className="pt-3 mt-1 border-t border-white/10">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-1">
                               Help the rider find you
+                            </p>
+                            <p className="text-[11px] text-neutral-500 font-light mb-2.5 leading-relaxed">
+                              Your pin gets them to the gate. These get them to your door.
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                               <input
                                 value={building} onChange={e => setBuilding(e.target.value)}
-                                placeholder="Estate / apartment" className={field}
+                                placeholder="Estate / apartment *" className={field}
                               />
                               <input
                                 value={unit} onChange={e => setUnit(e.target.value)}
-                                placeholder="House number" className={field}
+                                placeholder="House number *" className={field}
                               />
                             </div>
                             <input

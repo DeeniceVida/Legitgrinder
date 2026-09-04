@@ -42,6 +42,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         ${row('Distance', `~${esc(p.km)} km${p.bulky ? ' · bulky' : ''}`)}
         ${row('Rider fee', money(p.feeKES))}
       </table>
+
+      ${/* The door, not the gate. Without this the email says roughly where
+            they are and you still have to open the dashboard to find out
+            which house — which is the moment the rider rings you. */''}
+      ${p.deliveryType !== 'parcel' && (p.building || p.unit || p.gate || p.instructions) ? `
+      <div style="margin-top:18px;border:1px solid #d7e6e9;background:#f2f9fa;border-radius:12px;padding:16px 18px;">
+        <p style="margin:0 0 10px;font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#3D8593;">Finding the door</p>
+        <table width="100%" style="border-collapse:collapse;">
+          ${p.building ? row('Building', esc(p.building)) : ''}
+          ${p.unit ? row('House / unit', esc(p.unit)) : ''}
+          ${p.gate ? row('Gate', esc(p.gate)) : ''}
+        </table>
+        ${p.instructions ? `<p style="margin:10px 0 0;font-size:13px;color:#3f4c4d;line-height:1.6;">${esc(p.instructions)}</p>` : ''}
+      </div>` : ''}
       <div style="text-align:center;margin:24px 0 6px;">
         <a href="${esc(p.mapUrl)}" style="display:inline-block;background:#0f1a1c;color:#fff;text-decoration:none;font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;padding:14px 30px;border-radius:999px;">Open their pin</a>
       </div>
