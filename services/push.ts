@@ -192,10 +192,14 @@ export const notifyRider = async (opts: {
   body: string;
 }): Promise<NotifyResult> => {
   try {
-    const { data: subs, error } = await supabase
+    // Stored as auth_secret, not auth — the column cannot be called `auth`
+    // without colliding with the auth schema in this table's RLS policy.
+    // The push spec calls the field `auth`, so it is renamed on the way out.
+    const { data: rows, error } = await supabase
       .from('rider_push_subscriptions')
-      .select('endpoint,p256dh,auth')
+      .select('endpoint,p256dh,auth_secret')
       .eq('rider_id', opts.riderId);
+    const subs = (rows || []).map(r => ({ endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth_secret }));
     if (error) {
       return { success: false, sent: 0, error: migrationMissing(error.message) ? ADMIN_MIGRATION_HINT : error.message };
     }

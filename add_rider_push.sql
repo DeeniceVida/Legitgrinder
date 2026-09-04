@@ -16,7 +16,12 @@ create table if not exists public.rider_push_subscriptions (
   rider_id     uuid not null references public.riders(id) on delete cascade,
   endpoint     text not null unique,
   p256dh       text not null,
-  auth         text not null,
+  -- NOT named `auth`. `auth` is also a SCHEMA on Supabase, and the admin
+  -- policy below calls auth.uid() on this very table — where the table's own
+  -- columns are in scope, so the name is ambiguous. That collision failed the
+  -- whole script, and because the editor runs it as one transaction it rolled
+  -- back silently: no table, no functions, no obvious error.
+  auth_secret  text not null,
   user_agent   text,
   created_at   timestamptz not null default now(),
   last_sent_at timestamptz
@@ -72,13 +77,13 @@ begin
 
   -- Re-subscribing on the same phone must not create a second row, and if the
   -- phone previously belonged to another rider the row moves across.
-  insert into public.rider_push_subscriptions (rider_id, endpoint, p256dh, auth, user_agent)
+  insert into public.rider_push_subscriptions (rider_id, endpoint, p256dh, auth_secret, user_agent)
   values (v_rider.id, p_endpoint, p_p256dh, p_auth, p_ua)
   on conflict (endpoint) do update
-    set rider_id   = excluded.rider_id,
-        p256dh     = excluded.p256dh,
-        auth       = excluded.auth,
-        user_agent = excluded.user_agent;
+    set rider_id    = excluded.rider_id,
+        p256dh      = excluded.p256dh,
+        auth_secret = excluded.auth_secret,
+        user_agent  = excluded.user_agent;
 
   return jsonb_build_object('ok', true);
 end;
@@ -166,3 +171,16 @@ end;
 $$;
 
 grant execute on function public.rider_push_status(text, text, text) to anon, authenticated;
+
+
+-- ------------------------------------------------------------------
+-- Ran clean? This prints the answer instead of finishing in silence.
+-- Want: table_exists = true, functions_found = 3.
+-- ------------------------------------------------------------------
+select
+  to_regclass('public.rider_push_subscriptions') is not null as table_exists,
+  (select count(*) from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('rider_save_push', 'rider_delete_push', 'rider_push_status')
+  ) as functions_found;
