@@ -5,14 +5,21 @@ import {
 import * as XLSX from 'xlsx';
 import { ChevronLeft, ChevronRight, Download, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Invoice, Client, PaymentStatus } from '../types';
+import { collectedKES, outstandingKES } from '../utils/invoiceMoney';
 
 /**
  * Reports — month-by-month money, and the ability to compare any two periods.
  *
  * Conventions are deliberately identical to the Dashboard tab so the two never
- * disagree: revenue is the total of invoices marked PAID and dated in the
- * period, profit is the service fee, and an invoice is dated by createdAt
- * falling back to date.
+ * disagree — both read them from utils/invoiceMoney:
+ *
+ *   revenue     MONEY RECEIVED in the period, deposits included. NOT the value
+ *               of invoices that happen to be settled in full; on a deposit
+ *               business that reads near zero while the bank fills up.
+ *   outstanding every shilling still owed, balances on part-paid invoices too.
+ *   profit      service fee, recognised only when the order is fully paid.
+ *
+ * An invoice is dated by createdAt falling back to date.
  */
 
 interface ReportsTabProps {
@@ -39,16 +46,18 @@ const invDate = (inv: Invoice): Date | null => {
 const key = (y: number, m: number) => `${y}-${m}`;
 
 interface Bucket {
-  revenue: number;      // paid invoices, total value
+  revenue: number;      // money RECEIVED, deposits included
+  invoiced: number;     // value billed, settled or not
   orders: number;       // every invoice raised
-  paidOrders: number;
-  profit: number;       // service fee on paid invoices
-  outstanding: number;  // unpaid invoice value
+  paidOrders: number;   // settled in full
+  payingOrders: number; // paid us something — the divisor for a sane average
+  profit: number;       // service fee on fully paid invoices
+  outstanding: number;  // still owed, part-paid balances included
   noBreakdown: number;  // paid invoices with no costs captured
 }
 
 const emptyBucket = (): Bucket =>
-  ({ revenue: 0, orders: 0, paidOrders: 0, profit: 0, outstanding: 0, noBreakdown: 0 });
+  ({ revenue: 0, invoiced: 0, orders: 0, paidOrders: 0, payingOrders: 0, profit: 0, outstanding: 0, noBreakdown: 0 });
 
 /** Percentage change, or null when there's no baseline to compare against. */
 const pctChange = (cur: number, prev: number): number | null =>
@@ -93,15 +102,22 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
 
       const total = inv.totalKES || 0;
       b[k].orders += 1;
+      // Revenue is MONEY RECEIVED, deposits included — not the value of
+      // invoices that happen to be settled in full. Same rule as the Dashboard
+      // tiles, via the same helper, so the two cannot drift apart.
+      b[k].revenue += collectedKES(inv);
+      b[k].invoiced += total;
+      if (collectedKES(inv) > 0) b[k].payingOrders += 1;
       if (inv.isPaid) {
-        b[k].revenue += total;
         b[k].paidOrders += 1;
         b[k].profit += inv.serviceFeeKES || 0;
         const hasCosts = (inv.buyingPriceKES || 0) > 0 || (inv.shippingFeeKES || 0) > 0
           || (inv.logisticsCostKES || 0) > 0 || (inv.serviceFeeKES || 0) > 0;
         if (!hasCosts) b[k].noBreakdown += 1;
       }
-      if (inv.paymentStatus === PaymentStatus.UNPAID) b[k].outstanding += total;
+      // Every shilling still owed, including the balance on a part-paid
+      // invoice — not only invoices with nothing paid at all.
+      b[k].outstanding += outstandingKES(inv);
     });
 
     return { buckets: b, years: Array.from(ys).sort((a, c) => a - c) };
@@ -129,7 +145,10 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
       priorRevenue: prior.revenue,
       orders: cur.orders,
       profit: cur.profit,
-      aov: cur.paidOrders > 0 ? cur.revenue / cur.paidOrders : 0,
+      // Divide money received by the orders that actually paid something.
+      // Dividing collected cash by only the FULLY settled orders would have
+      // shown September as a 251,350 average off a single 350 book.
+      aov: cur.payingOrders > 0 ? cur.revenue / cur.payingOrders : 0,
       yoy: future ? null : pctChange(cur.revenue, prior.revenue),
       mom: future ? null : pctChange(cur.revenue, m === 0 ? get(year - 1, 11).revenue : get(year, m - 1).revenue),
     };
@@ -156,8 +175,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
       const d = invDate(inv);
       if (!d || d.getFullYear() !== year || d.getMonth() !== month) return;
       rows.push(inv);
-      if (!inv.isPaid) return;
-      const total = inv.totalKES || 0;
+      const total = collectedKES(inv);
+      if (total <= 0) return;   // nothing received yet — nothing to attribute
       days[d.getDate() - 1].revenue += total;
       weekdays[d.getDay()].revenue += total;
       weekdays[d.getDay()].orders += 1;
@@ -180,8 +199,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
   }, [invoices, clients, year, month]);
 
   const selFuture = isFuture(year, month);
-  const aov = sel.paidOrders > 0 ? sel.revenue / sel.paidOrders : 0;
-  const prevAov = prevM.paidOrders > 0 ? prevM.revenue / prevM.paidOrders : 0;
+  const aov = sel.payingOrders > 0 ? sel.revenue / sel.payingOrders : 0;
+  const prevAov = prevM.payingOrders > 0 ? prevM.revenue / prevM.payingOrders : 0;
 
   /** Invoice-level rows, shared by both exports. */
   const orderRows = (list: Invoice[]) => list.map(inv => {
@@ -415,7 +434,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
           {[
             { label: 'Paid revenue', val: money(sel.revenue), cur: sel.revenue, prev: prevM.revenue, yoyPrev: lastY.revenue },
             { label: 'Service fees', val: money(sel.profit), cur: sel.profit, prev: prevM.profit, yoyPrev: lastY.profit },
-            { label: 'Avg order value', val: money(aov), cur: aov, prev: prevAov, yoyPrev: lastY.paidOrders > 0 ? lastY.revenue / lastY.paidOrders : 0 },
+            { label: 'Avg order value', val: money(aov), cur: aov, prev: prevAov, yoyPrev: lastY.payingOrders > 0 ? lastY.revenue / lastY.payingOrders : 0 },
             { label: 'Outstanding', val: money(sel.outstanding), cur: sel.outstanding, prev: prevM.outstanding, yoyPrev: lastY.outstanding },
           ].map(t => (
             <div key={t.label} className="rounded-xl border border-neutral-100 p-4">

@@ -42,6 +42,7 @@ import RidersPanel from '../components/RidersPanel';
 import DeliveriesPanel, { DeliveryPrefill } from '../components/DeliveriesPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import { effectiveStock } from '../utils/productPricing';
+import { collectedKES, outstandingKES, sumCollected, sumInvoiced, sumOutstanding } from '../utils/invoiceMoney';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
@@ -1463,20 +1464,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 const d = inv.createdAt || inv.date;
                 return !!d && monthKey(new Date(d)) === key;
               };
-              const revThis = invoices.reduce((s, i) => s + (i.isPaid && inMonth(i, thisKey) ? (i.totalKES || 0) : 0), 0);
-              const revLast = invoices.reduce((s, i) => s + (i.isPaid && inMonth(i, lastKey) ? (i.totalKES || 0) : 0), 0);
+              // MONEY IN, not "revenue on fully settled invoices".
+              //
+              // This tile used to count an invoice only once it was paid off in
+              // full. September 2026 read KES 350 — a book — while 251,000 in
+              // deposits had landed on three orders that were still running.
+              // What the owner needs to see is what reached the bank.
+              const revThis = sumCollected(invoices.filter(i => inMonth(i, thisKey)));
+              const revLast = sumCollected(invoices.filter(i => inMonth(i, lastKey)));
+              const billedThis = sumInvoiced(invoices.filter(i => inMonth(i, thisKey)));
               const ordThis = invoices.filter(i => inMonth(i, thisKey)).length;
               const ordLast = invoices.filter(i => inMonth(i, lastKey)).length;
-              const unpaidValue = invoices.reduce((s, i) => s + (i.paymentStatus === PaymentStatus.UNPAID ? (i.totalKES || 0) : 0), 0);
-              const unpaidCount = invoices.filter(i => i.paymentStatus === PaymentStatus.UNPAID).length;
+              // Everything still owed, across ALL invoices — including the
+              // balance on part-paid ones, which the old UNPAID-only test
+              // ignored entirely. A 30,000 balance is owed whether or not a
+              // deposit has been taken against it.
+              const unpaidValue = sumOutstanding(invoices);
+              const unpaidCount = invoices.filter(i => outstandingKES(i) > 0).length;
 
               const fmtK = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(2)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
               const delta = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : null;
 
               const tiles = [
-                { label: 'Revenue (Paid)', val: `KES ${fmtK(revThis)}`, d: delta(revThis, revLast), foot: `vs KES ${fmtK(revLast)} last month`, icon: <DollarSign className="w-4 h-4" />, iconBg: 'bg-teal-50 text-[#3D8593]' },
+                { label: 'Money in', val: `KES ${fmtK(revThis)}`, d: delta(revThis, revLast), foot: `of KES ${fmtK(billedThis)} invoiced · vs KES ${fmtK(revLast)} last month`, icon: <DollarSign className="w-4 h-4" />, iconBg: 'bg-teal-50 text-[#3D8593]' },
                 { label: 'Orders', val: ordThis.toLocaleString(), d: delta(ordThis, ordLast), foot: `vs ${ordLast} last month`, icon: <ShoppingBag className="w-4 h-4" />, iconBg: 'bg-indigo-50 text-indigo-500' },
-                { label: 'Outstanding', val: `KES ${fmtK(unpaidValue)}`, d: null, foot: `${unpaidCount} unpaid invoice${unpaidCount === 1 ? '' : 's'}`, icon: <Activity className="w-4 h-4" />, iconBg: 'bg-rose-50 text-rose-500', warn: unpaidCount > 0 },
+                { label: 'Still owed', val: `KES ${fmtK(unpaidValue)}`, d: null, foot: `across ${unpaidCount} invoice${unpaidCount === 1 ? '' : 's'}, deposits included`, icon: <Activity className="w-4 h-4" />, iconBg: 'bg-rose-50 text-rose-500', warn: unpaidCount > 0 },
                 { label: 'Visitors', val: visitCount.toLocaleString(), d: null, foot: `${clients.length} registered clients`, icon: <Users className="w-4 h-4" />, iconBg: 'bg-amber-50 text-[#FF9900]' },
               ];
               return (
@@ -1511,16 +1523,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
                 months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, name: d.toLocaleString('default', { month: 'short' }), revenue: 0 });
               }
+              // Money collected, not invoices settled — same rule as the tile
+              // above, or the chart and the headline would tell two stories.
               invoices.forEach(inv => {
-                if (!inv.isPaid) return;
                 const ds = inv.createdAt || inv.date;
                 if (!ds) return;
                 const d = new Date(ds);
                 const m = months.find(x => x.key === `${d.getFullYear()}-${d.getMonth()}`);
-                if (m) m.revenue += (inv.totalKES || 0) / 1000; // in thousands
+                if (m) m.revenue += collectedKES(inv) / 1000; // in thousands
               });
               const currentKey = `${now.getFullYear()}-${now.getMonth()}`;
-              const totalPaid = invoices.reduce((s, i) => s + (i.isPaid ? (i.totalKES || 0) : 0), 0);
+              const totalPaid = sumCollected(invoices);
               const rev5 = months[4].revenue, rev6 = months[5].revenue;
               const trendPct = rev5 > 0 ? ((rev6 - rev5) / rev5) * 100 : null;
 
@@ -1539,7 +1552,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="lg:col-span-2 bg-white rounded-2xl border border-neutral-100 p-6">
                     <div className="flex items-start justify-between mb-1">
                       <div>
-                        <p className="text-xs font-bold text-gray-500 mb-1">Total Paid Revenue</p>
+                        <p className="text-xs font-bold text-gray-500 mb-1">Total money in</p>
                         <div className="flex items-baseline gap-2">
                           <h3 className="text-3xl font-black text-gray-900 tracking-tight">
                             KES {totalPaid >= 1000000 ? `${(totalPaid / 1000000).toFixed(2)}M` : `${Math.round(totalPaid / 1000)}K`}
