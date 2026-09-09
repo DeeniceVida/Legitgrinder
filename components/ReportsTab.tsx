@@ -227,7 +227,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
   const exportMonth = () => {
     const summary = [
       { Metric: 'Period', Value: `${MONTHS[month]} ${year}` },
-      { Metric: 'Paid revenue (KES)', Value: Math.round(sel.revenue) },
+      { Metric: 'Money in (KES)', Value: Math.round(sel.revenue) },
       { Metric: 'Orders raised', Value: sel.orders },
       { Metric: 'Orders paid', Value: sel.paidOrders },
       { Metric: 'Service fees (KES)', Value: Math.round(sel.profit) },
@@ -248,7 +248,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
       })),
       { Metric: '', Value: '' },
       { Metric: 'Paid orders with no cost breakdown', Value: sel.noBreakdown },
-      { Metric: 'Note', Value: 'Revenue counts invoices marked paid, dated by created date. Service fees are only as complete as the cost breakdowns entered.' },
+      { Metric: 'Note', Value: 'Money in counts every shilling RECEIVED in the period, deposits on part-paid orders included, dated by the invoice created date. Service fees are recognised only when an order is fully paid, and are only as complete as the cost breakdowns entered.' },
     ];
 
     const wb = XLSX.utils.book_new();
@@ -268,7 +268,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
   const exportYear = () => {
     const monthly = yearRows.map(r => ({
       'Month': `${r.name} ${year}`,
-      'Paid revenue (KES)': Math.round(r.revenue),
+      'Money in (KES)': Math.round(r.revenue),
       'Orders': r.orders,
       'Service fees (KES)': Math.round(r.profit),
       'Avg order value (KES)': Math.round(r.aov),
@@ -278,7 +278,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
     }));
     monthly.push({
       'Month': `TOTAL ${year}`,
-      'Paid revenue (KES)': Math.round(yearTotal),
+      'Money in (KES)': Math.round(yearTotal),
       'Orders': yearRows.reduce((s, r) => s + r.orders, 0),
       'Service fees (KES)': Math.round(yearRows.reduce((s, r) => s + r.profit, 0)),
       'Avg order value (KES)': '' as any,
@@ -432,7 +432,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Paid revenue', val: money(sel.revenue), cur: sel.revenue, prev: prevM.revenue, yoyPrev: lastY.revenue },
+            { label: 'Money in', val: money(sel.revenue), cur: sel.revenue, prev: prevM.revenue, yoyPrev: lastY.revenue },
             { label: 'Service fees', val: money(sel.profit), cur: sel.profit, prev: prevM.profit, yoyPrev: lastY.profit },
             { label: 'Avg order value', val: money(aov), cur: aov, prev: prevAov, yoyPrev: lastY.payingOrders > 0 ? lastY.revenue / lastY.payingOrders : 0 },
             { label: 'Outstanding', val: money(sel.outstanding), cur: sel.outstanding, prev: prevM.outstanding, yoyPrev: lastY.outstanding },
@@ -494,7 +494,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-black text-gray-900 tracking-tight">{year} against {year - 1}</h3>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Paid revenue, month by month</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Money in, month by month</p>
           </div>
           <TrendingUp className="w-4 h-4 text-gray-300" />
         </div>
@@ -525,13 +525,13 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
       <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
         <div className="px-6 py-4 border-b border-neutral-50">
           <h3 className="text-sm font-black text-gray-900 tracking-tight">{year} month by month</h3>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Revenue counts invoices marked paid</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Money received, deposits included</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-neutral-50/60">
               <tr>
-                {['Month', 'Paid revenue', 'Orders', 'Avg order', 'Service fees', 'vs prev', `vs ${year - 1}`].map(h => (
+                {['Month', 'Money in', 'Orders', 'Avg order', 'Service fees', 'vs prev', `vs ${year - 1}`].map(h => (
                   <th key={h} className="px-5 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -591,7 +591,7 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
         <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-neutral-50">
             <h3 className="text-sm font-black text-gray-900 tracking-tight">What sold in {MONTHS[month]}</h3>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Ranked by paid revenue</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Ranked by money received</p>
           </div>
           <div className="divide-y divide-neutral-50">
             {monthDetail.topProducts.map(([name, s], i) => (
