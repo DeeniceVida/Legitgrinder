@@ -81,6 +81,8 @@ const MonitorsTab: React.FC = () => {
     const res = await updateMonitorModel(m.id, {
       factoryUsd: m.factoryUsd, imageUrl: m.imageUrl ?? null,
       availableColors: m.availableColors,
+      // null clears it and hands the price back to the formula.
+      buyingOverrideKes: m.buyingOverrideKes ?? null,
     });
     setSaving(null);
     res.success ? flash(m.id) : setError(res.error || 'Could not save the model');
@@ -303,7 +305,7 @@ const MonitorsTab: React.FC = () => {
             <table className="w-full text-left">
               <thead className="bg-neutral-50/60">
                 <tr>
-                  {['Live', 'Photo', 'Model', 'Spec', 'Factory USD', 'Landed KES', 'Colours', 'Image', ''].map(h => (
+                  {['Live', 'Photo', 'Model', 'Spec', 'Factory USD', 'Set price KES', 'Landed KES', 'Colours', 'Image', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -350,6 +352,23 @@ const MonitorsTab: React.FC = () => {
                           value={m.factoryUsd}
                           onChange={e => patchModel(m.id, { factoryUsd: parseFloat(e.target.value) || 0 })}
                           className="w-24 bg-neutral-50 border border-neutral-100 rounded-lg px-2.5 py-2 text-sm font-bold text-gray-900 outline-none focus:border-[#3D8593]"
+                        />
+                      </td>
+                      {/* A decided price. Blank = let the formula do it, which
+                          is right for nearly every model. Filled in, this IS the
+                          buying price; shipping and the service fee still apply
+                          on top, and factory USD stays the real cost so the
+                          margin beside it keeps telling the truth. */}
+                      <td className="px-4 py-3">
+                        <input
+                          type="number"
+                          step="100"
+                          placeholder="auto"
+                          value={m.buyingOverrideKes ?? ''}
+                          onChange={e => patchModel(m.id, {
+                            buyingOverrideKes: e.target.value.trim() === '' ? null : (parseInt(e.target.value, 10) || null),
+                          })}
+                          className={`w-28 border rounded-lg px-2.5 py-2 text-sm font-bold outline-none focus:border-[#3D8593] ${m.buyingOverrideKes ? 'bg-amber-50 border-amber-200 text-gray-900' : 'bg-neutral-50 border-neutral-100 text-gray-400'}`}
                         />
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

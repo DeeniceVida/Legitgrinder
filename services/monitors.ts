@@ -21,6 +21,10 @@ export interface MonitorModel {
   curved: boolean;
   baseType: 'Fixed' | 'Lifting';
   factoryUsd: number;
+  /** Buying price set by hand. When present it REPLACES the calculated goods
+   *  price; shipping and the service fee are untouched. factory_usd stays the
+   *  real cost, so the admin margin view keeps telling the truth. */
+  buyingOverrideKes?: number | null;
   /** IPS or VA, where the supplier states it. */
   panelType?: string;
   /** Whether the series name is shown to buyers. False for the factory's own
@@ -124,6 +128,7 @@ const toModel = (d: any): MonitorModel => ({
   curved: !!d.curved,
   baseType: d.base_type === 'Lifting' ? 'Lifting' : 'Fixed',
   factoryUsd: Number(d.factory_usd),
+  buyingOverrideKes: d.buying_override_kes == null ? null : Number(d.buying_override_kes),
   panelType: d.panel_type || undefined,
   seriesPublic: d.series_public === true,
   isActive: d.is_active !== false,
@@ -272,13 +277,16 @@ export const updateMonitorShipping = async (
 
 export const updateMonitorModel = async (
   id: string,
-  p: { factoryUsd?: number; imageUrl?: string | null; isActive?: boolean; availableColors?: string[] }
+  p: { factoryUsd?: number; imageUrl?: string | null; isActive?: boolean; availableColors?: string[];
+       /** null clears it and hands the price back to the formula. */
+       buyingOverrideKes?: number | null }
 ): Promise<{ success: boolean; error?: string }> => {
   const row: any = {};
   if (p.factoryUsd !== undefined) row.factory_usd = p.factoryUsd;
   if (p.imageUrl !== undefined) row.image_url = p.imageUrl || null;
   if (p.isActive !== undefined) row.is_active = p.isActive;
   if (p.availableColors !== undefined) row.available_colors = p.availableColors;
+  if (p.buyingOverrideKes !== undefined) row.buying_override_kes = p.buyingOverrideKes || null;
   const { error } = await supabase.from('monitor_models').update(row).eq('id', id);
   return { success: !error, error: error?.message };
 };
@@ -313,6 +321,12 @@ export interface PriceResult {
     shippingKES: number | null;
     configKES: number;
     serviceFeeKES: number;
+    /**
+     * Non-null when the buying price was set by hand. `goodsKES` still holds
+     * what the formula would have charged, so the admin view can show both and
+     * the real margin stays visible.
+     */
+    overrideKES: number | null;
   };
 }
 
@@ -366,6 +380,9 @@ export const priceMonitor = (
   const breakdown = {
     factoryUsd, alibabaUsd, crateUsd: s.crateUsd, freightUsd: s.freightUsd, inclusionsUsd,
     marginUsd: s.marginUsd, colorUsd, goodsKES, shippingKES: sizeFreight, configKES, serviceFeeKES: 0,
+    /** Set when the buying price was decided by hand rather than calculated. */
+    overrideKES: (typeof m.buyingOverrideKes === 'number' && m.buyingOverrideKes > 0)
+      ? m.buyingOverrideKes : null,
   };
 
   if (sizeFreight == null) {
@@ -374,7 +391,14 @@ export const priceMonitor = (
 
   // Each line is rounded to the hundred so the parts always add up to the total
   // a buyer is quoted — a breakdown that doesn't reconcile destroys trust.
-  const buyingKES = Math.ceil(goodsKES / 100) * 100;
+  //
+  // An override is a decided price, so it is used EXACTLY as entered — not
+  // rounded, not marked up. The calculated figure stays in the breakdown above
+  // so the admin view can still show what the thing actually cost and what the
+  // override is really earning.
+  const override = m.buyingOverrideKes;
+  const hasOverride = typeof override === 'number' && override > 0;
+  const buyingKES = hasOverride ? override : Math.ceil(goodsKES / 100) * 100;
   const shippingKES = Math.ceil((sizeFreight + freightPartKES) / 100) * 100;
   const legacyPct = (buyingKES + shippingKES) * (s.serviceFeePct / 100);
 
