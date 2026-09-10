@@ -1480,7 +1480,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               // ignored entirely. A 30,000 balance is owed whether or not a
               // deposit has been taken against it.
               const unpaidValue = sumOutstanding(invoices);
-              const unpaidCount = invoices.filter(i => outstandingKES(i) > 0).length;
+              const owing = invoices.filter(i => outstandingKES(i) > 0);
+              const unpaidCount = owing.length;
+              // Split the debt by how it got there. A customer who has paid
+              // nothing at all is a different problem from one sitting on a
+              // balance after a deposit — the first needs chasing, the second
+              // usually settles when the goods land.
+              const nothingPaidCount = owing.filter(i => collectedKES(i) === 0).length;
+              const partPaidCount = unpaidCount - nothingPaidCount;
 
               const fmtK = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(2)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
               const delta = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : null;
@@ -1488,7 +1495,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const tiles = [
                 { label: 'Money in', val: `KES ${fmtK(revThis)}`, d: delta(revThis, revLast), foot: `of KES ${fmtK(billedThis)} invoiced · vs KES ${fmtK(revLast)} last month`, icon: <DollarSign className="w-4 h-4" />, iconBg: 'bg-teal-50 text-[#3D8593]' },
                 { label: 'Orders', val: ordThis.toLocaleString(), d: delta(ordThis, ordLast), foot: `vs ${ordLast} last month`, icon: <ShoppingBag className="w-4 h-4" />, iconBg: 'bg-indigo-50 text-indigo-500' },
-                { label: 'Still owed', val: `KES ${fmtK(unpaidValue)}`, d: null, foot: `across ${unpaidCount} invoice${unpaidCount === 1 ? '' : 's'}, deposits included`, icon: <Activity className="w-4 h-4" />, iconBg: 'bg-rose-50 text-rose-500', warn: unpaidCount > 0 },
+                // "deposits included" read as though money already banked was
+                // counted in this figure. It never was — this is only what is
+                // still owed. Say what the debt is made of instead.
+                { label: 'Still owed', val: `KES ${fmtK(unpaidValue)}`, d: null, foot: `${nothingPaidCount} not paid at all · ${partPaidCount} part paid`, icon: <Activity className="w-4 h-4" />, iconBg: 'bg-rose-50 text-rose-500', warn: nothingPaidCount > 0 },
                 { label: 'Visitors', val: visitCount.toLocaleString(), d: null, foot: `${clients.length} registered clients`, icon: <Users className="w-4 h-4" />, iconBg: 'bg-amber-50 text-[#FF9900]' },
               ];
               return (
