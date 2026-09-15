@@ -3,8 +3,9 @@ import {
   CalendarCheck, Storefront, WarningCircle, Check, WhatsappLogo, ArrowSquareOut, CircleNotch,
 } from '@phosphor-icons/react';
 import {
-  BookingSettings, DEFAULT_BOOKING_SETTINGS, formatDateLong, nairobiNow, parseSlotLines, SlotsByWeekday,
+  BookingSettings, DEFAULT_BOOKING_SETTINGS, formatDateLong, formatSlot, nairobiNow, parseSlotLines, SlotsByWeekday,
 } from '../utils/bookings';
+import AvailabilityCalendar from './AvailabilityCalendar';
 import {
   fetchBookingSettings, updateBookingSettings, fetchConsultationBookings, updateConsultationBooking,
   fetchPickupBookings, updatePickupBooking, ConsultationBooking, PickupBooking,
@@ -217,7 +218,7 @@ const BookingsPanel: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className={lbl}>Consultation fee (KES)</label>
             <input type="number" className={input} value={settings.consultationFeeKes}
@@ -234,9 +235,24 @@ const BookingsPanel: React.FC = () => {
               onChange={e => setSettings({ ...settings, cutoffHour: Number(e.target.value) || 0 })} />
           </div>
           <div>
-            <label className={lbl}>Meetings bookable (days)</label>
-            <input type="number" className={input} value={settings.consultationDaysAhead}
-              onChange={e => setSettings({ ...settings, consultationDaysAhead: Number(e.target.value) || 1 })} />
+            <label className={lbl}>Meeting length (min)</label>
+            <input type="number" min={15} step={15} className={input} value={settings.meetingMinutes}
+              onChange={e => setSettings({ ...settings, meetingMinutes: Number(e.target.value) || 60 })} />
+          </div>
+          <div>
+            <label className={lbl}>Break between (min)</label>
+            <input type="number" min={0} step={5} className={input} value={settings.breakMinutes}
+              onChange={e => setSettings({ ...settings, breakMinutes: Number(e.target.value) || 0 })} />
+          </div>
+          <div>
+            <label className={lbl}>Meeting day starts</label>
+            <input type="time" className={input} value={settings.dayStart}
+              onChange={e => setSettings({ ...settings, dayStart: e.target.value })} />
+          </div>
+          <div>
+            <label className={lbl}>Meeting day ends</label>
+            <input type="time" className={input} value={settings.dayEnd}
+              onChange={e => setSettings({ ...settings, dayEnd: e.target.value })} />
           </div>
           <div>
             <label className={lbl}>Pickups bookable (days)</label>
@@ -246,11 +262,7 @@ const BookingsPanel: React.FC = () => {
         </div>
 
         <div>
-          <p className="text-[12px] font-black text-gray-700 mb-2">Consultation slots <span className="font-medium text-gray-400">— one per line, blank day = closed</span></p>
-          <SlotEditor value={settings.consultationSlots} onChange={v => setSettings({ ...settings, consultationSlots: v })} />
-        </div>
-        <div>
-          <p className="text-[12px] font-black text-gray-700 mb-2">Pickup slots</p>
+          <p className="text-[12px] font-black text-gray-700 mb-2">Pickup slots <span className="font-medium text-gray-400">— the shop's weekly hours, one per line, blank day = closed</span></p>
           <SlotEditor value={settings.pickupSlots} onChange={v => setSettings({ ...settings, pickupSlots: v })} />
         </div>
 
@@ -262,6 +274,18 @@ const BookingsPanel: React.FC = () => {
           className="px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-50 flex items-center gap-2">
           {saving === 'details' ? 'Saving…' : saved ? <><Check size={13} weight="bold" /> Saved</> : 'Save hub & rules'}
         </button>
+      </div>
+
+      {/* ── The founder's calendar ─────────────────────────────────────
+          Consultations are opened date by date, not weekly: he travels
+          into Nairobi for them. What he opens here is exactly what clients
+          can book, and a paid booking shows here the moment it lands. */}
+      <div className="space-y-3">
+        <div>
+          <p className="text-sm font-black text-gray-900">Your consultation calendar</p>
+          <p className="text-[12px] text-gray-500 mt-0.5">Open the days you will be in Nairobi. Each day fills with back-to-back meetings using the pattern above; adjust any day by hand.</p>
+        </div>
+        <AvailabilityCalendar settings={settings} bookings={consultations} onChanged={load} />
       </div>
 
       {/* ── Consultations ──────────────────────────────────────────────── */}
@@ -278,7 +302,7 @@ const BookingsPanel: React.FC = () => {
                     {c.status === 'pending_payment' ? 'not paid' : c.status === 'paid_conflict' ? 'paid · slot clash' : c.status}
                   </span>
                 </p>
-                <p className="text-[12px] font-bold text-[#3D8593] mt-1">{formatDateLong(c.slotDate)} · {c.slotLabel}</p>
+                <p className="text-[12px] font-bold text-[#3D8593] mt-1">{formatDateLong(c.slotDate)} · {formatSlot(c.slotLabel)}</p>
                 <p className="text-[12px] text-gray-600 mt-1.5 leading-relaxed">
                   <strong>{c.products}</strong> · {c.quantity} · budget {c.budget}
                 </p>

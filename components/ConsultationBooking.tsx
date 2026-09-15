@@ -1,24 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PaystackButton } from 'react-paystack';
 import {
-  CalendarBlank, CheckCircle, CircleNotch, WarningCircle, WhatsappLogo, MapPin,
+  CheckCircle, CircleNotch, WarningCircle, WhatsappLogo, MapPin,
   ShieldCheck, Package, Coins, Hash, User, EnvelopeSimple, Phone,
 } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
+import MonthGrid from './MonthGrid';
 import {
-  BookingSettings, openSlots, groupByDate, formatDateLong, nairobiNow, addDays, OpenSlot,
+  BookingSettings, formatDateLong, formatSlot, nairobiNow, addDays, shiftMonth, CONSULTATION_HORIZON_DAYS,
 } from '../utils/bookings';
 import {
-  fetchTakenConsultationSlots, createConsultationBooking, confirmConsultation, ConfirmedConsultation,
+  fetchOpenConsultationDays, createConsultationBooking, confirmConsultation, ConfirmedConsultation,
 } from '../services/bookings';
 
 /**
  * Paid, in-person strategy meeting at the hub.
  *
- * Four questions, a slot, the terms stated plainly, then payment. The slot is
- * only ever confirmed by our server after it has checked with Paystack — see
- * functions/api/confirm-consultation.ts. Until then the customer holds the slot
- * for 20 minutes and nothing is promised.
+ * The calendar shows only the days the founder has opened, and only the
+ * meeting times still free — the same live calendar he manages in Admin. The
+ * slot is confirmed only by our server after it has checked with Paystack
+ * (functions/api/confirm-consultation.ts). Until then the client holds the
+ * time for 20 minutes and nothing is promised.
  */
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_b11692e8994766a02428b1176fc67f4b8b958974';
@@ -31,8 +33,12 @@ const label = 'block text-[10px] font-black uppercase tracking-widest text-gray-
 type Step = 'form' | 'pay' | 'confirming' | 'done' | 'problem';
 
 const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boolean }> = ({ settings, preview }) => {
-  const [taken, setTaken] = useState<Set<string>>(new Set());
-  const [loadingSlots, setLoadingSlots] = useState(true);
+  const today = nairobiNow().date;
+  const horizon = addDays(today, CONSULTATION_HORIZON_DAYS);
+
+  const [openDays, setOpenDays] = useState<Map<string, string[]>>(new Map());
+  const [loadingDays, setLoadingDays] = useState(true);
+  const [ym, setYm] = useState(() => ({ year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) - 1 }));
 
   const [products, setProducts] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -51,25 +57,31 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
   const [amountKes, setAmountKes] = useState(settings.consultationFeeKes);
   const [booking, setBooking] = useState<ConfirmedConsultation | null>(null);
 
-  const loadTaken = async () => {
-    setLoadingSlots(true);
-    const today = nairobiNow().date;
-    setTaken(await fetchTakenConsultationSlots(addDays(today, 1), addDays(today, settings.consultationDaysAhead)));
-    setLoadingSlots(false);
+  const loadDays = async (jumpToFirst = false) => {
+    setLoadingDays(true);
+    const m = await fetchOpenConsultationDays(addDays(today, 1), horizon);
+    setOpenDays(m);
+    setLoadingDays(false);
+    // Land on the month of the first open date, not on an empty current month.
+    if (jumpToFirst) {
+      const first = Array.from(m.keys()).sort()[0];
+      if (first) setYm({ year: Number(first.slice(0, 4)), month: Number(first.slice(5, 7)) - 1 });
+    }
   };
-  useEffect(() => { loadTaken(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadDays(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const days = useMemo(() => groupByDate(
-    openSlots(settings.consultationSlots, settings.cutoffHour, settings.consultationDaysAhead, taken),
-  ), [settings, taken]);
+  const firstMonth = { year: Number(today.slice(0, 4)), month: Number(today.slice(5, 7)) - 1 };
+  const lastMonth = { year: Number(horizon.slice(0, 4)), month: Number(horizon.slice(5, 7)) - 1 };
+  const idx = (x: { year: number; month: number }) => x.year * 12 + x.month;
 
-  const slotsForDay: OpenSlot[] = days.find(d => d.date === date)?.slots || [];
+  const slotsForDay = date ? (openDays.get(date) || []) : [];
   const fee = settings.consultationFeeKes;
+  const openCount = openDays.size;
 
   const start = async () => {
     setError(null);
     if (!products.trim() || !quantity.trim() || !budget.trim()) { setError('Please answer the first three questions.'); return; }
-    if (!date || !slot) { setError('Choose a date and a time.'); return; }
+    if (!date || !slot) { setError('Choose a date and a time on the calendar.'); return; }
     if (!name.trim() || phone.replace(/\D/g, '').length < 9) { setError('We need your name and a phone number.'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('We need an email for your booking pass.'); return; }
     if (!agreed) { setError('Please confirm you have read the fee and credit terms.'); return; }
@@ -84,7 +96,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
 
     if (!res.ok) {
       setError(res.error || 'We could not start your booking.');
-      if (res.taken) { setSlot(null); loadTaken(); }
+      if (res.taken) { setSlot(null); loadDays(); }
       return;
     }
     setReference(res.reference!);
@@ -106,6 +118,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
   };
 
   const waMessage = (text: string) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+  const when = useMemo(() => (date && slot ? `${formatDateLong(date)}, ${formatSlot(slot)}` : ''), [date, slot]);
 
   /* ── Confirmed ─────────────────────────────────────────────────────────── */
   if (step === 'done' && booking) {
@@ -118,13 +131,13 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
         </h2>
         <p className="text-gray-500 font-light leading-relaxed mb-6">
           {clash
-            ? 'Someone confirmed that slot a moment before you. Your payment is safe — we will contact you today to set a new time.'
+            ? 'That time was taken a moment before your payment cleared. Your payment is safe — we will contact you today to set a new time.'
             : 'Your booking pass is on its way to your email.'}
         </p>
 
         <div className="rounded-2xl border border-gray-100 divide-y divide-gray-100 mb-6">
           {[
-            ['When', `${formatDateLong(booking.slotDate)} · ${booking.slotLabel}`],
+            ['When', `${formatDateLong(booking.slotDate)} · ${formatSlot(booking.slotLabel)}`],
             ['Where', [booking.hubName, booking.hubAddress].filter(Boolean).join(', ') || 'We will send the exact location before your meeting.'],
             ['Reference', booking.reference],
             ['Paid', money(booking.paidKes)],
@@ -150,7 +163,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
               <MapPin size={15} weight="fill" /> Open location
             </a>
           )}
-          <a href={waMessage(`Hi LegitGrinder, I've booked a consultation.\nReference: ${booking.reference}\n${formatDateLong(booking.slotDate)}, ${booking.slotLabel}`)}
+          <a href={waMessage(`Hi LegitGrinder, I've booked a consultation.\nReference: ${booking.reference}\n${formatDateLong(booking.slotDate)}, ${formatSlot(booking.slotLabel)}`)}
             target="_blank" rel="noopener noreferrer"
             className={`h-12 rounded-full bg-[#25D366] text-white font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 ${booking.hubMapUrl ? '' : 'sm:col-span-2'}`}>
             <WhatsappLogo size={15} weight="fill" /> Message us
@@ -168,9 +181,9 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
         <h2 className="text-2xl font-bold tracking-tighter mb-3">We need to confirm this by hand.</h2>
         <p className="text-gray-500 font-light leading-relaxed mb-2">{error}</p>
         <p className="text-gray-500 font-light leading-relaxed mb-6">
-          Your reference is <strong className="text-gray-900">{reference}</strong>. Send it to us and we will confirm your slot.
+          Your reference is <strong className="text-gray-900">{reference}</strong>. Send it to us and we will confirm your time.
         </p>
-        <a href={waMessage(`Hi LegitGrinder, I paid for a consultation but it didn't confirm.\nReference: ${reference}\n${date ? formatDateLong(date) : ''}, ${slot || ''}`)}
+        <a href={waMessage(`Hi LegitGrinder, I paid for a consultation but it didn't confirm.\nReference: ${reference}\n${when}`)}
           target="_blank" rel="noopener noreferrer"
           className="h-12 rounded-full bg-[#25D366] text-white font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2">
           <WhatsappLogo size={15} weight="fill" /> Send reference on WhatsApp
@@ -178,6 +191,8 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
       </div>
     );
   }
+
+  const locked = step !== 'form';
 
   /* ── The form ─────────────────────────────────────────────────────────── */
   return (
@@ -194,7 +209,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
           <div className="relative">
             <Package size={17} className="absolute left-4 top-5 text-gray-300 pointer-events-none" />
             <textarea id="cb-products" rows={3} value={products} onChange={e => setProducts(e.target.value)}
-              className={`${field} resize-none`} placeholder="Office chairs, gaming monitors, CNC parts…" disabled={step !== 'form'} />
+              className={`${field} resize-none`} placeholder="Office chairs, gaming monitors, CNC parts…" disabled={locked} />
           </div>
         </div>
 
@@ -204,7 +219,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
             <div className="relative">
               <Hash size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
               <input id="cb-qty" value={quantity} onChange={e => setQuantity(e.target.value)}
-                className={field} placeholder="About 50 units" disabled={step !== 'form'} />
+                className={field} placeholder="About 50 units" disabled={locked} />
             </div>
           </div>
           <div>
@@ -212,48 +227,64 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
             <div className="relative">
               <Coins size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
               <input id="cb-budget" value={budget} onChange={e => setBudget(e.target.value)}
-                className={field} placeholder="KES 500,000" disabled={step !== 'form'} />
+                className={field} placeholder="KES 500,000" disabled={locked} />
             </div>
           </div>
         </div>
 
+        {/* ── The calendar ─────────────────────────────────────────────── */}
         <div>
           <p className={label}>4 · Choose a date and time</p>
-          {loadingSlots ? (
-            <p className="text-sm text-gray-400 flex items-center gap-2"><CircleNotch size={15} className="animate-spin" /> Checking availability…</p>
-          ) : days.length === 0 ? (
-            <p className="text-sm text-gray-500 bg-neutral-50 rounded-2xl p-4">
-              Every meeting slot is taken for now. Message us on WhatsApp and we will fit you in.
+          {loadingDays ? (
+            <p className="text-sm text-gray-400 flex items-center gap-2"><CircleNotch size={15} className="animate-spin" /> Checking the calendar…</p>
+          ) : openCount === 0 ? (
+            <p className="text-sm text-gray-500 bg-neutral-50 rounded-2xl p-4 leading-relaxed">
+              No meeting dates are open right now. Message us on WhatsApp and we will tell you when the founder is next in Nairobi.
             </p>
           ) : (
-            <>
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                {days.map(d => (
-                  <button key={d.date} type="button" disabled={step !== 'form'}
-                    onClick={() => { setDate(d.date); setSlot(null); setError(null); }}
-                    className={`shrink-0 px-4 py-3 rounded-2xl border text-left transition-colors ${date === d.date
-                      ? 'border-[#3D8593] bg-[#3D8593]/10' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <span className="flex items-center gap-1.5 text-[12px] font-black text-gray-900 whitespace-nowrap">
-                      <CalendarBlank size={13} weight="bold" className="text-[#3D8593]" />
-                      {formatDateLong(d.date).split(' ').slice(0, 2).join(' ')}
-                    </span>
-                    <span className="block text-[10px] font-bold text-gray-400 mt-0.5">{d.slots.length} open</span>
-                  </button>
-                ))}
-              </div>
-              {date && (
-                <div className="grid sm:grid-cols-3 gap-2 mt-3">
-                  {slotsForDay.map(s => (
-                    <button key={s.label} type="button" disabled={step !== 'form'}
-                      onClick={() => { setSlot(s.label); setError(null); }}
-                      className={`px-3 py-3 rounded-xl border text-[12px] font-bold transition-colors ${slot === s.label
-                        ? 'border-[#3D8593] bg-[#3D8593] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
-                      {s.label}
+            <div className="rounded-2xl border border-gray-100 p-4">
+              <MonthGrid
+                year={ym.year} month={ym.month}
+                onPrev={() => setYm(shiftMonth(ym.year, ym.month, -1))}
+                onNext={() => setYm(shiftMonth(ym.year, ym.month, 1))}
+                canPrev={idx(ym) > idx(firstMonth)}
+                canNext={idx(ym) < idx(lastMonth)}
+                subtitle="Highlighted days have meetings free"
+                renderDay={(iso) => {
+                  const free = openDays.get(iso);
+                  const isSel = iso === date;
+                  if (!free) {
+                    return <div className="w-full aspect-square rounded-xl flex items-center justify-center text-[12px] font-medium text-gray-300">{Number(iso.slice(8))}</div>;
+                  }
+                  return (
+                    <button type="button" disabled={locked}
+                      onClick={() => { setDate(iso); setSlot(null); setError(null); }}
+                      aria-label={`${formatDateLong(iso)}, ${free.length} time${free.length === 1 ? '' : 's'} free`}
+                      className={`w-full aspect-square rounded-xl flex flex-col items-center justify-center transition-colors ${isSel
+                        ? 'bg-[#3D8593] text-white' : 'bg-[#3D8593]/12 text-[#1d4d55] hover:bg-[#3D8593]/25'}`}>
+                      <span className="text-[13px] font-black leading-none">{Number(iso.slice(8))}</span>
+                      <span className={`text-[8.5px] font-black mt-1 leading-none ${isSel ? 'text-white/80' : 'text-[#3D8593]'}`}>{free.length} free</span>
                     </button>
-                  ))}
+                  );
+                }}
+              />
+
+              {date && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-[12px] font-black text-gray-900 mb-2">{formatDateLong(date)}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {slotsForDay.map(k => (
+                      <button key={k} type="button" disabled={locked}
+                        onClick={() => { setSlot(k); setError(null); }}
+                        className={`px-3 py-3 rounded-xl border text-[12px] font-bold transition-colors ${slot === k
+                          ? 'border-[#3D8593] bg-[#3D8593] text-white' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}>
+                        {formatSlot(k)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -262,15 +293,15 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
           <div className="grid md:grid-cols-3 gap-3">
             <div className="relative">
               <User size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
-              <input value={name} onChange={e => setName(e.target.value)} className={field} placeholder="Full name" disabled={step !== 'form'} />
+              <input value={name} onChange={e => setName(e.target.value)} className={field} placeholder="Full name" disabled={locked} />
             </div>
             <div className="relative">
               <Phone size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
-              <input value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" className={field} placeholder="Phone" disabled={step !== 'form'} />
+              <input value={phone} onChange={e => setPhone(e.target.value)} inputMode="tel" className={field} placeholder="Phone" disabled={locked} />
             </div>
             <div className="relative">
               <EnvelopeSimple size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none" />
-              <input value={email} onChange={e => setEmail(e.target.value)} type="email" inputMode="email" className={field} placeholder="Email" disabled={step !== 'form'} />
+              <input value={email} onChange={e => setEmail(e.target.value)} type="email" inputMode="email" className={field} placeholder="Email" disabled={locked} />
             </div>
           </div>
         </div>
@@ -284,7 +315,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
             procurement order if you place it within {settings.consultationCreditDays} days of our meeting.
           </p>
           <label className="flex items-start gap-3 pt-2 cursor-pointer">
-            <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} disabled={step !== 'form'}
+            <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} disabled={locked}
               className="mt-0.5 w-4 h-4 accent-[#FF9900]" />
             <span className="text-[12.5px] text-neutral-300">I understand the fee and how the credit works.</span>
           </label>
@@ -297,14 +328,14 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
         {step === 'form' && (
           <button type="button" onClick={start} disabled={busy}
             className="btn-vibrant-orange shine w-full py-4 rounded-full font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50">
-            {busy ? <><CircleNotch size={16} className="animate-spin" /> Holding your slot…</> : <>Continue to payment · {money(fee)}</>}
+            {busy ? <><CircleNotch size={16} className="animate-spin" /> Holding your time…</> : <>Continue to payment · {money(fee)}</>}
           </button>
         )}
 
         {step === 'pay' && reference && (
           <div className="space-y-3">
             <p className="text-[12px] text-gray-500 text-center">
-              Your slot is held for 20 minutes while you pay. Reference <strong className="text-gray-900">{reference}</strong>.
+              {when} is held for 20 minutes while you pay. Reference <strong className="text-gray-900">{reference}</strong>.
             </p>
             <PaystackButton
               className="w-full h-[56px] bg-[#3D8593] text-white rounded-full font-black uppercase text-[11px] tracking-[0.2em] hover:bg-[#0f1a1c] transition-colors"
@@ -316,12 +347,12 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
               metadata={{
                 custom_fields: [
                   { display_name: 'Booking', variable_name: 'booking', value: reference },
-                  { display_name: 'Meeting', variable_name: 'meeting', value: `${date} ${slot}` },
+                  { display_name: 'Meeting', variable_name: 'meeting', value: when },
                 ],
               }}
               text={`Pay ${money(amountKes)}`}
               onSuccess={onPaid}
-              onClose={() => { /* slot stays held for 20 minutes; they can press again */ }}
+              onClose={() => { /* the time stays held for 20 minutes; they can press again */ }}
             />
             <button type="button" onClick={() => { setStep('form'); setReference(null); }}
               className="w-full text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600">

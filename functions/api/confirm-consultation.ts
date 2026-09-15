@@ -51,6 +51,15 @@ const longDate = (iso: string) => {
     return `${days[dt.getUTCDay()]} ${d} ${months[m - 1]}`;
 };
 
+/** "10:00-11:30" → "10:00 AM - 11:30 AM". Mirrors utils/bookings formatSlot, which a
+ *  Pages Function cannot import. Anything that isn't a time range passes through. */
+export const fmtSlot = (key: string): string => {
+    const m = String(key || '').match(/^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/);
+    if (!m) return String(key || '');
+    const t = (h: string, mi: string) => { const n = Number(h); return `${n % 12 || 12}:${mi} ${n < 12 ? 'AM' : 'PM'}`; };
+    return `${t(m[1], m[2])} - ${t(m[3], m[4])}`;
+};
+
 const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -72,7 +81,7 @@ const shell = (badge: string, inner: string) => `<!doctype html><html><body styl
 export const ownerEmail = (b: any): string => shell(
     b.status === 'paid_conflict' ? 'Paid — slot clash' : 'Consultation booked',
     `<h1 style="margin:14px 0 4px;font-size:20px;color:#0f1a1c;">${esc(b.clientName)} — ${esc(longDate(b.slotDate))}</h1>
-     <p style="margin:0 0 18px;color:#6b7677;font-size:14px;">${esc(b.slotLabel)} · ${money(b.paidKes)} paid · ref ${esc(b.reference)}</p>
+     <p style="margin:0 0 18px;color:#6b7677;font-size:14px;">${esc(fmtSlot(b.slotLabel))} · ${money(b.paidKes)} paid · ref ${esc(b.reference)}</p>
      ${b.status === 'paid_conflict' ? `<p style="margin:0 0 18px;padding:12px 14px;border-radius:10px;background:#fff4e5;color:#8a4b00;font-size:13px;font-weight:600;">
        This person paid, but another booking confirmed this slot first. Contact them to move the meeting or refund.</p>` : ''}
      <table width="100%" style="border-collapse:collapse;border-top:1px solid #eef0ef;">
@@ -92,7 +101,7 @@ export const ownerEmail = (b: any): string => shell(
 export const clientEmail = (b: any): string => shell(
     'Booking confirmed',
     `<h1 style="margin:14px 0 4px;font-size:20px;color:#0f1a1c;">See you ${esc(longDate(b.slotDate))}</h1>
-     <p style="margin:0 0 18px;color:#6b7677;font-size:14px;">${esc(b.slotLabel)} · in person</p>
+     <p style="margin:0 0 18px;color:#6b7677;font-size:14px;">${esc(fmtSlot(b.slotLabel))} · in person</p>
      <table width="100%" style="border-collapse:collapse;border-top:1px solid #eef0ef;">
        ${row('Where', esc([b.hubName, b.hubAddress].filter(Boolean).join(', ') || 'We will send the exact location before your meeting.'))}
        ${row('Booking reference', esc(b.reference))}
@@ -195,7 +204,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const firstName = String(booking.clientName || '').split(' ')[0];
         await Promise.all([
             send(RESEND_API_KEY, OWNER_EMAIL,
-                `${booking.status === 'paid_conflict' ? 'SLOT CLASH · ' : ''}Consultation · ${booking.clientName} · ${longDate(booking.slotDate)} ${booking.slotLabel}`,
+                `${booking.status === 'paid_conflict' ? 'SLOT CLASH · ' : ''}Consultation · ${booking.clientName} · ${longDate(booking.slotDate)} ${fmtSlot(booking.slotLabel)}`,
                 ownerEmail(booking)),
             booking.status === 'confirmed' && booking.clientEmail
                 ? send(RESEND_API_KEY, booking.clientEmail,

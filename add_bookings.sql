@@ -6,12 +6,19 @@
 --  public site behaves exactly as it did before this file, and only a signed-in
 --  admin can make a test booking.
 --
+--  Two models, on purpose:
+--    - PICKUPS repeat weekly. The shop is open the same days every week.
+--    - CONSULTATIONS are date by date. The founder travels into Nairobi for
+--      them, so he opens the specific days he is in town on a calendar and
+--      packs as many meetings into each as he can. His calendar and the public
+--      booking calendar read the same rows, so a booking fills a slot on both.
+--
 --  Money rule: a consultation slot is locked only after the SERVER has checked
 --  the payment with Paystack (functions/api/confirm-consultation.ts). The
 --  browser saying "paid" is never enough.
 --
 --  Run once in the Supabase SQL editor. Safe to re-run: nothing here overwrites
---  a setting the owner has changed in the dashboard.
+--  a setting or a day the owner has changed in the dashboard.
 -- ============================================================================
 
 
@@ -25,16 +32,17 @@ create table if not exists public.booking_settings (
   hub_map_url               text not null default '',
   consultation_fee_kes      int  not null default 4000,
   consultation_credit_days  int  not null default 7,
-  -- Slot labels per weekday, keyed by day number: 0 = Sunday ... 6 = Saturday.
-  consultation_slots        jsonb not null default
-    '{"4": ["10:00 AM - 11:30 AM", "12:00 PM - 1:30 PM", "2:30 PM - 4:00 PM"],
-      "5": ["10:00 AM - 11:30 AM", "12:00 PM - 1:30 PM", "2:30 PM - 4:00 PM"]}',
+  -- The pattern used to fill a day when the founder opens it on the calendar.
+  meeting_minutes           int  not null default 90,
+  break_minutes             int  not null default 30,
+  day_start                 text not null default '10:00',
+  day_end                   text not null default '18:00',
+  -- Weekly pickup slot labels, keyed by day number: 0 = Sunday ... 6 = Saturday.
   pickup_slots              jsonb not null default
     '{"3": ["2:00 PM - 3:30 PM", "3:30 PM - 5:00 PM", "5:00 PM - 6:30 PM"],
       "6": ["10:00 AM - 12:00 PM", "12:00 PM - 2:00 PM", "2:00 PM - 4:00 PM"]}',
   -- A slot stops taking bookings at this hour, Nairobi time, the day before.
   cutoff_hour               int  not null default 17,
-  consultation_days_ahead   int  not null default 28,
   pickup_days_ahead         int  not null default 14,
   updated_at                timestamptz not null default now()
 );
@@ -50,6 +58,23 @@ create policy "anyone reads booking settings" on public.booking_settings
 drop policy if exists "admin edits booking settings" on public.booking_settings;
 create policy "admin edits booking settings" on public.booking_settings
   for update using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+
+
+-- -- The founder's calendar: one row per day he is available ------------------
+-- No row = not available that day. slots are 24-hour ranges, "10:00-11:30",
+-- zero-padded so they sort chronologically as text.
+create table if not exists public.consultation_days (
+  day         date primary key,
+  slots       text[] not null default '{}',
+  note        text,
+  updated_at  timestamptz not null default now()
+);
+
+alter table public.consultation_days enable row level security;
+
+drop policy if exists "admin manages consultation days" on public.consultation_days;
+create policy "admin manages consultation days" on public.consultation_days
+  for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
 
 
 -- -- Consultation bookings ----------------------------------------------------
@@ -86,6 +111,83 @@ alter table public.consultation_bookings enable row level security;
 drop policy if exists "admin manages consultation bookings" on public.consultation_bookings;
 create policy "admin manages consultation bookings" on public.consultation_bookings
   for all using (exists (select 1 from public.profiles where id = auth.uid() and role = 'admin'));
+
+
+-- -- Guard the calendar ------------------------------------------------------
+-- Every save of a day is checked here, not just in the browser: slots must be
+-- real time ranges that do not overlap, and a slot somebody has PAID for cannot
+-- be removed, nor the day closed, until that meeting is moved or cancelled. A
+-- stale admin tab must not be able to delete a meeting a client booked a
+-- minute ago.
+create or replace function public.consultation_days_guard()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_slot     text;
+  v_sorted   text[];
+  v_start    int;
+  v_end      int;
+  v_prev_end int := -1;
+  v_booked   record;
+begin
+  if tg_op in ('INSERT', 'UPDATE') then
+    select coalesce(array_agg(x order by x), '{}') into v_sorted
+      from (select distinct unnest(new.slots) as x) t;
+
+    foreach v_slot in array v_sorted loop
+      if v_slot !~ '^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$' then
+        raise exception 'Not a time range: %', v_slot;
+      end if;
+      v_start := split_part(split_part(v_slot, '-', 1), ':', 1)::int * 60
+               + split_part(split_part(v_slot, '-', 1), ':', 2)::int;
+      v_end   := split_part(split_part(v_slot, '-', 2), ':', 1)::int * 60
+               + split_part(split_part(v_slot, '-', 2), ':', 2)::int;
+      if v_end <= v_start then
+        raise exception 'The meeting at % ends before it starts.', v_slot;
+      end if;
+      if v_start < v_prev_end then
+        raise exception 'Two meetings overlap at %.', v_slot;
+      end if;
+      v_prev_end := v_end;
+    end loop;
+
+    new.slots := v_sorted;
+    new.updated_at := now();
+  end if;
+
+  if tg_op = 'UPDATE' then
+    for v_booked in
+      select b.slot_label, b.client_name from public.consultation_bookings b
+       where b.slot_date = old.day and b.status = 'confirmed'
+         and not (b.slot_label = any(new.slots))
+    loop
+      raise exception '% has a paid meeting at % on %. Move or cancel it before removing that time.',
+        v_booked.client_name, v_booked.slot_label, old.day;
+    end loop;
+    return new;
+  end if;
+
+  if tg_op = 'DELETE' then
+    for v_booked in
+      select b.slot_label, b.client_name from public.consultation_bookings b
+       where b.slot_date = old.day and b.status = 'confirmed'
+    loop
+      raise exception '% has a paid meeting at % on %. Move or cancel it before closing the day.',
+        v_booked.client_name, v_booked.slot_label, old.day;
+    end loop;
+    return old;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists consultation_days_guard on public.consultation_days;
+create trigger consultation_days_guard
+  before insert or update or delete on public.consultation_days
+  for each row execute function public.consultation_days_guard();
 
 
 -- -- Pickup bookings ----------------------------------------------------------
@@ -151,31 +253,41 @@ as $$
 $$;
 
 
--- -- Which consultation slots are taken ---------------------------------------
--- Dates and slot names only. Never who booked them.
-create or replace function public.consultation_taken_slots(p_from date, p_to date)
-returns table (slot_date date, slot_label text)
+-- -- What a client can book: open days, free slots, nothing personal ----------
+create or replace function public.consultation_open_days(p_from date, p_to date)
+returns table (open_day date, open_slot text)
 language plpgsql
 stable
 security definer
 set search_path = public
 as $$
+declare
+  s       public.booking_settings%rowtype;
+  v_today date := (now() at time zone 'Africa/Nairobi')::date;
 begin
-  if p_to > p_from + 62 then
-    p_to := p_from + 62;
-  end if;
+  select * into s from public.booking_settings where id = 1;
+  if p_from < v_today then p_from := v_today; end if;
+  if p_to > v_today + 120 then p_to := v_today + 120; end if;
+
   return query
-    select b.slot_date, b.slot_label
-      from public.consultation_bookings b
-     where b.slot_date between p_from and p_to
-       and (b.status = 'confirmed'
-            -- A payment in progress holds the slot for 20 minutes, so two
-            -- people are not both sent to Paystack for the same hour.
-            or (b.status = 'pending_payment' and b.created_at > now() - interval '20 minutes'));
+    select d.day, x.slot
+      from public.consultation_days d
+      cross join lateral unnest(d.slots) as x(slot)
+     where d.day between p_from and p_to
+       and public.booking_slot_open(d.day, s.cutoff_hour)
+       and not exists (
+         select 1 from public.consultation_bookings b
+          where b.slot_date = d.day and b.slot_label = x.slot
+            and (b.status = 'confirmed'
+                 -- A payment in progress holds the slot for 20 minutes, so two
+                 -- people are not both sent to Paystack for the same meeting.
+                 or (b.status = 'pending_payment' and b.created_at > now() - interval '20 minutes'))
+       )
+     order by d.day, x.slot;
 end;
 $$;
 
-grant execute on function public.consultation_taken_slots(date, date) to anon, authenticated;
+grant execute on function public.consultation_open_days(date, date) to anon, authenticated;
 
 
 -- -- Start a consultation booking (unpaid) ------------------------------------
@@ -216,12 +328,14 @@ begin
     return jsonb_build_object('ok', false, 'error', 'That email address does not look right.');
   end if;
 
-  if p_date is null or p_date > v_today + s.consultation_days_ahead then
+  if p_date is null or p_date > v_today + 120 then
     return jsonb_build_object('ok', false, 'error', 'Please choose one of the dates shown.');
   end if;
 
-  if not coalesce(jsonb_exists(s.consultation_slots -> (extract(dow from p_date)::int)::text, p_slot), false) then
-    return jsonb_build_object('ok', false, 'error', 'That time is not one we offer.');
+  -- Only a time the founder has actually opened on his calendar.
+  if not exists (select 1 from public.consultation_days d where d.day = p_date and p_slot = any(d.slots)) then
+    return jsonb_build_object('ok', false, 'taken', true,
+      'error', 'That time is no longer available. Please choose one shown on the calendar.');
   end if;
 
   if not public.booking_slot_open(p_date, s.cutoff_hour) then
@@ -234,7 +348,7 @@ begin
        and (b.status = 'confirmed'
             or (b.status = 'pending_payment' and b.created_at > now() - interval '20 minutes'))
   ) then
-    return jsonb_build_object('ok', false, 'taken', true, 'error', 'Someone has just taken that slot. Please pick another.');
+    return jsonb_build_object('ok', false, 'taken', true, 'error', 'Someone has just taken that time. Please pick another.');
   end if;
 
   v_ref := 'LGC-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
@@ -294,6 +408,15 @@ begin
   elsif coalesce(p_paid_kes, 0) < b.amount_kes then
     return jsonb_build_object('ok', false, 'underpaid', true,
       'error', 'The amount paid is less than the consultation fee.');
+  elsif not exists (
+    select 1 from public.consultation_days d where d.day = b.slot_date and b.slot_label = any(d.slots)
+  ) then
+    -- The founder closed that time while they were paying. They have still
+    -- paid, so keep the money on record and flag it rather than refuse it.
+    update public.consultation_bookings
+       set status = 'paid_conflict', paid_kes = p_paid_kes, paystack_id = p_paystack_id, paid_at = now()
+     where id = b.id;
+    v_status := 'paid_conflict';
   else
     begin
       update public.consultation_bookings
@@ -302,8 +425,7 @@ begin
        where id = b.id;
       v_status := 'confirmed';
     exception when unique_violation then
-      -- Someone else's payment for the same slot landed first. This person
-      -- has still paid, so keep the money on record and flag it for the owner.
+      -- Someone else's payment for the same slot landed first.
       update public.consultation_bookings
          set status = 'paid_conflict', paid_kes = p_paid_kes, paystack_id = p_paystack_id,
              paid_at = now()
@@ -410,17 +532,19 @@ grant execute on function public.book_pickup(text, text, text, text, text, date,
 
 
 -- ------------------------------------------------------------------
--- Ran clean? Want: tables_found = 4, functions_found = 6, both_switches_off = true.
+-- Ran clean? Want: tables_found = 5, functions_found = 7, both_switches_off = true.
 -- ------------------------------------------------------------------
 select
   (select count(*) from information_schema.tables
     where table_schema = 'public'
-      and table_name in ('booking_settings', 'consultation_bookings', 'pickup_bookings', 'booking_server_secret')
+      and table_name in ('booking_settings', 'consultation_days', 'consultation_bookings',
+                         'pickup_bookings', 'booking_server_secret')
   ) as tables_found,
   (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.proname in ('booking_is_admin', 'booking_slot_open', 'consultation_taken_slots',
-                        'create_consultation_booking', 'confirm_consultation_booking', 'book_pickup')
+      and p.proname in ('booking_is_admin', 'booking_slot_open', 'consultation_days_guard',
+                        'consultation_open_days', 'create_consultation_booking',
+                        'confirm_consultation_booking', 'book_pickup')
   ) as functions_found,
   (select not consultations_enabled and not pickups_enabled from public.booking_settings where id = 1)
     as both_switches_off;

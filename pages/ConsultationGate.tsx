@@ -38,7 +38,7 @@ const ConsultationGate: React.FC<{ onSubmit?: (c: any) => void }> = () => {
   const points = [
     { icon: <Coins size={24} weight="duotone" className="text-[#3D8593]" />, title: `${money(settings.consultationFeeKes)} consultation fee`, body: `Credited in full to your order if you place it within ${settings.consultationCreditDays} days of the meeting.` },
     { icon: <Storefront size={24} weight="duotone" className="text-[#FF9900]" />, title: 'In person, at the hub', body: [settings.hubName, settings.hubAddress].filter(Boolean).join(' · ') || settings.hubName },
-    { icon: <Clock size={24} weight="duotone" className="text-[#3D8593]" />, title: 'Thursdays and Fridays', body: 'Choose a slot that suits you. Your time is held once payment clears.' },
+    { icon: <Clock size={24} weight="duotone" className="text-[#3D8593]" />, title: 'Days the founder is in Nairobi', body: 'Pick a highlighted date on the calendar. Meetings run back to back, so the best times go first.' },
     { icon: <Handshake size={24} weight="duotone" className="text-[#FF9900]" />, title: 'Leave with a plan', body: 'Suppliers, landed cost, lead time and the risks — for exactly what you want to import.' },
   ];
 
