@@ -22,6 +22,8 @@ interface Payload {
     customerEmail?: string;
     trackUrl?: string;
     stockLeft?: number | null;
+    /** Hub collection slot, or "Delivery requested", when pickups are switched on. */
+    pickup?: string;
 }
 
 const FROM = 'LegitGrinder Shop <invoices@legitgrinder.com>';
@@ -47,6 +49,7 @@ function html(p: Payload): string {
         ${row('Item', esc(p.productName))}
         ${p.variant ? row('Option', esc(p.variant)) : ''}
         ${row('Quantity', String(p.quantity))}
+        ${p.pickup ? row('Collection', esc(p.pickup)) : ''}
         ${row('Reference', esc(p.reference))}
         ${p.customerName ? row('Customer', esc(p.customerName)) : ''}
         ${p.customerEmail ? row('Email', `<a href="mailto:${esc(p.customerEmail)}" style="color:#3D8593;">${esc(p.customerEmail)}</a>`) : ''}

@@ -14,6 +14,9 @@ import RestockNotify from '../components/RestockNotify';
 import GroupBuyPoster from '../components/GroupBuyPoster';
 import { GroupCampaign, fetchGroupCampaigns as fetchAllCampaigns } from '../services/groupBuys';
 import { PaystackButton } from 'react-paystack';
+import PickupSlotPicker, { Fulfilment } from '../components/PickupSlotPicker';
+import { fetchBookingSettings, bookPickup } from '../services/bookings';
+import { BookingSettings, formatDateLong } from '../utils/bookings';
 import { supabase } from '../lib/supabase';
 import SafeImage from '../components/SafeImage';
 import { Reveal } from '../components/Motion';
@@ -52,6 +55,20 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
    * no receipt could be sent and the buyer never reached the mailing list.
    */
   const [buyerEmail, setBuyerEmail] = useState('');
+
+  // Hub collection. Off until the owner switches pickups on in Admin → Bookings,
+  // and while off the checkout is exactly what it was. ?preview=bookings shows it
+  // early; the database still refuses to book a slot for anyone but an admin.
+  const [bookingSettings, setBookingSettings] = useState<BookingSettings | null>(null);
+  const [fulfilment, setFulfilment] = useState<Fulfilment>(null);
+  const [fulfilmentError, setFulfilmentError] = useState<string | null>(null);
+  useEffect(() => { fetchBookingSettings().then(setBookingSettings); }, []);
+  const pickupPreview = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('preview') === 'bookings';
+  /** Only items we hold can be collected — an import has nothing on the shelf yet. */
+  const offersPickup = (item: Product) => !!bookingSettings
+    && (bookingSettings.pickupsEnabled || pickupPreview)
+    && item.availability === Availability.LOCAL;
   const [emailError, setEmailError] = useState<string | null>(null);
   /** Targets for the sticky bar's buttons. */
   const optionsRef = useRef<HTMLDivElement>(null);
@@ -225,6 +242,19 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
           console.error("Database record failed:", invoiceResult.error);
         }
 
+        // 2a. The collection slot chosen before paying. Best-effort: the sale
+        //     stands either way, and the slot is on the owner's alert below.
+        if (fulfilment?.mode === 'collect' && invoiceResult.invoiceNumber) {
+          await bookPickup({
+            invoiceNumber: invoiceResult.invoiceNumber,
+            name: authUser?.user_metadata?.full_name || undefined,
+            email: receiptTo || undefined,
+            item: fullProductName,
+            date: fulfilment.date,
+            slot: fulfilment.label,
+          }).catch(() => {});
+        }
+
         // 2b. The buyer's own receipt. Paid means paid — they should not have
         //     to ask for proof, and on a six-figure order they will want it
         //     before they have finished reading the WhatsApp message.
@@ -299,6 +329,9 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         customerEmail: user?.email || undefined,
         trackUrl: `${window.location.origin}/tracking?id=${trackingCode}`,
         stockLeft: effectiveStock(product) - quantity,
+        pickup: fulfilment?.mode === 'collect'
+          ? `${formatDateLong(fulfilment.date)}, ${fulfilment.label}`
+          : fulfilment?.mode === 'deliver' ? 'Delivery requested' : undefined,
       }),
     })
       .then(async r => {
@@ -323,7 +356,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
       `Tracking Code: ${trackingCode}\n` +
       `Item: ${product.name}\n` +
       `Quantity: ${quantity}\n` +
-      `Total: KES ${(totalPrice * quantity).toLocaleString()}\n\n` +
+      `Total: KES ${(totalPrice * quantity).toLocaleString()}\n` +
+      (fulfilment?.mode === 'collect'
+        ? `Collection: ${formatDateLong(fulfilment.date)}, ${fulfilment.label}\n`
+        : fulfilment?.mode === 'deliver' ? `Delivery: please send me the rider link\n` : '') +
+      `\n` +
       `Track Status here: ${trackingLink}\n\n` +
       `Please confirm receipt and start agent processing.`
     );
@@ -644,6 +681,19 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       </div>
                     )}
 
+                    {offersPickup(p) && bookingSettings && (
+                      <div>
+                        <PickupSlotPicker
+                          settings={bookingSettings}
+                          value={fulfilment}
+                          onChange={(f) => { setFulfilment(f); setFulfilmentError(null); }}
+                        />
+                        {fulfilmentError && (
+                          <p className="text-[11px] font-bold text-rose-500 mt-1.5" role="alert">{fulfilmentError}</p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-4">
                       {/* QUANTITY CONTROL */}
                       <div className="flex items-center bg-white border border-gray-200 rounded-full p-2 h-[60px]">
@@ -682,6 +732,12 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                             }
                             if (!PAYSTACK_PUBLIC_KEY) {
                               alert("Payment system configuration missing. Please ensure VITE_PAYSTACK_PUBLIC_KEY is set in your environment.");
+                              return;
+                            }
+                            // Collect or deliver is decided before money moves, so
+                            // nobody pays and then discovers the hub is closed.
+                            if (offersPickup(p) && !fulfilment) {
+                              setFulfilmentError('Choose whether you will collect it or have it delivered.');
                               return;
                             }
                             // A sale with no address is a sale with no receipt.

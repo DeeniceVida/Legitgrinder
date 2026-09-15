@@ -9,7 +9,8 @@ import Login from './pages/Login';
 import Pricelist from './pages/Pricelist';
 import Collaboration from './pages/Collaboration';
 // Fix: Aliased Consultation page component to ConsultationPage to avoid conflict with Consultation type from types.ts
-import ConsultationPage from './pages/Consultation';
+// The gate shows the existing page until paid hub consultations are switched on.
+import ConsultationPage from './pages/ConsultationGate';
 import Shop from './pages/Shop';
 import Blogs from './pages/Blogs';
 import Books from './pages/Books';

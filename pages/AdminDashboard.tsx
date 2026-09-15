@@ -40,6 +40,7 @@ import EnquiriesPanel from '../components/EnquiriesPanel';
 import AudiencePanel from '../components/AudiencePanel';
 import RidersPanel from '../components/RidersPanel';
 import DeliveriesPanel, { DeliveryPrefill } from '../components/DeliveriesPanel';
+import BookingsPanel from '../components/BookingsPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import { effectiveStock } from '../utils/productPricing';
 import { collectedKES, outstandingKES, sumCollected, sumInvoiced, sumOutstanding } from '../utils/invoiceMoney';
@@ -123,7 +124,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
   }, [products]);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'monitors' | 'invoices' | 'products' | 'deliveries' | 'groupbuys' | 'corporate' | 'consultations' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'monitors' | 'invoices' | 'products' | 'deliveries' | 'groupbuys' | 'corporate' | 'consultations' | 'bookings' | 'pricelist' | 'content' | 'clients' | 'leads' | 'books' | 'security' | 'adbanners' | 'card'>('overview');
   /**
    * An invoice on its way to Riders & Deliveries. Carries what we already
    * know so the delivery form opens filled in rather than blank — the item is
@@ -363,6 +364,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'monitors', name: 'Monitors', group: 'Main', section: 'corporate', icon: <Smartphone className="w-4 h-4" /> },
     { id: 'chairs', name: 'Chairs', group: 'Main', section: 'corporate', icon: <Armchair className="w-4 h-4" /> },
     { id: 'consultations', name: 'Consultations', group: 'Operations', icon: <MessageSquare className="w-4 h-4" /> },
+    // Hub pickups + paid in-person meetings. Built ahead of the shop; both switched off.
+    { id: 'bookings', name: 'Bookings', group: 'Operations', icon: <Calendar className="w-4 h-4" /> },
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Phone Price Sync', group: 'Operations', icon: <RefreshCcw className="w-4 h-4" /> },
     { id: 'books', name: 'eBooks', group: 'Operations', icon: <Book className="w-4 h-4" /> },
@@ -3276,6 +3279,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'chairs' && <ChairsTab />}
 
         {activeTab === 'emails' && <SentEmailsTab />}
+
+        {activeTab === 'bookings' && (
+          <div className="animate-in fade-in duration-500">
+            <BookingsPanel />
+          </div>
+        )}
 
         {activeTab === 'deliveries' && (
           <div className="space-y-6 animate-in fade-in duration-700">
