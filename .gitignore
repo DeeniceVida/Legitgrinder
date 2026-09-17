@@ -29,3 +29,6 @@ scripts/sync-state.json
 
 # Sync log
 scripts/sync-log.txt
+
+# Verification scripts bundle the code under test next to themselves
+scripts/verify/*.built.mjs
