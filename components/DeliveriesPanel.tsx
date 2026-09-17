@@ -702,6 +702,21 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
                   <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${statusChip(d.status)}`}>
                     {d.status === 'collected' ? 'Picked up' : d.status}
                   </span>
+                  {/* Has the rider been paid? Only the rider's confirmation
+                      turns this green — a pasted message stays amber. */}
+                  {d.paymentStatus && (
+                    <span
+                      title={d.paymentStatus === 'reported' ? d.paymentMessage : undefined}
+                      className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                        d.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-600'
+                          : d.paymentStatus === 'reported' ? 'bg-amber-50 text-[#FF9900]'
+                          : 'bg-rose-50 text-rose-500'
+                      }`}>
+                      {d.paymentStatus === 'paid'
+                        ? `Fee paid${d.paymentMethod === 'cash' ? ' · cash' : ' · M-Pesa'}`
+                        : d.paymentStatus === 'reported' ? 'Customer says paid' : 'Fee unpaid'}
+                    </span>
+                  )}
                   {d.parcelReceiptUrl && (
                     <a href={d.parcelReceiptUrl} target="_blank" rel="noopener noreferrer"
                       className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase tracking-widest hover:bg-emerald-100">

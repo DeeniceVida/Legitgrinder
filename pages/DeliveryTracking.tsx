@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Package, CheckCircle, CircleNotch, WarningCircle, Receipt, MapPin, WhatsappLogo, Motorcycle,
+  Copy, Check,
 } from '@phosphor-icons/react';
-import { DeliveryStatusView, fetchDeliveryStatus } from '../services/deliveries';
+import { DeliveryStatusView, fetchDeliveryStatus, reportDeliveryPayment } from '../services/deliveries';
 import { etaLabel, sinceLabel, etaIsStale } from '../utils/delivery';
 import { WHATSAPP_NUMBER } from '../constants';
 
@@ -15,8 +16,9 @@ import { WHATSAPP_NUMBER } from '../constants';
  * courier's fee beside it, so "what did the parcel cost?" is answered by
  * evidence rather than by a message.
  *
- * Shows the rider's first name and no phone number. The customer needs to know
- * who is coming, not how to reach them directly.
+ * Shows the rider's first name. Their phone number appears only as the number
+ * to pay the delivery fee to, and only while it is unpaid — the owner chose the
+ * rider's own number for that.
  */
 
 const money = (n?: number) => (n == null ? null : `KES ${n.toLocaleString()}`);
@@ -150,6 +152,11 @@ const DeliveryTracking: React.FC = () => {
           </div>
         </div>
 
+        {/* Paying the rider. Absent until add_delivery_payment.sql has run. */}
+        {d.paymentStatus && d.deliveryFeeKES != null && (
+          <PayRider d={d} token={token} onReported={() => fetchDeliveryStatus(token).then(setD)} />
+        )}
+
         {/* The receipt — the whole point */}
         {d.parcelReceiptUrl ? (
           <div className="bg-white rounded-[1.75rem] border border-gray-100 overflow-hidden">
@@ -186,6 +193,119 @@ const DeliveryTracking: React.FC = () => {
           </a>
         </div>
       </div>
+    </div>
+  );
+};
+
+/* ── Paying the rider ────────────────────────────────────────────────────── */
+
+/**
+ * Cash at the door, or M-Pesa to the rider's own number — then paste the
+ * confirmation here. A parcel customer is never at the counter, so for them
+ * M-Pesa is the only way; the paste is what lets the rider match it up.
+ *
+ * Pasting does not make it paid. The site cannot see the rider's M-Pesa, so
+ * it waits for the rider to check and confirm.
+ */
+const PayRider: React.FC<{ d: DeliveryStatusView; token: string; onReported: () => void }> = ({ d, token, onReported }) => {
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const rider = d.riderFirstName || 'the rider';
+
+  const copy = async () => {
+    if (!d.riderPayPhone) return;
+    try {
+      await navigator.clipboard.writeText(d.riderPayPhone.replace(/\s+/g, ''));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* the number is on screen to type in */ }
+  };
+
+  const send = async () => {
+    setSending(true);
+    setError(null);
+    const res = await reportDeliveryPayment(token, message);
+    setSending(false);
+    if (!res.ok) { setError(res.error || 'Could not send that.'); return; }
+    setMessage('');
+    setEditing(false);
+    onReported();
+  };
+
+  if (d.paymentStatus === 'paid') {
+    return (
+      <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 rounded-[1.75rem] p-5 mb-5">
+        <CheckCircle size={22} weight="fill" className="text-emerald-600 shrink-0" />
+        <p className="text-[13px] text-emerald-900 font-medium">
+          Delivery fee paid{d.paymentMethod === 'cash' ? ' in cash' : ' by M-Pesa'} — {rider} confirmed it. Thank you.
+        </p>
+      </div>
+    );
+  }
+
+  const reported = d.paymentStatus === 'reported' && !editing;
+
+  return (
+    <div className="bg-white rounded-[1.75rem] border border-gray-100 p-6 mb-5">
+      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Pay the rider</p>
+      <p className="text-[15px] font-bold text-gray-900 tracking-tight">
+        Pay {rider} {money(d.deliveryFeeKES)}
+      </p>
+      <p className="text-[12.5px] text-gray-500 font-light mt-1 leading-relaxed">
+        {d.deliveryType === 'parcel'
+          ? <>Send it by M-Pesa, then paste the confirmation message below.</>
+          : <>Cash when {rider} hands it over, or M-Pesa — if you use M-Pesa, paste the confirmation message below.</>}
+      </p>
+
+      {d.riderPayPhone ? (
+        <div className="mt-4 flex items-center justify-between gap-3 bg-neutral-50 border border-neutral-100 rounded-2xl px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">M-Pesa · Send money</p>
+            <p className="text-lg font-black text-gray-900 tracking-tight">{d.riderPayPhone}</p>
+          </div>
+          <button onClick={copy}
+            className="shrink-0 px-4 py-2.5 rounded-full bg-[#3D8593] text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+            {copied ? <><Check size={13} weight="bold" /> Copied</> : <><Copy size={13} weight="bold" /> Copy</>}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-4 text-[12px] text-gray-400 font-light">
+          The number to pay appears here once a rider has the job.
+        </p>
+      )}
+
+      {reported ? (
+        <div className="mt-4 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+          <p className="text-[13px] font-bold text-amber-900 flex items-center gap-2">
+            <CircleNotch size={14} className="animate-spin" /> Waiting for {rider} to confirm
+          </p>
+          {d.paymentMessage && (
+            <p className="text-[11.5px] text-amber-800/80 font-light mt-2 whitespace-pre-wrap break-words">{d.paymentMessage}</p>
+          )}
+          <button onClick={() => { setEditing(true); setMessage(d.paymentMessage || ''); }}
+            className="text-[11px] font-bold text-amber-900 underline mt-2">
+            Pasted the wrong message?
+          </button>
+        </div>
+      ) : d.riderPayPhone && (
+        <div className="mt-4">
+          <textarea
+            value={message}
+            onChange={e => { setMessage(e.target.value); setError(null); }}
+            rows={3}
+            placeholder="Paste your M-Pesa message, e.g. “SJK4XXXX Confirmed. Ksh350.00 sent to …”"
+            className="w-full bg-neutral-50 border border-neutral-200 rounded-2xl px-4 py-3 text-[13px] outline-none focus:border-[#3D8593] placeholder:text-gray-300"
+          />
+          {error && <p className="text-[12px] font-bold text-rose-500 mt-2">{error}</p>}
+          <button onClick={send} disabled={sending || message.trim().length < 10}
+            className="w-full h-12 mt-2 rounded-full bg-[#0f1a1c] text-white font-black uppercase text-[10px] tracking-widest disabled:opacity-40">
+            {sending ? 'Sending…' : "I've paid"}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

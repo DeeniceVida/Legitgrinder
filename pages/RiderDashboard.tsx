@@ -6,7 +6,7 @@ import {
 } from '@phosphor-icons/react';
 import {
   Delivery, DeliveryStatus, fetchRiderJobs, riderUpdateJob, uploadReceipt, emailDeliveryReceipt,
-  riderSetEta,
+  riderSetEta, riderConfirmPayment,
 } from '../services/deliveries';
 import { originById, ETA_CHOICES, EtaChoice, etaLabel, sinceLabel } from '../utils/delivery';
 import RiderAlerts from '../components/RiderAlerts';
@@ -198,14 +198,23 @@ const RiderDashboard: React.FC = () => {
             </div>
             <div className="space-y-3">
               {done.map(job => (
-                <div key={job.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{job.customerName || 'Customer'}</p>
-                    <p className="text-[11px] text-neutral-400 truncate">{job.dropLabel || job.itemDescription}</p>
+                <div key={job.id} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{job.customerName || 'Customer'}</p>
+                      <p className="text-[11px] text-neutral-400 truncate">{job.dropLabel || job.itemDescription}</p>
+                    </div>
+                    <span className="shrink-0 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
+                      {money(job.deliveryFeeKES)}
+                    </span>
                   </div>
-                  <span className="shrink-0 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] font-black uppercase tracking-widest">
-                    {money(job.deliveryFeeKES)}
-                  </span>
+                  {/* A parcel customer often pays after the drop, so a delivered
+                      job still needs its payment confirmed. */}
+                  {job.paymentStatus && job.paymentStatus !== 'paid' && (
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <RiderPayment job={job} token={token} pin={pin || undefined} onSaved={load} onError={setError} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -452,6 +461,12 @@ const JobCard: React.FC<{
         )}
       </div>
 
+      {job.paymentStatus && (
+        <div className="border-t border-white/10 p-5">
+          <RiderPayment job={job} token={token} pin={pin} onSaved={onSaved} onError={onError} />
+        </div>
+      )}
+
       {/* Courier leg — parcel jobs only. A doorstep job never sees this. */}
       {job.deliveryType === 'parcel' && (
       <div className="border-t border-white/10 p-5 space-y-3">
@@ -508,6 +523,77 @@ const JobCard: React.FC<{
             {busy ? 'Saving…' : job.deliveryType === 'parcel' ? 'Handed to the courier' : 'Mark delivered'}
           </button>
         )}
+      </div>
+    </div>
+  );
+};
+
+/* ── Getting paid ────────────────────────────────────────────────────────── */
+
+/**
+ * The customer's pasted M-Pesa message is only their word for it — the rider
+ * checks their own M-Pesa before confirming. Cash is confirmed at the door.
+ * Absent entirely until add_delivery_payment.sql has run.
+ */
+const RiderPayment: React.FC<{
+  job: Delivery;
+  token: string;
+  pin?: string;
+  onSaved: () => void;
+  onError: (m: string) => void;
+}> = ({ job, token, pin, onSaved, onError }) => {
+  const [saving, setSaving] = useState(false);
+  if (!job.paymentStatus) return null;
+
+  const settle = async (method: 'mpesa' | 'cash' | 'undo') => {
+    setSaving(true);
+    const res = await riderConfirmPayment(token, job.id, pin, method);
+    setSaving(false);
+    if (!res.ok) { onError(res.error || 'Could not save that.'); return; }
+    onSaved();
+  };
+
+  if (job.paymentStatus === 'paid') {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[12px] text-emerald-300 font-bold flex items-center gap-2">
+          <CheckCircle size={16} weight="fill" className="text-emerald-400" />
+          Paid {job.paymentMethod === 'cash' ? 'in cash' : 'by M-Pesa'} · {money(job.deliveryFeeKES)}
+        </p>
+        <button onClick={() => settle('undo')} disabled={saving}
+          className="text-[10px] font-bold text-neutral-500 underline disabled:opacity-50">
+          Undo
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[9px] font-black uppercase tracking-[0.2em] text-neutral-500">
+        Your fee · {money(job.deliveryFeeKES)} · {job.paymentStatus === 'reported' ? 'customer says paid' : 'not paid yet'}
+      </p>
+
+      {job.paymentStatus === 'reported' && job.paymentMessage && (
+        <div className="bg-[#FF9900]/10 border border-[#FF9900]/25 rounded-2xl p-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#FF9900] mb-1.5">
+            Their M-Pesa message — check your phone received it
+          </p>
+          <p className="text-[12.5px] text-white leading-relaxed whitespace-pre-wrap break-words">{job.paymentMessage}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={() => settle('mpesa')} disabled={saving}
+          className={`h-12 rounded-full font-black uppercase text-[10px] tracking-widest disabled:opacity-50 ${
+            job.paymentStatus === 'reported' ? 'bg-emerald-500 text-white' : 'border border-white/20 text-white'
+          }`}>
+          {saving ? 'Saving…' : 'M-Pesa received'}
+        </button>
+        <button onClick={() => settle('cash')} disabled={saving}
+          className="h-12 rounded-full border border-white/20 text-white font-black uppercase text-[10px] tracking-widest disabled:opacity-50">
+          {saving ? 'Saving…' : 'Paid in cash'}
+        </button>
       </div>
     </div>
   );

@@ -66,7 +66,19 @@ export interface Delivery {
   riderEtaCode?: string;
   riderEtaMinutes?: number;
   riderEtaAt?: string;
+  /**
+   * unpaid → reported (customer pasted an M-Pesa message) → paid (rider
+   * confirmed). The site never sees the money itself — it goes to the rider's
+   * own M-Pesa — so only the rider's tap makes it paid.
+   */
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: 'mpesa' | 'cash';
+  paymentMessage?: string;
+  paymentReportedAt?: string;
+  paymentConfirmedAt?: string;
 }
+
+export type PaymentStatus = 'unpaid' | 'reported' | 'paid';
 
 const toDelivery = (d: any): Delivery => ({
   id: d.id,
@@ -109,6 +121,12 @@ const toDelivery = (d: any): Delivery => ({
   riderEtaCode: d.rider_eta_code || undefined,
   riderEtaMinutes: d.rider_eta_minutes != null ? Number(d.rider_eta_minutes) : undefined,
   riderEtaAt: d.rider_eta_at || undefined,
+  paymentStatus: d.payment_status == null ? undefined
+    : (['reported', 'paid'].includes(d.payment_status) ? d.payment_status : 'unpaid') as PaymentStatus,
+  paymentMethod: d.payment_method === 'mpesa' || d.payment_method === 'cash' ? d.payment_method : undefined,
+  paymentMessage: d.payment_message || undefined,
+  paymentReportedAt: d.payment_reported_at || undefined,
+  paymentConfirmedAt: d.payment_confirmed_at || undefined,
 });
 
 /* ── Admin ──────────────────────────────────────────────────────────────── */
@@ -341,6 +359,33 @@ export const riderSetEta = async (
 };
 
 /**
+ * The rider settles the fee: confirms a pasted M-Pesa message after checking
+ * their own phone, takes cash at the door, or undoes a mistaken tap.
+ */
+export const riderConfirmPayment = async (
+  token: string,
+  deliveryId: string,
+  pin: string | undefined,
+  method: 'mpesa' | 'cash' | 'undo',
+): Promise<{ ok: boolean; error?: string; needsPin?: boolean }> => {
+  try {
+    const { data, error } = await supabase.rpc('rider_confirm_payment', {
+      p_token: token,
+      p_pin: pin ?? null,
+      p_delivery_id: deliveryId,
+      p_method: method,
+    });
+    if (error) {
+      console.error('rider_confirm_payment failed:', error.message);
+      return { ok: false, error: friendly(error.message) };
+    }
+    return { ok: !!data?.ok, error: data?.error, needsPin: data?.needsPin };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'Could not save that.' };
+  }
+};
+
+/**
  * Put a photo of the courier receipt in the bucket and hand back its URL.
  *
  * Named with a random prefix rather than anything guessable, and never
@@ -407,6 +452,12 @@ export interface DeliveryStatusView {
   riderEtaCode?: string;
   riderEtaMinutes?: number;
   riderEtaAt?: string;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: 'mpesa' | 'cash';
+  paymentMessage?: string;
+  paymentConfirmedAt?: string;
+  /** The rider's number to pay — only sent while a rider holds the job and it is unpaid. */
+  riderPayPhone?: string;
 }
 
 export const fetchDeliveryStatus = async (token: string): Promise<DeliveryStatusView> => {
@@ -419,6 +470,26 @@ export const fetchDeliveryStatus = async (token: string): Promise<DeliveryStatus
     return data as DeliveryStatusView;
   } catch (e: any) {
     return { ok: false, error: e?.message || 'Could not load that delivery.' };
+  }
+};
+
+/** The customer pastes their M-Pesa confirmation. The rider still has to confirm it. */
+export const reportDeliveryPayment = async (
+  token: string,
+  message: string,
+): Promise<{ ok: boolean; error?: string }> => {
+  try {
+    const { data, error } = await supabase.rpc('customer_report_payment', {
+      p_token: token,
+      p_message: message,
+    });
+    if (error) {
+      console.error('customer_report_payment failed:', error.message);
+      return { ok: false, error: friendly(error.message) };
+    }
+    return { ok: !!data?.ok, error: data?.error };
+  } catch {
+    return { ok: false, error: 'Could not send that. Please try again.' };
   }
 };
 
