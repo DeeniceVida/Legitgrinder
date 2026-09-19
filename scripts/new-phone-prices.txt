@@ -1,0 +1,50 @@
+# Back Market GOOD-condition prices in USD, read off the site by hand.
+#
+# Fill in the number after the last | for each line. Delete any line whose
+# capacity Back Market does not sell (the guesses below come from the phone's
+# retail line-up, not from the site). Add a line if you see a capacity missing.
+#
+# Format:  Model name | capacity | USD price
+# The model names must be spelled exactly like this — they become the names on
+# the pricelist and they match how the existing rows are written.
+#
+# Then:  node scripts/add-phone-models.cjs scripts/new-phone-prices.txt --dry-run
+#   and: node scripts/add-phone-models.cjs scripts/new-phone-prices.txt
+
+# ---- iPhone 17 series · backmarket.com → search "iPhone 17" ----------------
+iPhone 17 | 256GB |
+iPhone 17 | 512GB |
+iPhone Air | 256GB |
+iPhone Air | 512GB |
+iPhone Air | 1TB |
+iPhone 17 Pro | 256GB |
+iPhone 17 Pro | 512GB |
+iPhone 17 Pro | 1TB |
+iPhone 17 Pro Max | 256GB |
+iPhone 17 Pro Max | 512GB |
+iPhone 17 Pro Max | 1TB |
+
+# ---- Google Pixel 10 series · search "Pixel 10" ----------------------------
+Pixel 10 | 128GB |
+Pixel 10 | 256GB |
+Pixel 10 Pro | 128GB |
+Pixel 10 Pro | 256GB |
+Pixel 10 Pro | 512GB |
+Pixel 10 Pro XL | 256GB |
+Pixel 10 Pro XL | 512GB |
+Pixel 10 Pro XL | 1TB |
+Pixel 10 Pro Fold | 256GB |
+Pixel 10 Pro Fold | 512GB |
+
+# ---- Pixel 9a · the one gap in the older range · search "Pixel 9a" ---------
+Pixel 9a | 128GB |
+Pixel 9a | 256GB |
+
+# ---- Samsung Galaxy S26 series · search "Galaxy S26" -----------------------
+S26 | 128GB |
+S26 | 256GB |
+S26+ | 256GB |
+S26+ | 512GB |
+S26 Ultra | 256GB |
+S26 Ultra | 512GB |
+S26 Ultra | 1TB |
