@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { MagnifyingGlass, ArrowDown, ArrowUp, WhatsappLogo, ArrowsClockwise, SealCheck, Sparkle, CaretDown } from '@phosphor-icons/react';
+import { MagnifyingGlass, ArrowDown, ArrowUp, WhatsappLogo, ArrowsClockwise, SealCheck, Sparkle } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
 import { NEW_PHONES } from '../newPhones';
 import { calculateUSImport } from '../utils/priceCalculations';
@@ -181,16 +181,14 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist, loading = false }) => 
 
 /* ── Brand new, sealed from Apple ─────────────────────────────────────────── */
 
-const kes = (n: number) => `KES ${Math.round(n).toLocaleString()}`;
-
 /**
  * A different product from everything below it — new and sealed, not
  * refurbished — so it gets its own dark, warm card rather than the white one.
  * Priced by the calculator's own maths (apple.com pickup fee included, no
- * discount); tap a size to see the breakdown behind the number.
+ * discount). Only the final price is shown — the owner does not want the fee
+ * breakdown on the page.
  */
 const BrandNewPhones: React.FC<{ searchTerm: string }> = ({ searchTerm }) => {
-  const [open, setOpen] = useState<string | null>(null);
   const q = searchTerm.trim().toLowerCase();
   const phones = NEW_PHONES.filter(p => !q || p.name.toLowerCase().includes(q));
   if (!phones.length) return null;
@@ -198,7 +196,7 @@ const BrandNewPhones: React.FC<{ searchTerm: string }> = ({ searchTerm }) => {
   const order = (name: string, capacity: string, total: number, preorder?: string) => {
     const text = encodeURIComponent(
       `Hi LegitGrinder, I want to order the ${name} (${capacity}) - BRAND NEW, sealed from Apple${preorder ? ' (pre-order)' : ''}. ` +
-      `Listed Price: KES ${Math.ceil(total).toLocaleString()}. I understand this is an all-inclusive price to Nairobi CBD.`
+      `Listed Price: KES ${total.toLocaleString()}. I understand this is an all-inclusive price to Nairobi CBD.`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
   };
@@ -215,7 +213,7 @@ const BrandNewPhones: React.FC<{ searchTerm: string }> = ({ searchTerm }) => {
           </h2>
         </div>
         <p className="text-[12px] text-gray-500 font-light max-w-sm">
-          Sealed, bought new from apple.com — not refurbished. All-inclusive to Nairobi CBD. Tap a size for the full breakdown.
+          Sealed, bought new from apple.com — not refurbished. All-inclusive to Nairobi CBD.
         </p>
       </div>
 
@@ -239,41 +237,21 @@ const BrandNewPhones: React.FC<{ searchTerm: string }> = ({ searchTerm }) => {
 
             <div className="divide-y divide-white/10">
               {p.capacities.map(c => {
-                const r = calculateUSImport({ priceUSD: c.priceUSD, weightKg: 1, fromApple: true });
-                const key = `${p.name}-${c.capacity}`;
-                const isOpen = open === key;
+                const total = Math.ceil(calculateUSImport({ priceUSD: c.priceUSD, weightKg: 1, fromApple: true }).totalKES);
                 return (
-                  <div key={key} className="py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <button onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen}
-                        className="flex-1 flex items-center justify-between gap-3 text-left">
-                        <span className="shrink-0 w-16 text-[11px] font-black text-white/50 uppercase tracking-wider">{c.capacity}</span>
-                        <span className="flex items-center gap-1.5 text-base md:text-lg font-black tracking-tight text-white">
-                          {kes(Math.ceil(r.totalKES))}
-                          <CaretDown size={12} weight="bold" className={`text-[#FF9900] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => order(p.name, c.capacity, r.totalKES, p.preorderNote)}
-                        aria-label={`Order ${p.name} ${c.capacity} brand new via WhatsApp`}
-                        title="Order via WhatsApp"
-                        className="shrink-0 w-9 h-9 rounded-full bg-white/10 text-white/60 flex items-center justify-center hover:bg-[#25D366] hover:text-white transition-all"
-                      >
-                        <WhatsappLogo size={16} weight="fill" />
-                      </button>
-                    </div>
-
-                    {isOpen && (
-                      <dl className="mt-3 rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-1.5 text-[12px]">
-                        <div className="flex justify-between"><dt className="text-white/50">Apple price (${c.priceUSD.toLocaleString()})</dt><dd className="text-white font-bold">{kes(r.buyingPriceKES)}</dd></div>
-                        <div className="flex justify-between"><dt className="text-white/50">Shipping &amp; handling</dt><dd className="text-white font-bold">{kes(r.shippingFeeKES)}</dd></div>
-                        <div className="flex justify-between"><dt className="text-white/50">Service fee</dt><dd className="text-white font-bold">{kes(r.serviceFeeKES)}</dd></div>
-                        {r.applePickupFeeKES && (
-                          <div className="flex justify-between"><dt className="text-white/50">Apple Store pickup</dt><dd className="text-white font-bold">{kes(r.applePickupFeeKES)}</dd></div>
-                        )}
-                        <div className="flex justify-between pt-2 mt-1 border-t border-white/10"><dt className="text-[#FFB547] font-black uppercase text-[10px] tracking-widest">Total</dt><dd className="text-[#FFB547] font-black">{kes(Math.ceil(r.totalKES))}</dd></div>
-                      </dl>
-                    )}
+                  <div key={c.capacity} className="flex items-center justify-between gap-3 py-3.5">
+                    <span className="shrink-0 w-16 text-[11px] font-black text-white/50 uppercase tracking-wider">{c.capacity}</span>
+                    <span className="flex-1 text-right text-base md:text-lg font-black tracking-tight text-white">
+                      KES {total.toLocaleString()}
+                    </span>
+                    <button
+                      onClick={() => order(p.name, c.capacity, total, p.preorderNote)}
+                      aria-label={`Order ${p.name} ${c.capacity} brand new via WhatsApp`}
+                      title="Order via WhatsApp"
+                      className="shrink-0 w-9 h-9 rounded-full bg-white/10 text-white/60 flex items-center justify-center hover:bg-[#25D366] hover:text-white transition-all"
+                    >
+                      <WhatsappLogo size={16} weight="fill" />
+                    </button>
                   </div>
                 );
               })}
