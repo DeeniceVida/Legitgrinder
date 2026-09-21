@@ -1,7 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { MagnifyingGlass, ArrowDown, ArrowUp, WhatsappLogo, ArrowsClockwise, SealCheck } from '@phosphor-icons/react';
+import { MagnifyingGlass, ArrowDown, ArrowUp, WhatsappLogo, ArrowsClockwise, SealCheck, Sparkle, CaretDown } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
+import { NEW_PHONES } from '../newPhones';
+import { calculateUSImport } from '../utils/priceCalculations';
 import { PricelistItem } from '../types';
 import { Reveal } from '../components/Motion';
 
@@ -64,6 +66,8 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist, loading = false }) => 
             </div>
           </div>
         </Reveal>
+
+        <BrandNewPhones searchTerm={searchTerm} />
 
         {/* CONTROLS */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-10">
@@ -172,6 +176,112 @@ const Pricelist: React.FC<PricelistProps> = ({ pricelist, loading = false }) => 
         )}
       </div>
     </div>
+  );
+};
+
+/* ── Brand new, sealed from Apple ─────────────────────────────────────────── */
+
+const kes = (n: number) => `KES ${Math.round(n).toLocaleString()}`;
+
+/**
+ * A different product from everything below it — new and sealed, not
+ * refurbished — so it gets its own dark, warm card rather than the white one.
+ * Priced by the calculator's own maths (apple.com pickup fee included, no
+ * discount); tap a size to see the breakdown behind the number.
+ */
+const BrandNewPhones: React.FC<{ searchTerm: string }> = ({ searchTerm }) => {
+  const [open, setOpen] = useState<string | null>(null);
+  const q = searchTerm.trim().toLowerCase();
+  const phones = NEW_PHONES.filter(p => !q || p.name.toLowerCase().includes(q));
+  if (!phones.length) return null;
+
+  const order = (name: string, capacity: string, total: number, preorder?: string) => {
+    const text = encodeURIComponent(
+      `Hi LegitGrinder, I want to order the ${name} (${capacity}) - BRAND NEW, sealed from Apple${preorder ? ' (pre-order)' : ''}. ` +
+      `Listed Price: KES ${Math.ceil(total).toLocaleString()}. I understand this is an all-inclusive price to Nairobi CBD.`
+    );
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+  };
+
+  return (
+    <section className="mb-14" aria-labelledby="brand-new-heading">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+        <div>
+          <p className="eyebrow text-[#FF9900] mb-2 flex items-center gap-2">
+            <Sparkle size={14} weight="fill" /> Just launched
+          </p>
+          <h2 id="brand-new-heading" className="text-2xl md:text-3xl font-bold tracking-tight">
+            Brand new <span className="heading-accent italic font-light text-[#FF9900]">from Apple.</span>
+          </h2>
+        </div>
+        <p className="text-[12px] text-gray-500 font-light max-w-sm">
+          Sealed, bought new from apple.com — not refurbished. All-inclusive to Nairobi CBD. Tap a size for the full breakdown.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {phones.map(p => (
+          <article key={p.name}
+            className="h-full rounded-[1.75rem] p-7 bg-gradient-to-br from-[#1a1410] via-[#0f1a1c] to-[#0f1a1c] border border-[#FF9900]/25 shadow-xl shadow-orange-900/10">
+            <header className="mb-5">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="px-2.5 py-1 rounded-full bg-[#FF9900] text-[#0f1a1c] text-[9px] font-black uppercase tracking-[0.2em]">
+                  Brand new
+                </span>
+                {p.preorderNote && (
+                  <span className="px-2.5 py-1 rounded-full border border-[#FF9900]/40 text-[#FFB547] text-[9px] font-black uppercase tracking-[0.15em]">
+                    {p.preorderNote}
+                  </span>
+                )}
+              </div>
+              <h3 className="text-xl md:text-2xl font-bold text-white tracking-tight">{p.name}</h3>
+            </header>
+
+            <div className="divide-y divide-white/10">
+              {p.capacities.map(c => {
+                const r = calculateUSImport({ priceUSD: c.priceUSD, weightKg: 1, fromApple: true });
+                const key = `${p.name}-${c.capacity}`;
+                const isOpen = open === key;
+                return (
+                  <div key={key} className="py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <button onClick={() => setOpen(isOpen ? null : key)} aria-expanded={isOpen}
+                        className="flex-1 flex items-center justify-between gap-3 text-left">
+                        <span className="shrink-0 w-16 text-[11px] font-black text-white/50 uppercase tracking-wider">{c.capacity}</span>
+                        <span className="flex items-center gap-1.5 text-base md:text-lg font-black tracking-tight text-white">
+                          {kes(Math.ceil(r.totalKES))}
+                          <CaretDown size={12} weight="bold" className={`text-[#FF9900] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => order(p.name, c.capacity, r.totalKES, p.preorderNote)}
+                        aria-label={`Order ${p.name} ${c.capacity} brand new via WhatsApp`}
+                        title="Order via WhatsApp"
+                        className="shrink-0 w-9 h-9 rounded-full bg-white/10 text-white/60 flex items-center justify-center hover:bg-[#25D366] hover:text-white transition-all"
+                      >
+                        <WhatsappLogo size={16} weight="fill" />
+                      </button>
+                    </div>
+
+                    {isOpen && (
+                      <dl className="mt-3 rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-1.5 text-[12px]">
+                        <div className="flex justify-between"><dt className="text-white/50">Apple price (${c.priceUSD.toLocaleString()})</dt><dd className="text-white font-bold">{kes(r.buyingPriceKES)}</dd></div>
+                        <div className="flex justify-between"><dt className="text-white/50">Shipping &amp; handling</dt><dd className="text-white font-bold">{kes(r.shippingFeeKES)}</dd></div>
+                        <div className="flex justify-between"><dt className="text-white/50">Service fee</dt><dd className="text-white font-bold">{kes(r.serviceFeeKES)}</dd></div>
+                        {r.applePickupFeeKES && (
+                          <div className="flex justify-between"><dt className="text-white/50">Apple Store pickup</dt><dd className="text-white font-bold">{kes(r.applePickupFeeKES)}</dd></div>
+                        )}
+                        <div className="flex justify-between pt-2 mt-1 border-t border-white/10"><dt className="text-[#FFB547] font-black uppercase text-[10px] tracking-widest">Total</dt><dd className="text-[#FFB547] font-black">{kes(Math.ceil(r.totalKES))}</dd></div>
+                      </dl>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 };
 

@@ -8,6 +8,7 @@ import {
 import { KES_PER_USD, FEE_STRUCTURE, WHATSAPP_NUMBER } from '../constants';
 import { CalculationResult, SourcingRequest } from '../types';
 import { submitSourcingRequest } from '../services/supabaseData';
+import { calculateUSImport } from '../utils/priceCalculations';
 import { Reveal } from '../components/Motion';
 import GroupBuyPoster from '../components/GroupBuyPoster';
 import { GroupCampaign, fetchGroupCampaigns } from '../services/groupBuys';
@@ -79,36 +80,18 @@ const Calculators: React.FC<CalculatorsProps> = ({ isAdmin = false }) => {
       return;
     }
 
-    const price = Number(phonePriceUSD);
-    const buyingPriceKES = price * KES_PER_USD;
-    // Shipping base scales with weight: $20/kg — phone 1 kg, iPad 2 kg, laptop 3.5 kg, or the client's own estimate.
-    const shippingFeeUSD = FEE_STRUCTURE.SHIPPING_FLAT_USD * shipWeightKg + (price * FEE_STRUCTURE.SHIPPING_PERCENT);
-    const shippingFeeKES = shippingFeeUSD * KES_PER_USD;
-
-    let serviceFeeUSD = FEE_STRUCTURE.SERVICE_FEE_FIXED_USD;
-    if (price > FEE_STRUCTURE.THRESHOLD_USD) {
-      serviceFeeUSD = price * FEE_STRUCTURE.SERVICE_FEE_PERCENT_LARGE;
-    }
-    const serviceFeeKES = serviceFeeUSD * KES_PER_USD;
-
-    let applePickupFeeKES = 0;
-    if (phoneUrl.toLowerCase().includes('apple.com')) {
-      applePickupFeeKES = FEE_STRUCTURE.APPLE_PICKUP_FEE_USD * KES_PER_USD;
-    }
-
     // Clients always get the standard KES 1,000 discount. Only the admin can
     // turn it off or change it when preparing a quote.
     const parsedDiscount = Math.max(0, Math.round(Number(discountAmount) || 0));
     const specialDiscountKES = isAdmin ? (discountOn ? parsedDiscount : 0) : 1000;
 
-    setUsPhoneResult({
-      buyingPriceKES,
-      shippingFeeKES,
-      serviceFeeKES,
-      applePickupFeeKES: applePickupFeeKES > 0 ? applePickupFeeKES : undefined,
-      specialDiscountKES: specialDiscountKES > 0 ? specialDiscountKES : undefined,
-      totalKES: buyingPriceKES + shippingFeeKES + serviceFeeKES + applePickupFeeKES - specialDiscountKES
-    });
+    // Shipping scales with weight: phone 1 kg, iPad 2 kg, laptop 3.5 kg, or the client's own estimate.
+    setUsPhoneResult(calculateUSImport({
+      priceUSD: Number(phonePriceUSD),
+      weightKg: shipWeightKg,
+      fromApple: phoneUrl.toLowerCase().includes('apple.com'),
+      discountKES: specialDiscountKES,
+    }));
   }, [phonePriceUSD, phoneUrl, shipWeightKg, isAdmin, discountOn, discountAmount]);
 
   /**
