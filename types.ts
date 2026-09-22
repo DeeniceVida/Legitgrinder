@@ -109,6 +109,12 @@ export interface InvoiceItem {
   name: string;
   quantity: number;
   priceKES: number;
+  /**
+   * Price not known yet — typically shipping, until the item is weighed.
+   * Stored with priceKES 0, which every invoice, receipt and email already
+   * prints as "TBD". Cleared the moment a price is typed in.
+   */
+  tbd?: boolean;
 }
 
 export interface Invoice {

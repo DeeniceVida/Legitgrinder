@@ -59,7 +59,42 @@ import { ProductEnquiry, fetchProductEnquiries, needsFollowUp } from '../service
 import { countGroupPaymentsSince } from '../services/groupBuys';
 import type { MessageIntent } from '../services/messageAgent';
 
-
+/**
+ * A line's unit price, or "TBD" when it can't be priced yet — shipping, most
+ * often, until the item has been weighed. Used by both New Order and Amend so
+ * the two forms behave the same. A TBD line saves at 0, which the invoice,
+ * receipt and email all print as "TBD".
+ */
+const UnitPriceOrTBD: React.FC<{
+  item: InvoiceItem;
+  currency: string;
+  inputCls: string;
+  onChange: (patch: Partial<InvoiceItem>) => void;
+}> = ({ item, currency, inputCls, onChange }) => (
+  <div className="flex-1">
+    <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 block mb-0.5 ml-1">Unit Price ({currency})</span>
+    <div className="flex gap-1.5">
+      {item.tbd ? (
+        <div className={inputCls + " w-full text-right px-3 bg-amber-50 border-amber-200 text-amber-700"}>TBD</div>
+      ) : (
+        <input type="number" min="0" required value={item.priceKES}
+          onChange={(e) => onChange({ priceKES: parseFloat(e.target.value) || 0 })}
+          className={inputCls + " w-full text-right px-3 bg-white"} placeholder="0" />
+      )}
+      <button type="button"
+        onClick={() => onChange(item.tbd ? { tbd: false } : { tbd: true, priceKES: 0 })}
+        aria-pressed={!!item.tbd}
+        title={item.tbd ? 'Set a price now' : 'Price not known yet — e.g. shipping before weighing'}
+        className={`shrink-0 px-3 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-colors ${
+          item.tbd
+            ? 'bg-amber-500 border-amber-500 text-white'
+            : 'bg-white border-neutral-200 text-neutral-400 hover:border-amber-400 hover:text-amber-600'
+        }`}>
+        TBD
+      </button>
+    </div>
+  </div>
+);
 
 interface AdminDashboardProps {
   blogs: BlogPost[];
@@ -394,7 +429,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [imageInvoiceClient, setImageInvoiceClient] = useState({ name: '', whatsapp: '' });
   const [imageInvoiceCurrency, setImageInvoiceCurrency] = useState<'KES' | 'USD'>('KES');
   const [refundData, setRefundData] = useState({ clientName: '', clientWhatsapp: '', amountKES: 0, reason: '', originalInvoiceRef: '', refundItem: '', transactionCode: '' });
-  const [manualOrderItems, setManualOrderItems] = useState<{name: string, quantity: number, priceKES: number}[]>([{ name: '', quantity: 1, priceKES: 0 }]);
+  const [manualOrderItems, setManualOrderItems] = useState<InvoiceItem[]>([{ name: '', quantity: 1, priceKES: 0 }]);
   const [manualOrderPaymentStatus, setManualOrderPaymentStatus] = useState<PaymentStatus>(PaymentStatus.UNPAID);
   /** Deposit taken at the point the order is created, when it's part-paid. */
   const [manualOrderPaidAmount, setManualOrderPaidAmount] = useState('');
@@ -431,10 +466,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   /** Load the invoice's lines into the form each time it opens. */
   useEffect(() => {
     if (!amendingInvoice) return;
+    // A line at 0 already prints as "TBD" everywhere, so it opens as TBD here
+    // too — including orders made before the TBD button existed.
     setAmendItems(
-      amendingInvoice.items?.length
+      (amendingInvoice.items?.length
         ? amendingInvoice.items.map(i => ({ ...i }))
         : [{ name: amendingInvoice.productName || '', quantity: amendingInvoice.quantity || 1, priceKES: amendingInvoice.totalKES || 0 }]
+      ).map(i => ({ ...i, tbd: i.tbd || !(i.priceKES > 0) }))
     );
     setAmendCurrency(amendingInvoice.currency || 'KES');
     setAmendError(null);
@@ -683,7 +721,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       deliveryNote: (formData.get('deliveryNote') as string) || undefined,
       productName: customTitle && customTitle.trim() ? customTitle.trim() : fallbackProductName,
       quantity: 1,
-      items: manualOrderItems,
+      // A TBD line is saved at 0 so every invoice and receipt prints it as TBD.
+      items: manualOrderItems.map(i => (i.tbd ? { ...i, priceKES: 0 } : i)),
       totalKES: totalKES,
       buyingPriceKES: parseFloat(formData.get('buyingPriceKES') as string) || 0,
       shippingFeeKES: parseFloat(formData.get('shippingFeeKES') as string) || 0,
@@ -4258,6 +4297,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <Plus className="w-3 h-3" /> Add
                   </button>
                 </div>
+                {/* The two charges that go on almost every order. Shipping starts
+                    as TBD because it can't be priced until the item is weighed. */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  <button type="button"
+                    onClick={() => setManualOrderItems([...manualOrderItems.filter(i => i.name.trim() || i.priceKES), { name: 'Shipping fee', quantity: 1, priceKES: 0, tbd: true }])}
+                    className="px-3 py-1.5 rounded-full border border-neutral-200 text-[9px] font-black uppercase tracking-widest text-neutral-500 hover:border-[#3D8593] hover:text-[#3D8593]">
+                    + Shipping fee (TBD)
+                  </button>
+                  <button type="button"
+                    onClick={() => setManualOrderItems([...manualOrderItems.filter(i => i.name.trim() || i.priceKES), { name: 'Service fee', quantity: 1, priceKES: 0 }])}
+                    className="px-3 py-1.5 rounded-full border border-neutral-200 text-[9px] font-black uppercase tracking-widest text-neutral-500 hover:border-[#3D8593] hover:text-[#3D8593]">
+                    + Service fee
+                  </button>
+                </div>
                 <div className="space-y-3">
                   {manualOrderItems.map((item, idx) => (
                     <div key={idx} className="bg-neutral-50/60 border border-neutral-100 rounded-xl p-2.5 space-y-2 relative">
@@ -4273,12 +4326,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             const n = [...manualOrderItems]; n[idx].quantity = parseInt(e.target.value) || 1; setManualOrderItems(n);
                           }} className={inputCls + " w-full text-center px-2 bg-white"} />
                         </div>
-                        <div className="flex-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 block mb-0.5 ml-1">Unit Price ({manualOrderCurrency})</span>
-                          <input required type="number" min="0" value={item.priceKES} onChange={(e) => {
-                            const n = [...manualOrderItems]; n[idx].priceKES = parseFloat(e.target.value) || 0; setManualOrderItems(n);
-                          }} className={inputCls + " w-full text-right px-3 bg-white"} placeholder="0" />
-                        </div>
+                        <UnitPriceOrTBD item={item} currency={manualOrderCurrency} inputCls={inputCls}
+                          onChange={(patch) => setManualOrderItems(prev => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)))} />
                       </div>
                       {manualOrderItems.length > 1 && (
                         <button type="button" onClick={() => setManualOrderItems(manualOrderItems.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-neutral-200 rounded-full flex items-center justify-center text-neutral-400 hover:text-rose-500 hover:border-rose-200 transition-colors shadow-sm">
@@ -4294,7 +4343,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className={labelCls}>Total Amount <span className="text-neutral-300 normal-case font-medium">— blank = auto-calculate</span></label>
-                  <input type="text" name="totalKES" className={inputCls} placeholder={`Auto: ${manualOrderCurrency} ${itemsTotal.toLocaleString()}`} />
+                  <input type="text" name="totalKES" className={inputCls}
+                    placeholder={`Auto: ${manualOrderCurrency} ${itemsTotal.toLocaleString()}${manualOrderItems.some(i => i.tbd) ? ' + TBD' : ''}`} />
+                  {manualOrderItems.some(i => i.tbd) && (
+                    <p className="text-[10px] font-bold text-amber-600 mt-1.5 leading-relaxed">
+                      The total covers the priced lines only. Once the TBD line is known, Amend the order,
+                      type its price and leave Total blank — it adds up again.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className={labelCls}>Order Date <span className="text-neutral-300 normal-case font-medium">— optional</span></label>
@@ -4382,7 +4438,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="px-7 py-4 border-t border-neutral-100 bg-neutral-50/50">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Order Total</span>
-                <span className="text-lg font-black text-gray-900 tracking-tight">{manualOrderCurrency} {itemsTotal.toLocaleString()}</span>
+                <span className="text-lg font-black text-gray-900 tracking-tight">
+                  {manualOrderCurrency} {itemsTotal.toLocaleString()}
+                  {manualOrderItems.some(i => i.tbd) && <span className="text-amber-600"> + TBD</span>}
+                </span>
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setIsCreatingManualInvoice(false)} className="px-6 py-3 bg-white border border-neutral-200 text-gray-500 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-neutral-100 transition-all">
@@ -5757,7 +5816,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 const cleanItems = amendItems
                   .filter(i => i.name.trim())
-                  .map(i => ({ name: i.name.trim(), quantity: i.quantity || 1, priceKES: i.priceKES || 0 }));
+                  .map(i => (i.tbd
+                    ? { name: i.name.trim(), quantity: i.quantity || 1, priceKES: 0, tbd: true }
+                    : { name: i.name.trim(), quantity: i.quantity || 1, priceKES: i.priceKES || 0 }));
 
                 const paymentStatus = fd.get('paymentStatus') as PaymentStatus;
                 const customTitle = ((fd.get('productName') as string) || '').trim();
@@ -5852,12 +5913,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onChange={(e) => patchItem(idx, { quantity: parseInt(e.target.value, 10) || 1 })}
                             className={inputCls + " w-full text-center px-2 bg-white"} />
                         </div>
-                        <div className="flex-1">
-                          <span className="text-[8px] font-black uppercase tracking-widest text-neutral-300 block mb-0.5 ml-1">Unit Price ({amendCurrency})</span>
-                          <input type="number" min="0" value={item.priceKES}
-                            onChange={(e) => patchItem(idx, { priceKES: parseFloat(e.target.value) || 0 })}
-                            className={inputCls + " w-full text-right px-3 bg-white"} />
-                        </div>
+                        <UnitPriceOrTBD item={item} currency={amendCurrency} inputCls={inputCls}
+                          onChange={(patch) => patchItem(idx, patch)} />
                       </div>
                       {amendItems.length > 1 && (
                         <button type="button" onClick={() => setAmendItems(amendItems.filter((_, i) => i !== idx))} className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-neutral-200 rounded-full flex items-center justify-center text-neutral-400 hover:text-rose-500 hover:border-rose-200 transition-colors shadow-sm">
@@ -5868,7 +5925,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ))}
                 </div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2 text-right">
-                  Lines total · {amendCurrency} {itemsTotal.toLocaleString()}
+                  Lines total · {amendCurrency} {itemsTotal.toLocaleString()}{amendItems.some(i => i.tbd) ? ' + TBD' : ''}
                 </p>
               </div>
 
