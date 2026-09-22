@@ -460,6 +460,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [amendingInvoice, setAmendingInvoice] = useState<Invoice | null>(null);
   const [amendItems, setAmendItems] = useState<InvoiceItem[]>([]);
   const [amendCurrency, setAmendCurrency] = useState<'KES' | 'USD'>('KES');
+  /**
+   * The Total box in Amend. Empty = follow the lines, live. It used to open
+   * pre-filled with the saved total, so changing a line price and saving wrote
+   * the OLD total straight back — the invoice never changed. Now it is only
+   * pre-filled when the saved total was deliberately different from the lines.
+   */
+  const [amendTotal, setAmendTotal] = useState('');
   const [amendSaving, setAmendSaving] = useState(false);
   const [amendError, setAmendError] = useState<string | null>(null);
 
@@ -474,6 +481,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         : [{ name: amendingInvoice.productName || '', quantity: amendingInvoice.quantity || 1, priceKES: amendingInvoice.totalKES || 0 }]
       ).map(i => ({ ...i, tbd: i.tbd || !(i.priceKES > 0) }))
     );
+    const linesTotal = (amendingInvoice.items || []).reduce((a, i) => a + (i.priceKES || 0) * (i.quantity || 1), 0);
+    const saved = amendingInvoice.totalKES || 0;
+    setAmendTotal(saved > 0 && amendingInvoice.items?.length && Math.abs(saved - linesTotal) > 0.5 ? String(saved) : '');
     setAmendCurrency(amendingInvoice.currency || 'KES');
     setAmendError(null);
   }, [amendingInvoice]);
@@ -5830,7 +5840,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   productName: customTitle || cleanItems.map(i => `${i.quantity}x ${i.name}`).join(' + '),
                   items: cleanItems,
                   totalKES,
-                  amountPaidKES: num('amountPaidKES'),
+                  // Paid means paid in full — against the total as it stands now,
+                  // the same rule New Order uses. Otherwise a raised total on a
+                  // Paid order kept the old amount and the books disagreed.
+                  amountPaidKES: paymentStatus === PaymentStatus.PAID ? totalKES : num('amountPaidKES'),
                   buyingPriceKES: num('buyingPriceKES'),
                   shippingFeeKES: num('shippingFeeKES'),
                   logisticsCostKES: num('logisticsCostKES'),
@@ -5933,7 +5946,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <label className={labelCls}>Total Amount <span className="text-neutral-300 normal-case font-medium">— blank = use the lines total</span></label>
-                  <input type="text" name="totalKES" defaultValue={amendingInvoice.totalKES ? String(amendingInvoice.totalKES) : ''} className={inputCls} placeholder={`Auto: ${amendCurrency} ${itemsTotal.toLocaleString()}`} />
+                  <input type="text" name="totalKES" value={amendTotal} onChange={(e) => setAmendTotal(e.target.value)}
+                    className={inputCls} placeholder={`Auto: ${amendCurrency} ${itemsTotal.toLocaleString()}${amendItems.some(i => i.tbd) ? ' + TBD' : ''}`} />
+                  {/* A typed total that no longer matches the lines is the exact
+                      trap that kept old totals alive — say so, with a one-tap fix. */}
+                  {amendTotal.trim() && amendTotal.trim().toUpperCase() !== 'TBD'
+                    && Math.abs((parseFloat(amendTotal.replace(/,/g, '')) || 0) - itemsTotal) > 0.5 && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-[10px] font-bold text-amber-600">
+                        This total is not what the items add up to ({amendCurrency} {itemsTotal.toLocaleString()}).
+                      </p>
+                      <button type="button" onClick={() => setAmendTotal('')}
+                        className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] underline">
+                        Use items total
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className={labelCls}>Amount Paid</label>
