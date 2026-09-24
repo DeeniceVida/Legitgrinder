@@ -210,6 +210,11 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
     const varTextStrings = selectedVarsList.map((v: ProductVariation) => `${v.type}: ${v.name}`);
     const fullProductName = product.name + (varTextStrings.length > 0 ? ` (${varTextStrings.join(', ')})` : '');
 
+    // Needed after the sync to hand an in-stock buyer straight to the delivery
+    // form — the order number it books against, and the email not to re-ask for.
+    let createdInvoiceNumber: string | undefined;
+    let receiptEmail = '';
+
     const performSync = async () => {
       try {
         // 1. Verify on backend (Phase 5 Secure Flow)
@@ -225,6 +230,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         const { data: { user: authUser } } = await supabase.auth.getUser();
 
         const receiptTo = authUser?.email || buyerEmail.trim();
+        receiptEmail = receiptTo || '';
 
         const invoiceResult = await createInvoice({
           userId: authUser?.id,
@@ -241,6 +247,7 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         if (!invoiceResult.success) {
           console.error("Database record failed:", invoiceResult.error);
         }
+        createdInvoiceNumber = invoiceResult.invoiceNumber;
 
         // 2a. The collection slot chosen before paying. Best-effort: the sale
         //     stands either way, and the slot is on the owner's alert below.
@@ -348,6 +355,25 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
         kind: 'sale-alert', recipient: 'orders@legitgrinder.com',
         status: 'failed', error: e?.message, reference: trackingCode,
       }));
+
+    // 3a. An item we already hold goes out now, so ask where to take it while
+    //     they are still on the page — otherwise the address is chased over
+    //     WhatsApp and the rider's dashboard stays empty until someone types
+    //     it in. The form books the job against this order and assigns the
+    //     rider; the fee is still paid to the rider at the door. Someone who
+    //     booked a collection slot is coming to us, so they never see this.
+    if (product.availability === Availability.LOCAL && fulfilment?.mode !== 'collect') {
+      try { sessionStorage.setItem('lg.checkout.email', receiptEmail || ''); } catch { /* private window */ }
+      const q = new URLSearchParams({
+        order: createdInvoiceNumber || trackingCode,
+        item: fullProductName,
+        from: 'cbd',
+        paid: '1',
+      });
+      setPaymentLoading(false);
+      navigate(`/request-delivery?${q.toString()}`);
+      return;
+    }
 
     // 3. ALWAYS Close the loop with Admin via WhatsApp (Include Tracking Code)
     const trackingLink = `https://legitgrinder.com/tracking?id=${trackingCode}`;

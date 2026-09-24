@@ -67,9 +67,11 @@ interface Props {
    */
   origin?: 'cbd' | 'industrial';
   large?: boolean;
+  /** Known already when they have just paid on the site — don't ask twice. */
+  prefillEmail?: string;
 }
 
-const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originProp, large }) => {
+const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originProp, large, prefillEmail }) => {
   const originId = originProp || 'cbd';
   const bulky = large === true;
   /** Doorstep or as far as a courier's counter. The first thing we ask. */
@@ -82,7 +84,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   const [unit, setUnit] = useState('');
   const [gate, setGate] = useState('');
   const [instructions, setInstructions] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(prefillEmail || '');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);

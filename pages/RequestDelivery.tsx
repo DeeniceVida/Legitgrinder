@@ -1,6 +1,8 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { CheckCircle } from '@phosphor-icons/react';
 import DeliveryEstimator from '../components/DeliveryEstimator';
+import { WHATSAPP_NUMBER } from '../constants';
 
 /**
  * /request-delivery — the page behind "would you rather have it delivered?"
@@ -20,10 +22,40 @@ const RequestDelivery: React.FC = () => {
   // is a large one. The customer is never asked either.
   const origin = params.get('from') === 'industrial' ? 'industrial' as const : 'cbd' as const;
   const large = params.get('large') === '1';
+  /** Sent here straight from a paid shop order, rather than from a link. */
+  const justPaid = params.get('paid') === '1';
+  /**
+   * The email they typed at checkout, handed over in this browser rather than
+   * in the link — an email address does not belong in a URL that gets shared,
+   * logged and sat in history.
+   */
+  const email = (() => {
+    if (!justPaid) return undefined;
+    try { return sessionStorage.getItem('lg.checkout.email') || undefined; } catch { return undefined; }
+  })();
 
   return (
     <div className="bg-brand-bg min-h-screen pt-32 pb-24 px-4">
       <div className="max-w-2xl mx-auto">
+        {/* Straight off the shop's Pay button: say the money landed before
+            asking for anything else, or this page reads like a second charge. */}
+        {justPaid && (
+          <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-7">
+            <CheckCircle size={20} weight="fill" className="text-emerald-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[14px] font-bold text-emerald-900">Payment received — your order is confirmed.</p>
+              <p className="text-[12.5px] text-emerald-800/80 font-light mt-1 leading-relaxed">
+                One last thing: tell us where to bring it. The delivery fee below is separate, and is paid
+                to the rider when they hand it over.{' '}
+                <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noopener noreferrer"
+                  className="font-bold underline">
+                  Prefer to collect it yourself? Message us
+                </a>.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="mb-8">
           <p className="eyebrow text-[#3D8593] mb-3">Delivery</p>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tighter leading-[1.05] mb-3">
@@ -36,7 +68,7 @@ const RequestDelivery: React.FC = () => {
           </p>
         </div>
 
-        <DeliveryEstimator reference={reference} item={item} origin={origin} large={large} />
+        <DeliveryEstimator reference={reference} item={item} origin={origin} large={large} prefillEmail={email} />
       </div>
     </div>
   );
