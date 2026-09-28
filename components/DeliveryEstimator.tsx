@@ -98,6 +98,8 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   const [bookedToken, setBookedToken] = useState<string | null>(() => findBooking(reference)?.token || null);
   /** True when the booking came from a previous visit, not this one. */
   const [returning, setReturning] = useState(() => !!findBooking(reference));
+  /** Where their copy of the tracking link was sent, once it has been. */
+  const [emailedTo, setEmailedTo] = useState<string | null>(null);
   const [drop, setDrop] = useState<{ lat: number; lng: number } | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [routed, setRouted] = useState(true);
@@ -354,6 +356,30 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
       }),
     }).catch(() => {});
 
+    // And their own copy of the tracking link. The browser only remembers it
+    // on THIS device; the email is what survives a switched phone or a closed
+    // private window. Best-effort, same as above — the delivery is booked.
+    if (email.trim() && res.customerToken) {
+      fetch('/api/delivery-booked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          to: email.trim(),
+          customerName: name.trim(),
+          item, reference,
+          deliveryType: mode,
+          courierName: mode === 'parcel' ? courier.trim() : undefined,
+          dropLabel: mode === 'parcel'
+            ? [courier.trim(), receiverDest.trim()].filter(Boolean).join(' → ')
+            : [building.trim(), unit.trim() && `House ${unit.trim()}`].filter(Boolean).join(' · ') || undefined,
+          feeKES: res.deliveryFeeKES ?? shownQuote.total,
+          trackUrl: `${window.location.origin}/delivery/${res.customerToken}`,
+        }),
+      }).catch(() => {});
+      setEmailedTo(email.trim());
+    }
+
     setSending(false);
     setBookedToken(res.customerToken || null);
     setReturning(false);
@@ -402,6 +428,11 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
         >
           {returning ? 'Track your order' : 'Track my delivery'}
         </a>
+        {emailedTo && (
+          <p className="text-[12px] text-gray-400 font-light mt-4">
+            We've emailed this link to <strong className="text-gray-600">{emailedTo}</strong> so you don't have to keep this page open.
+          </p>
+        )}
         {/* A second delivery is rare but real — a customer who booked one last
             week must not be locked out of booking another from the same link. */}
         {returning && (
@@ -503,7 +534,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
               <input value={receiverDest} onChange={e => setReceiverDest(e.target.value)}
                 placeholder="Town you are collecting from — e.g. Nakuru, Kisumu" className={plain} />
               <input value={email} onChange={e => setEmail(e.target.value)}
-                inputMode="email" type="email" placeholder="Your email — where the receipt goes" className={plain} />
+                inputMode="email" type="email" placeholder="Your email — tracking link and receipt go here" className={plain} />
               <textarea value={parcelNotes} onChange={e => setParcelNotes(e.target.value)}
                 rows={2} placeholder="Anything else the courier should note (optional)"
                 className={plain + ' h-auto py-3 resize-none'} />
@@ -656,7 +687,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
                           />
                           <input
                             value={email} onChange={e => setEmail(e.target.value)}
-                            inputMode="email" type="email" placeholder="Email (optional)" className={field}
+                            inputMode="email" type="email" placeholder="Email — we send your tracking link here" className={field}
                           />
 
                           {/* The pin gets the rider to the gate. This gets them
