@@ -34,8 +34,21 @@ const DeliveryTracking: React.FC = () => {
   const [d, setD] = useState<DeliveryStatusView | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * Loaded once, this page showed a rider's ETA from twenty minutes ago and
+   * looked stuck. It now refreshes itself every 30s, and pauses while the tab
+   * is hidden — nobody's phone should poll in their pocket.
+   */
   useEffect(() => {
-    fetchDeliveryStatus(token).then(res => { setD(res); setLoading(false); });
+    let alive = true;
+    const load = () => fetchDeliveryStatus(token).then(res => {
+      if (alive) { setD(res); setLoading(false); }
+    });
+    load();
+    const tick = setInterval(() => { if (!document.hidden) load(); }, 30000);
+    const onShow = () => { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => { alive = false; clearInterval(tick); document.removeEventListener('visibilitychange', onShow); };
   }, [token]);
 
   if (loading) {
@@ -97,6 +110,25 @@ const DeliveryTracking: React.FC = () => {
               <p className="text-[12px] text-gray-500 font-light mt-0.5">
                 {d.riderFirstName || 'The rider'} said this {sinceLabel(d.riderEtaAt)}
                 {etaIsStale(d.riderEtaAt) && ' — it may be out of date'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* No ETA yet is the commonest state right after booking, and an empty
+            space there reads as "nothing is happening". Say what happens next. */}
+        {d.status !== 'delivered' && !etaLabel(d.riderEtaCode, d.riderEtaMinutes) && (
+          <div className="rounded-[1.75rem] border border-gray-100 bg-white p-5 mb-5 flex items-start gap-3.5">
+            <span className="shrink-0 w-10 h-10 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center">
+              <Motorcycle size={19} weight="fill" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-bold tracking-tight text-[15px]">
+                {d.status === 'collected' ? 'Your item is with the rider' : 'Waiting for the rider to set off'}
+              </p>
+              <p className="text-[12px] text-gray-500 font-light mt-0.5">
+                {d.riderFirstName || 'The rider'} hasn't given a time yet. It appears here the moment they do —
+                this page keeps itself up to date.
               </p>
             </div>
           </div>

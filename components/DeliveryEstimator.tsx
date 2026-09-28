@@ -7,6 +7,7 @@ import { requestDelivery } from '../services/deliveries';
 import {
   ORIGINS, originById, fetchRoadKm, quoteDelivery, isNearNairobi,
   RATE_PER_KM, MINIMUM_FEE, BULKY_SURCHARGE, Quote,
+  rememberBooking, findBooking,
 } from '../utils/delivery';
 
 /**
@@ -89,8 +90,14 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   const [phone, setPhone] = useState('');
   const [sending, setSending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  /** Set once it's booked — their own link to watch it. */
-  const [bookedToken, setBookedToken] = useState<string | null>(null);
+  /**
+   * Set once it's booked — their own link to watch it. Seeded from this
+   * browser, so coming back to the link the owner sent shows the delivery
+   * they already booked instead of an empty form.
+   */
+  const [bookedToken, setBookedToken] = useState<string | null>(() => findBooking(reference)?.token || null);
+  /** True when the booking came from a previous visit, not this one. */
+  const [returning, setReturning] = useState(() => !!findBooking(reference));
   const [drop, setDrop] = useState<{ lat: number; lng: number } | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [routed, setRouted] = useState(true);
@@ -349,6 +356,10 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
 
     setSending(false);
     setBookedToken(res.customerToken || null);
+    setReturning(false);
+    // Kept in this browser so the same link becomes their tracking page, and
+    // nobody has to send it to them again.
+    if (res.customerToken) rememberBooking({ token: res.customerToken, ref: reference, item });
   };
 
   const money = (n: number) => `KES ${n.toLocaleString()}`;
@@ -369,9 +380,13 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
         <span className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-5">
           <Check size={26} weight="bold" />
         </span>
-        <h2 className="text-2xl font-bold tracking-tighter mb-2">A rider is on it.</h2>
+        <h2 className="text-2xl font-bold tracking-tighter mb-2">
+          {returning ? 'Your delivery is booked.' : 'A rider is on it.'}
+        </h2>
         <p className="text-gray-500 font-light text-sm leading-relaxed mb-6 max-w-sm mx-auto">
-          {mode === 'parcel' ? (
+          {returning ? (
+            <>You already told us where to bring it. Open your tracking page to see where it has got to.</>
+          ) : mode === 'parcel' ? (
             <>
               Your parcel is going to <strong className="text-gray-900">{courier.trim()}</strong>. Keep this link —
               the rider uploads the receipt to it once your parcel is booked in
@@ -385,8 +400,16 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
           href={`/delivery/${bookedToken}`}
           className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-[#0f1a1c] text-white font-black uppercase text-[10px] tracking-[0.2em] hover:bg-[#3D8593] transition-colors"
         >
-          Track my delivery
+          {returning ? 'Track your order' : 'Track my delivery'}
         </a>
+        {/* A second delivery is rare but real — a customer who booked one last
+            week must not be locked out of booking another from the same link. */}
+        {returning && (
+          <button type="button" onClick={() => { setBookedToken(null); setReturning(false); }}
+            className="block mx-auto mt-4 text-[11px] font-bold text-gray-400 hover:text-[#3D8593] underline">
+            Book another delivery instead
+          </button>
+        )}
       </div>
     );
   }

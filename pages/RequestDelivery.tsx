@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CheckCircle } from '@phosphor-icons/react';
 import DeliveryEstimator from '../components/DeliveryEstimator';
 import { WHATSAPP_NUMBER } from '../constants';
+import { findBooking } from '../utils/delivery';
 
 /**
  * /request-delivery — the page behind "would you rather have it delivered?"
@@ -29,6 +30,8 @@ const RequestDelivery: React.FC = () => {
    * in the link — an email address does not belong in a URL that gets shared,
    * logged and sat in history.
    */
+  /** They have booked from this browser already, so this link is now a tracker. */
+  const alreadyBooked = !!findBooking(reference);
   const email = (() => {
     if (!justPaid) return undefined;
     try { return sessionStorage.getItem('lg.checkout.email') || undefined; } catch { return undefined; }
@@ -56,15 +59,22 @@ const RequestDelivery: React.FC = () => {
           </div>
         )}
 
+        {/* Someone who already booked from this browser is coming back to
+            check on it, not to book again — the page says so before they
+            wonder why they are looking at a form. */}
         <div className="mb-8">
           <p className="eyebrow text-[#3D8593] mb-3">Delivery</p>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tighter leading-[1.05] mb-3">
-            Have it brought <span className="heading-accent italic font-light text-[#3D8593]">to you.</span>
+            {alreadyBooked
+              ? <>Track <span className="heading-accent italic font-light text-[#3D8593]">your order.</span></>
+              : <>Have it brought <span className="heading-accent italic font-light text-[#3D8593]">to you.</span></>}
           </h1>
           <p className="text-gray-500 font-light leading-relaxed">
-            {reference
-              ? <>For order <strong className="text-gray-900">{reference}</strong>. Pin where you are, see the fee, and a rider is sent.</>
-              : <>Pin where you are, see the fee, and a rider is sent. No haggling at the door.</>}
+            {alreadyBooked
+              ? <>{reference ? <>Order <strong className="text-gray-900">{reference}</strong> is booked. </> : null}Follow it below — where the rider is, and when they expect to reach you.</>
+              : reference
+                ? <>For order <strong className="text-gray-900">{reference}</strong>. Pin where you are, see the fee, and a rider is sent.</>
+                : <>Pin where you are, see the fee, and a rider is sent. No haggling at the door.</>}
           </p>
         </div>
 

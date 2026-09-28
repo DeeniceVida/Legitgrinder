@@ -224,3 +224,61 @@ export const etaIsStale = (iso?: string | null, now: number = Date.now()): boole
   const t = new Date(iso).getTime();
   return Number.isFinite(t) && now - t > 45 * 60 * 1000;
 };
+
+/* ── Remembering a booking, so the link keeps working ─────────────────────── */
+
+/**
+ * A delivery booked from THIS browser, kept so the link the owner sent turns
+ * into the customer's tracking page on every later visit. Without it they see
+ * an empty form again and the owner has to send the tracking link by hand.
+ *
+ * Only a token and what it was for — no personal detail — and it lives in this
+ * one browser. localStorage can throw (private windows, blocked site data), so
+ * every read and write is wrapped and the page works fine without it.
+ */
+export interface SavedBooking {
+  token: string;
+  /** The order code the link carried, when it had one. */
+  ref?: string;
+  item?: string;
+  /** ISO, so a stale one can be dropped. */
+  at: string;
+}
+
+const BOOKINGS_KEY = 'lg.deliveries.booked';
+/** After this a booking is done with — a delivery is a same-week thing. */
+const BOOKING_TTL_DAYS = 30;
+
+const readBookings = (): SavedBooking[] => {
+  try {
+    const raw = localStorage.getItem(BOOKINGS_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+    const cutoff = Date.now() - BOOKING_TTL_DAYS * 86400e3;
+    return list.filter((b: any) => b && typeof b.token === 'string' && new Date(b.at).getTime() > cutoff);
+  } catch {
+    return [];
+  }
+};
+
+export const rememberBooking = (b: Omit<SavedBooking, 'at'>): void => {
+  try {
+    const list = readBookings().filter(x => x.token !== b.token);
+    list.unshift({ ...b, at: new Date().toISOString() });
+    localStorage.setItem(BOOKINGS_KEY, JSON.stringify(list.slice(0, 10)));
+  } catch {
+    /* private window — the on-screen link still works for this visit */
+  }
+};
+
+/**
+ * The booking this link belongs to. Matched on the order code when the link
+ * carries one; a link with no code falls back to the most recent booking from
+ * this browser, which is the same person coming back to the same link.
+ */
+export const findBooking = (ref?: string): SavedBooking | null => {
+  const list = readBookings();
+  if (ref) return list.find(b => b.ref === ref) || null;
+  return list[0] || null;
+};
