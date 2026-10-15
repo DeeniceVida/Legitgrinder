@@ -7,7 +7,7 @@ import { requestDelivery } from '../services/deliveries';
 import {
   ORIGINS, originById, fetchRoadKm, quoteDelivery, isNearNairobi,
   RATE_PER_KM, MINIMUM_FEE, BULKY_SURCHARGE, Quote,
-  rememberBooking, findBooking,
+  rememberBooking, findBooking, OriginId,
 } from '../utils/delivery';
 
 /**
@@ -66,7 +66,7 @@ interface Props {
    * The owner's calls, arriving in the link — not the customer's to make.
    * The package sits in ONE place, and only he has seen how big it is.
    */
-  origin?: 'cbd' | 'industrial';
+  origin?: OriginId;
   large?: boolean;
   /** Known already when they have just paid on the site — don't ask twice. */
   prefillEmail?: string;

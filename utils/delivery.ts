@@ -22,8 +22,10 @@ export const MINIMUM_FEE = 300;
 /** Flat extra for anything that won't sit comfortably on a boda. */
 export const BULKY_SURCHARGE = 150;
 
+export type OriginId = 'cbd' | 'industrial' | 'safariline';
+
 export interface Origin {
-  id: 'cbd' | 'industrial';
+  id: OriginId;
   name: string;
   /** Safe to show a customer. Never names the premises or the partner. */
   detail: string;
@@ -60,7 +62,20 @@ export const ORIGINS: Origin[] = [
     lat: -1.2996869,
     lng: 36.839082,
   },
+  {
+    id: 'safariline',
+    name: 'Eastleigh',
+    detail: 'Goods coming out of clearing',
+    adminDetail: 'Safariline Cargo, Captain Mungai Street (off 4th Street), Eastleigh',
+    // The owner's own pin: https://maps.app.goo.gl/w17wzLpTHxsFLVMk8
+    lat: -1.273027,
+    lng: 36.847682,
+  },
 ];
+
+/** Every pickup point the server will accept — kept in step with ORIGINS. */
+export const isOriginId = (v: unknown): v is OriginId =>
+  typeof v === 'string' && ORIGINS.some(o => o.id === v);
 
 export const originById = (id: string): Origin =>
   ORIGINS.find(o => o.id === id) || ORIGINS[0];

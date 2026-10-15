@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CheckCircle } from '@phosphor-icons/react';
 import DeliveryEstimator from '../components/DeliveryEstimator';
 import { WHATSAPP_NUMBER } from '../constants';
-import { findBooking } from '../utils/delivery';
+import { findBooking, isOriginId } from '../utils/delivery';
 
 /**
  * /request-delivery — the page behind "would you rather have it delivered?"
@@ -21,7 +21,8 @@ const RequestDelivery: React.FC = () => {
   const item = params.get('item') || undefined;
   // The owner's calls ride in the link: where the package is, and whether it
   // is a large one. The customer is never asked either.
-  const origin = params.get('from') === 'industrial' ? 'industrial' as const : 'cbd' as const;
+  const fromParam = params.get('from');
+  const origin = isOriginId(fromParam) ? fromParam : 'cbd';
   const large = params.get('large') === '1';
   /** Sent here straight from a paid shop order, rather than from a link. */
   const justPaid = params.get('paid') === '1';
