@@ -68,7 +68,7 @@ try {
     Math.sin(((-1.3733 - SAFARILINE.lat) * Math.PI / 180) / 2) ** 2
     + Math.cos(SAFARILINE.lat * Math.PI / 180) * Math.cos(-1.3733 * Math.PI / 180)
     * Math.sin(((36.7073 - SAFARILINE.lng) * Math.PI / 180) / 2) ** 2)));
-  const floor = Math.max(Math.ceil((straightKm * 50) / 10) * 10, 300);
+  const floor = Math.max(Math.ceil((straightKm * 60) / 10) * 10, 300);
   check(`a tampered 0 km is still priced from the pin (>= ${floor})`, (far.json?.deliveryFeeKES || 0) >= floor, { fee: far.json?.deliveryFeeKES, floor, straightKm });
 
   const bogus = await book({ p_origin_id: 'eastleigh' });

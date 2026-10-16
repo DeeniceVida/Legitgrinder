@@ -9,8 +9,15 @@
  * so the estimator, the admin side and any future rider view cannot drift.
  */
 
-/** KES per kilometre of road distance. */
-export const RATE_PER_KM = 50;
+/**
+ * KES per kilometre of road distance. Raised from 50 to 60 on 2026-10-16.
+ *
+ * ⚠ This number lives in TWO places: here, for the quote the customer is
+ * shown, and inside request_delivery, for the fee the server actually writes.
+ * Changing one alone means the page promises a figure the booking then
+ * contradicts. See add_delivery_rate_60.sql.
+ */
+export const RATE_PER_KM = 60;
 
 /**
  * The floor, regardless of distance. Without it a 2km hop to Ngara quotes at

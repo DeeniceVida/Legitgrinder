@@ -56,7 +56,7 @@ const timelines = [
 
 const promises = [
   { title: 'All-inclusive to Nairobi', desc: 'The total we quote is the total you pay — shipping, customs and clearance are all in it. No surprise charges when it lands.' },
-  { title: 'Doorstep delivery, your way', desc: 'Collection at our CBD shop is free. Prefer delivery? A rider brings it — KES 50 per kilometre, minimum KES 300. We send you a link to pin your location and see the exact fee.' },
+  { title: 'Doorstep delivery, your way', desc: 'Collection at our CBD shop is free. Prefer delivery? A rider brings it — KES 60 per kilometre, minimum KES 300. We send you a link to pin your location and see the exact fee.' },
   { title: 'Orders placed within 1 business day', desc: 'Your order is placed with the store within one business day of your payment confirming — the time it takes funds to settle.' },
   { title: 'Track it the whole way', desc: 'Every order gets a tracking number. Watch it move from the store to Nairobi on our live tracker.' },
 ];
