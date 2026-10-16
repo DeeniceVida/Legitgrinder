@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   WhatsappLogo, ArrowRight, LinkSimple, Receipt, AirplaneTilt, Boat, Package,
@@ -7,6 +7,8 @@ import {
 } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
 import { Reveal } from '../components/Motion';
+import { getPricing } from '../utils/delivery';
+import { loadDeliveryPricing } from '../services/deliveryPricing';
 
 /**
  * The one link Dennis sends when a client asks "how does this work?"
@@ -54,9 +56,13 @@ const timelines = [
   { Icon: Boat, route: 'US · Sea', time: '60–90 days' },
 ];
 
-const promises = [
+/**
+ * The delivery line quotes real figures, so it takes them from the owner's
+ * settings rather than from a sentence someone has to remember to edit.
+ */
+const promisesFor = (p: { ratePerKm: number; minimumFee: number }) => [
   { title: 'All-inclusive to Nairobi', desc: 'The total we quote is the total you pay — shipping, customs and clearance are all in it. No surprise charges when it lands.' },
-  { title: 'Doorstep delivery, your way', desc: 'Collection at our CBD shop is free. Prefer delivery? A rider brings it — KES 60 per kilometre, minimum KES 300. We send you a link to pin your location and see the exact fee.' },
+  { title: 'Doorstep delivery, your way', desc: `Collection at our CBD shop is free. Prefer delivery? A rider brings it — KES ${p.ratePerKm} per kilometre, minimum KES ${p.minimumFee.toLocaleString()}. We send you a link to pin your location and see the exact fee.` },
   { title: 'Orders placed within 1 business day', desc: 'Your order is placed with the store within one business day of your payment confirming — the time it takes funds to settle.' },
   { title: 'Track it the whole way', desc: 'Every order gets a tracking number. Watch it move from the store to Nairobi on our live tracker.' },
 ];
@@ -69,6 +75,15 @@ const moreWays = [
 ];
 
 const HowItWorks: React.FC = () => {
+  // Starts at the built-in figures, then follows whatever the owner has set.
+  const [pricing, setPricing] = useState(getPricing());
+  useEffect(() => {
+    let alive = true;
+    loadDeliveryPricing().then(p => { if (alive) setPricing(p); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const promises = promisesFor(pricing);
+
   return (
     <div className="bg-brand-bg min-h-screen pt-36 pb-28 px-4 md:px-6">
       <div className="max-w-6xl mx-auto">

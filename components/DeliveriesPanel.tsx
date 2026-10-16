@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Truck, Plus, LinkSimple, Check, Trash, WarningCircle, Receipt, ArrowsClockwise, Motorcycle,
-  BellRinging,
+  BellRinging, CurrencyCircleDollar,
 } from '@phosphor-icons/react';
 import { notifyRider } from '../services/push';
 import { Delivery, fetchDeliveries, createDelivery, deleteDelivery, updateDelivery } from '../services/deliveries';
 import { Rider, fetchRiders } from '../services/riders';
 import {
   ORIGINS, originById, quoteDelivery, estimatedRoadKm, fetchRoadKm,
-  etaLabel, sinceLabel, etaIsStale,
+  etaLabel, sinceLabel, etaIsStale, getPricing, DeliveryPricing,
 } from '../utils/delivery';
+import { loadDeliveryPricing, updateDeliveryPricing } from '../services/deliveryPricing';
 
 /**
  * Admin → the delivery jobs themselves.
@@ -73,6 +74,35 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
   /** Result of the last push — a buzz you cannot see is a buzz you cannot trust. */
   const [alerted, setAlerted] = useState<{ ok: boolean; text: string } | null>(null);
   const [adding, setAdding] = useState(false);
+
+  /**
+   * The fee rules. Edited here and nowhere else: the customer's quote and the
+   * fee the server writes on booking both read this one row, so they cannot
+   * drift apart the way a hard-coded rate in two files did.
+   */
+  const [pricing, setPricingState] = useState<DeliveryPricing>(getPricing());
+  const [pricingDraft, setPricingDraft] = useState<DeliveryPricing>(getPricing());
+  const [pricingOpen, setPricingOpen] = useState(false);
+  const [pricingSaving, setPricingSaving] = useState(false);
+  const [pricingSaved, setPricingSaved] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadDeliveryPricing().then(p => { setPricingState(p); setPricingDraft(p); }).catch(() => {});
+  }, []);
+
+  const savePricing = async () => {
+    setPricingSaving(true);
+    setPricingError(null);
+    const res = await updateDeliveryPricing(pricingDraft);
+    setPricingSaving(false);
+    if (!res.success) { setPricingError(res.error || 'Could not save that.'); return; }
+    setPricingState(pricingDraft);
+    setPricingSaved(true);
+    setTimeout(() => setPricingSaved(false), 2500);
+    // The quote below is derived on render, so the state change above is what
+    // re-prices any job being built on this screen.
+  };
 
   // Link builder — the owner's two decisions, encoded into the URL.
   const [building, setBuilding] = useState(false);
@@ -365,7 +395,7 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
               Deliveries {!loading && <span className="text-gray-400 font-bold">({rows.filter(r => r.status !== 'delivered').length} open)</span>}
             </h3>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
-              Assign a rider · send the customer their link
+              KES {pricing.ratePerKm}/km · min {money(pricing.minimumFee)} · bulky +{money(pricing.bulkySurcharge)}
             </p>
           </div>
         </div>
@@ -376,6 +406,13 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
             title="Build the link you send a customer who wants delivery"
           >
             <LinkSimple size={13} weight="bold" /> Delivery link
+          </button>
+          <button
+            onClick={() => { setPricingOpen(o => !o); setPricingDraft(pricing); setPricingError(null); }}
+            className="px-4 py-2.5 rounded-xl border border-neutral-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-colors flex items-center gap-2"
+            title="Change what a delivery costs"
+          >
+            <CurrencyCircleDollar size={13} weight="bold" /> Pricing
           </button>
           <button onClick={load} className="w-10 h-10 rounded-xl border border-neutral-200 flex items-center justify-center text-gray-400 hover:text-[#3D8593] hover:border-[#3D8593] transition-colors">
             <ArrowsClockwise size={14} weight="bold" />
@@ -394,6 +431,70 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
           <div className="flex items-start gap-3 bg-rose-50 border border-rose-100 rounded-xl p-4">
             <WarningCircle size={16} weight="duotone" className="text-rose-500 shrink-0 mt-0.5" />
             <p className="text-sm font-medium text-rose-900">{error}</p>
+          </div>
+        )}
+
+        {/* What a delivery costs. One row, read by the customer's quote and by
+            the server that prices the booking — so these three numbers are the
+            whole of it, and there is no second place to remember. */}
+        {pricingOpen && (
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/60 p-5 space-y-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-900">What a delivery costs</p>
+              <p className="text-[11px] font-medium text-gray-400 mt-1">
+                Changes apply to new quotes straight away. Deliveries already booked keep the fee they were quoted.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {([
+                { key: 'ratePerKm' as const, label: 'Rate per km', hint: 'KES per kilometre of road' },
+                { key: 'minimumFee' as const, label: 'Minimum fee', hint: 'Floor, however short the trip' },
+                { key: 'bulkySurcharge' as const, label: 'Bulky item', hint: 'Flat extra, bigger than a jerrycan' },
+              ]).map(f => (
+                <div key={f.key}>
+                  <label className={lbl}>{f.label}</label>
+                  <input
+                    type="number" min="0" inputMode="numeric"
+                    value={pricingDraft[f.key]}
+                    onChange={e => { setPricingDraft({ ...pricingDraft, [f.key]: parseInt(e.target.value, 10) || 0 }); setPricingError(null); }}
+                    className={input}
+                  />
+                  <p className="text-[10px] font-medium text-gray-400 mt-1">{f.hint}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* The numbers mean little on their own — show what they do to a
+                real trip before they are saved. */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] font-bold text-gray-500">
+              <span className="uppercase tracking-widest text-[9px] text-gray-400">At these rates</span>
+              {[2, 7, 15].map(km => {
+                const d = Math.max(Math.ceil((km * pricingDraft.ratePerKm) / 10) * 10, pricingDraft.minimumFee);
+                return <span key={km}>{km} km · <span className="text-gray-900">{money(d)}</span></span>;
+              })}
+              <span>bulky +{money(pricingDraft.bulkySurcharge)}</span>
+            </div>
+
+            {pricingError && (
+              <p className="text-[11px] font-bold text-rose-600">{pricingError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={savePricing}
+                disabled={pricingSaving}
+                className="px-5 py-2.5 rounded-xl bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40"
+              >
+                {pricingSaving ? 'Saving…' : pricingSaved ? 'Saved' : 'Save pricing'}
+              </button>
+              <button
+                onClick={() => { setPricingDraft(pricing); setPricingOpen(false); setPricingError(null); }}
+                className="px-5 py-2.5 rounded-xl border border-neutral-200 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 

@@ -6,9 +6,10 @@ import { WHATSAPP_NUMBER } from '../constants';
 import { requestDelivery } from '../services/deliveries';
 import {
   ORIGINS, originById, fetchRoadKm, quoteDelivery, isNearNairobi,
-  RATE_PER_KM, MINIMUM_FEE, BULKY_SURCHARGE, Quote,
-  rememberBooking, findBooking, OriginId,
+  Quote,
+  rememberBooking, findBooking, OriginId, getPricing,
 } from '../utils/delivery';
+import { loadDeliveryPricing } from '../services/deliveryPricing';
 
 /**
  * "What will the rider cost me?" — answered before anyone has to ask.
@@ -100,6 +101,17 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   const [returning, setReturning] = useState(() => !!findBooking(reference));
   /** Where their copy of the tracking link was sent, once it has been. */
   const [emailedTo, setEmailedTo] = useState<string | null>(null);
+  /**
+   * The owner's fee rules. Starts at the built-in figures so the page never
+   * waits on the network to say what a delivery costs, then follows the
+   * database — which is also what prices the booking itself.
+   */
+  const [pricing, setPricingState] = useState(getPricing());
+  useEffect(() => {
+    let alive = true;
+    loadDeliveryPricing().then(p => { if (alive) setPricingState(p); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const [drop, setDrop] = useState<{ lat: number; lng: number } | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [routed, setRouted] = useState(true);
@@ -193,7 +205,10 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
       setBusy(false);
     });
     return () => { cancelled = true; };
-  }, [drop, originId, bulky]); // eslint-disable-line react-hooks/exhaustive-deps
+    // `pricing` is in here because the rules arrive from the database a moment
+    // after mount: without it, a pin dropped first would keep a fee worked out
+    // from the built-in figures.
+  }, [drop, originId, bulky, pricing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * A pasted location. Raw coordinates and full maps URLs are read here; a
@@ -455,7 +470,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
           Where should we bring it?
         </h2>
         <p className="text-gray-500 font-light text-sm leading-relaxed">
-          KES {RATE_PER_KM} per kilometre from where your item is, minimum {money(MINIMUM_FEE)}.
+          KES {pricing.ratePerKm} per kilometre from where your item is, minimum {money(pricing.minimumFee)}.
           You see the fee before you confirm anything.
         </p>
       </div>

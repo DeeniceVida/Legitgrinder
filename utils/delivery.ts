@@ -129,16 +129,53 @@ export interface Quote {
  * nobody settles a boda fare in single shillings.
  */
 export const quoteDelivery = (km: number, bulky = false): Quote => {
+  const { ratePerKm, minimumFee, bulkySurcharge } = getPricing();
   const safeKm = Math.max(0, Number.isFinite(km) ? km : 0);
-  const raw = safeKm * RATE_PER_KM;
-  const distanceFee = Math.max(Math.ceil(raw / 10) * 10, MINIMUM_FEE);
-  const surcharge = bulky ? BULKY_SURCHARGE : 0;
+  const raw = safeKm * ratePerKm;
+  const distanceFee = Math.max(Math.ceil(raw / 10) * 10, minimumFee);
+  const surcharge = bulky ? bulkySurcharge : 0;
   return {
     km: Math.round(safeKm * 10) / 10,
     distanceFee,
     surcharge,
     total: distanceFee + surcharge,
-    atMinimum: raw < MINIMUM_FEE,
+    atMinimum: raw < minimumFee,
+  };
+};
+
+/* ── The fee rules, as the owner has them set ─────────────────────────────── */
+
+export interface DeliveryPricing {
+  ratePerKm: number;
+  minimumFee: number;
+  bulkySurcharge: number;
+}
+
+/**
+ * What the site quotes with until the real figures arrive from the database —
+ * the values that were live when this was built. A failed fetch therefore
+ * quotes today's prices rather than nothing, and the server prices the booking
+ * from its own row regardless, so the two can only differ for the seconds
+ * before the fetch lands.
+ */
+export const DEFAULT_PRICING: DeliveryPricing = {
+  ratePerKm: RATE_PER_KM,
+  minimumFee: MINIMUM_FEE,
+  bulkySurcharge: BULKY_SURCHARGE,
+};
+
+let current: DeliveryPricing = { ...DEFAULT_PRICING };
+
+export const getPricing = (): DeliveryPricing => current;
+
+/** Called once the database row has been read. Nonsense values are ignored. */
+export const setPricing = (p: Partial<DeliveryPricing> | null | undefined): void => {
+  if (!p) return;
+  const ok = (n: unknown, max: number) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= max;
+  current = {
+    ratePerKm: ok(p.ratePerKm, 1000) && p.ratePerKm! > 0 ? p.ratePerKm! : current.ratePerKm,
+    minimumFee: ok(p.minimumFee, 20000) ? p.minimumFee! : current.minimumFee,
+    bulkySurcharge: ok(p.bulkySurcharge, 20000) ? p.bulkySurcharge! : current.bulkySurcharge,
   };
 };
 
