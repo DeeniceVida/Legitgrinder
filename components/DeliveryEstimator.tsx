@@ -1,15 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, WhatsappLogo, CircleNotch, Crosshair, Info, Check } from '@phosphor-icons/react';
 import { WHATSAPP_NUMBER } from '../constants';
 import { requestDelivery } from '../services/deliveries';
 import {
-  ORIGINS, originById, fetchRoadKm, quoteDelivery, isNearNairobi,
+  originById, fetchRoadKm, quoteDelivery, isNearNairobi, getOrigins,
   Quote,
   rememberBooking, findBooking, OriginId, getPricing,
 } from '../utils/delivery';
 import { loadDeliveryPricing } from '../services/deliveryPricing';
+import { loadDeliveryOrigins } from '../services/deliveryOrigins';
 
 /**
  * "What will the rider cost me?" — answered before anyone has to ask.
@@ -107,9 +108,12 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
    * database — which is also what prices the booking itself.
    */
   const [pricing, setPricingState] = useState(getPricing());
+  /** Bumped when the pickup points arrive, so the quote re-prices from the real pin. */
+  const [originsVersion, setOriginsVersion] = useState(0);
   useEffect(() => {
     let alive = true;
     loadDeliveryPricing().then(p => { if (alive) setPricingState(p); }).catch(() => {});
+    loadDeliveryOrigins().then(() => { if (alive) setOriginsVersion(v => v + 1); }).catch(() => {});
     return () => { alive = false; };
   }, []);
   const [drop, setDrop] = useState<{ lat: number; lng: number } | null>(null);
@@ -128,7 +132,9 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
   const dropMarker = useRef<L.Marker | null>(null);
   const originMarker = useRef<L.Marker | null>(null);
 
-  const origin = originById(originId);
+  // Re-resolved when the pickup points land, so a point the owner added
+  // after this build still quotes from its own pin.
+  const origin = useMemo(() => originById(originId), [originId, originsVersion]);
 
   // --- map ---------------------------------------------------------------
   useEffect(() => {
@@ -208,7 +214,7 @@ const DeliveryEstimator: React.FC<Props> = ({ reference, item, origin: originPro
     // `pricing` is in here because the rules arrive from the database a moment
     // after mount: without it, a pin dropped first would keep a fee worked out
     // from the built-in figures.
-  }, [drop, originId, bulky, pricing]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drop, originId, bulky, pricing, originsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * A pasted location. Raw coordinates and full maps URLs are read here; a

@@ -29,7 +29,11 @@ export const MINIMUM_FEE = 300;
 /** Flat extra for anything that won't sit comfortably on a boda. */
 export const BULKY_SURCHARGE = 150;
 
-export type OriginId = 'cbd' | 'industrial' | 'safariline' | 'aquantuo' | 'tumamziko';
+/**
+ * Pickup points are rows in delivery_origins now, added and edited from the
+ * dashboard, so an id is whatever the owner made — not a fixed set.
+ */
+export type OriginId = string;
 
 export interface Origin {
   id: OriginId;
@@ -52,7 +56,7 @@ export interface Origin {
  * goods — the full CBD address belongs only where someone is actually coming
  * to collect, which is the group-buy email.
  */
-export const ORIGINS: Origin[] = [
+export const DEFAULT_ORIGINS: Origin[] = [
   {
     id: 'cbd',
     name: 'Nairobi CBD',
@@ -100,12 +104,33 @@ export const ORIGINS: Origin[] = [
   },
 ];
 
-/** Every pickup point the server will accept — kept in step with ORIGINS. */
-export const isOriginId = (v: unknown): v is OriginId =>
-  typeof v === 'string' && ORIGINS.some(o => o.id === v);
+/**
+ * What the site is working with right now. Starts at the points that were live
+ * when this was built, so a page never waits on the network to know where
+ * things are collected from, then follows the database.
+ */
+let origins: Origin[] = [...DEFAULT_ORIGINS];
 
+export const getOrigins = (): Origin[] => origins;
+
+/** Called once the rows have been read. An empty or broken list is ignored. */
+export const setOrigins = (list: Origin[] | null | undefined): void => {
+  if (!Array.isArray(list) || list.length === 0) return;
+  const clean = list.filter(o => o && typeof o.id === 'string'
+    && Number.isFinite(o.lat) && Number.isFinite(o.lng));
+  if (clean.length) origins = clean;
+};
+
+/** Every pickup point the server will accept — kept in step with the table. */
+export const isOriginId = (v: unknown): v is OriginId =>
+  typeof v === 'string' && origins.some(o => o.id === v);
+
+/**
+ * Falls back to the first point rather than throwing: a delivery booked from a
+ * place since retired still has to render somewhere sensible.
+ */
 export const originById = (id: string): Origin =>
-  ORIGINS.find(o => o.id === id) || ORIGINS[0];
+  origins.find(o => o.id === id) || DEFAULT_ORIGINS.find(o => o.id === id) || origins[0];
 
 const R_KM = 6371;
 const rad = (d: number) => (d * Math.PI) / 180;

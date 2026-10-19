@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Truck, Plus, LinkSimple, Check, Trash, WarningCircle, Receipt, ArrowsClockwise, Motorcycle,
-  BellRinging, CurrencyCircleDollar,
+  BellRinging, CurrencyCircleDollar, MapPin,
 } from '@phosphor-icons/react';
 import { notifyRider } from '../services/push';
 import { Delivery, fetchDeliveries, createDelivery, deleteDelivery, updateDelivery } from '../services/deliveries';
 import { Rider, fetchRiders } from '../services/riders';
 import {
-  ORIGINS, originById, quoteDelivery, estimatedRoadKm, fetchRoadKm,
+  originById, quoteDelivery, estimatedRoadKm, fetchRoadKm, getOrigins, Origin,
   etaLabel, sinceLabel, etaIsStale, getPricing, DeliveryPricing,
 } from '../utils/delivery';
 import { loadDeliveryPricing, updateDeliveryPricing } from '../services/deliveryPricing';
+import {
+  AdminOrigin, fetchOriginsForAdmin, loadDeliveryOrigins, createOrigin, updateOrigin, resolvePin, slugFor,
+} from '../services/deliveryOrigins';
 
 /**
  * Admin → the delivery jobs themselves.
@@ -90,6 +93,68 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
   useEffect(() => {
     loadDeliveryPricing().then(p => { setPricingState(p); setPricingDraft(p); }).catch(() => {});
   }, []);
+
+  /**
+   * Where a rider collects from. Rows now, so a new cargo firm is a form on
+   * this page rather than a code change and a migration — five went in by
+   * hand in four days before this existed.
+   */
+  const [origins, setOrigins] = useState<Origin[]>(getOrigins());
+  const [adminOrigins, setAdminOrigins] = useState<AdminOrigin[]>([]);
+  const [originsOpen, setOriginsOpen] = useState(false);
+  const [originDraft, setOriginDraft] = useState<{ id?: string; name: string; detail: string; adminDetail: string; pin: string; lat?: number; lng?: number }>(
+    { name: '', detail: 'Goods coming out of clearing', adminDetail: '', pin: '' });
+  const [originBusy, setOriginBusy] = useState(false);
+  const [originError, setOriginError] = useState<string | null>(null);
+  const [originSaved, setOriginSaved] = useState<string | null>(null);
+
+  const loadOrigins = () => {
+    loadDeliveryOrigins().then(list => setOrigins(list)).catch(() => {});
+    fetchOriginsForAdmin().then(setAdminOrigins).catch(() => {});
+  };
+  useEffect(loadOrigins, []);
+
+  const blankOrigin = () => setOriginDraft({ name: '', detail: 'Goods coming out of clearing', adminDetail: '', pin: '' });
+
+  /** Paste a Google Maps link — including the short kind — or coordinates. */
+  const readPin = async (raw: string) => {
+    setOriginDraft(d => ({ ...d, pin: raw }));
+    setOriginError(null);
+    if (!raw.trim()) { setOriginDraft(d => ({ ...d, lat: undefined, lng: undefined })); return; }
+    setOriginBusy(true);
+    const res = await resolvePin(raw);
+    setOriginBusy(false);
+    if (res.error) { setOriginError(res.error); setOriginDraft(d => ({ ...d, lat: undefined, lng: undefined })); return; }
+    setOriginDraft(d => ({ ...d, lat: res.lat, lng: res.lng }));
+  };
+
+  const saveOrigin = async () => {
+    setOriginBusy(true);
+    setOriginError(null);
+    const d = originDraft;
+    const res = d.id
+      ? await updateOrigin(d.id, { name: d.name, detail: d.detail, adminDetail: d.adminDetail, lat: d.lat, lng: d.lng })
+      : await createOrigin({
+        id: slugFor(d.adminDetail || d.name, adminOrigins.map(o => o.id)),
+        name: d.name, detail: d.detail, adminDetail: d.adminDetail,
+        lat: d.lat as number, lng: d.lng as number,
+        sortOrder: (adminOrigins.reduce((m, o) => Math.max(m, o.sortOrder), 0) || 0) + 10,
+      });
+    setOriginBusy(false);
+    if (!res.success) { setOriginError(res.error || 'Could not save that.'); return; }
+    setOriginSaved(d.name);
+    setTimeout(() => setOriginSaved(null), 2500);
+    blankOrigin();
+    loadOrigins();
+  };
+
+  const toggleOrigin = async (o: AdminOrigin) => {
+    setOriginBusy(true);
+    const res = await updateOrigin(o.id, { active: !o.active });
+    setOriginBusy(false);
+    if (!res.success) { setOriginError(res.error || 'Could not save that.'); return; }
+    loadOrigins();
+  };
 
   const savePricing = async () => {
     setPricingSaving(true);
@@ -414,6 +479,13 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
           >
             <CurrencyCircleDollar size={13} weight="bold" /> Pricing
           </button>
+          <button
+            onClick={() => { setOriginsOpen(o => !o); setOriginError(null); blankOrigin(); }}
+            className="px-4 py-2.5 rounded-xl border border-neutral-200 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593] transition-colors flex items-center gap-2"
+            title="Add or edit where riders collect from"
+          >
+            <MapPin size={13} weight="bold" /> Pickup points
+          </button>
           <button onClick={load} className="w-10 h-10 rounded-xl border border-neutral-200 flex items-center justify-center text-gray-400 hover:text-[#3D8593] hover:border-[#3D8593] transition-colors">
             <ArrowsClockwise size={14} weight="bold" />
           </button>
@@ -498,6 +570,104 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
           </div>
         )}
 
+        {/* Where riders collect from. The customer sees `name` and nothing
+            else; the firm and the street stay on this screen. */}
+        {originsOpen && (
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/60 p-5 space-y-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-900">Where riders collect from</p>
+              <p className="text-[11px] font-medium text-gray-400 mt-1">
+                Customers only ever see the area name. The firm and street below it are for you and the rider.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {adminOrigins.map(o => (
+                <div key={o.id} className={`flex flex-wrap items-center gap-3 rounded-xl border bg-white px-4 py-3 ${o.active ? 'border-neutral-200' : 'border-neutral-100 opacity-60'}`}>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12.5px] font-black text-gray-900">
+                      {o.name}
+                      {!o.active && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-gray-400">Retired</span>}
+                    </p>
+                    <p className="text-[11px] font-medium text-gray-500 truncate">{o.adminDetail || '—'}</p>
+                    <p className="text-[10px] font-bold text-gray-300 mt-0.5">{o.lat.toFixed(6)}, {o.lng.toFixed(6)} · ?from={o.id}</p>
+                  </div>
+                  <button
+                    onClick={() => { setOriginDraft({ id: o.id, name: o.name, detail: o.detail, adminDetail: o.adminDetail, pin: `${o.lat}, ${o.lng}`, lat: o.lat, lng: o.lng }); setOriginError(null); }}
+                    className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] hover:underline">
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => toggleOrigin(o)} disabled={originBusy}
+                    title={o.active ? 'Stop offering this place' : 'Offer this place again'}
+                    className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-700 disabled:opacity-40">
+                    {o.active ? 'Retire' : 'Restore'}
+                  </button>
+                </div>
+              ))}
+              {!adminOrigins.length && (
+                <p className="text-[11px] font-medium text-gray-400">
+                  No pickup points loaded. If you've just added this, run <code>add_delivery_origins_table.sql</code> first.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                {originDraft.id ? `Editing ${originDraft.name || originDraft.id}` : 'Add a pickup point'}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={lbl}>What customers see</label>
+                  <input value={originDraft.name} onChange={e => setOriginDraft({ ...originDraft, name: e.target.value })}
+                    placeholder="e.g. Imara Daima" className={input} />
+                </div>
+                <div>
+                  <label className={lbl}>The place, for you</label>
+                  <input value={originDraft.adminDetail} onChange={e => setOriginDraft({ ...originDraft, adminDetail: e.target.value })}
+                    placeholder="e.g. Aquantuo Kenya, Gatoto Road" className={input} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={lbl}>Line under the name, on the customer's page</label>
+                  <input value={originDraft.detail} onChange={e => setOriginDraft({ ...originDraft, detail: e.target.value })}
+                    placeholder="e.g. Goods coming out of clearing" className={input} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={lbl}>The pin <span className="text-neutral-300 normal-case font-medium">— paste a Google Maps link or coordinates</span></label>
+                  <input value={originDraft.pin} onChange={e => readPin(e.target.value)}
+                    placeholder="https://maps.app.goo.gl/… or -1.3047, 36.8475" className={input} />
+                  <p className="text-[10px] font-bold mt-1">
+                    {originBusy && <span className="text-gray-400">Reading the link…</span>}
+                    {!originBusy && originDraft.lat != null && (
+                      <span className="text-emerald-600">Pin found: {originDraft.lat.toFixed(6)}, {originDraft.lng!.toFixed(6)}</span>
+                    )}
+                    {!originBusy && originDraft.lat == null && (
+                      <span className="text-gray-400">Open the place in Google Maps, Share, Copy link — paste it here.</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {originError && <p className="text-[11px] font-bold text-rose-600">{originError}</p>}
+              {originSaved && <p className="text-[11px] font-bold text-emerald-600">Saved {originSaved}.</p>}
+
+              <div className="flex gap-2">
+                <button onClick={saveOrigin}
+                  disabled={originBusy || !originDraft.name.trim() || originDraft.lat == null}
+                  className="px-5 py-2.5 rounded-xl bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-40">
+                  {originBusy ? 'Saving…' : originDraft.id ? 'Save changes' : 'Add pickup point'}
+                </button>
+                {originDraft.id && (
+                  <button onClick={() => { blankOrigin(); setOriginError(null); }}
+                    className="px-5 py-2.5 rounded-xl border border-neutral-200 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-600">
+                    New instead
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {alerted && (
           <div className={`flex items-start gap-3 rounded-xl p-4 border ${
             alerted.ok ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-100'
@@ -524,7 +694,7 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
                 Where is the package?
               </label>
               <div className="grid sm:grid-cols-2 gap-2">
-                {ORIGINS.map(o => (
+                {origins.map(o => (
                   <button
                     key={o.id}
                     onClick={() => setLinkOrigin(o.id)}
@@ -736,7 +906,7 @@ const DeliveriesPanel: React.FC<Props> = ({ prefill, onPrefillUsed }) => {
                 <select value={originId} onChange={e => setOriginId(e.target.value)} className={input}>
                   {/* The dashboard names the actual place; the customer-facing
                       page deliberately does not. */}
-                  {ORIGINS.map(o => <option key={o.id} value={o.id}>{o.name} — {o.adminDetail}</option>)}
+                  {origins.map(o => <option key={o.id} value={o.id}>{o.name} — {o.adminDetail}</option>)}
                 </select>
               </div>
             </div>
