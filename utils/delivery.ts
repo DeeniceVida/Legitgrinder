@@ -29,7 +29,7 @@ export const MINIMUM_FEE = 300;
 /** Flat extra for anything that won't sit comfortably on a boda. */
 export const BULKY_SURCHARGE = 150;
 
-export type OriginId = 'cbd' | 'industrial' | 'safariline';
+export type OriginId = 'cbd' | 'industrial' | 'safariline' | 'aquantuo';
 
 export interface Origin {
   id: OriginId;
@@ -77,6 +77,15 @@ export const ORIGINS: Origin[] = [
     // The owner's own pin: https://maps.app.goo.gl/w17wzLpTHxsFLVMk8
     lat: -1.273027,
     lng: 36.847682,
+  },
+  {
+    id: 'aquantuo',
+    name: 'Imara Daima',
+    detail: 'Goods coming out of clearing',
+    adminDetail: 'Aquantuo Kenya, Gatoto Road, Imara Daima',
+    // The owner's own pin: https://maps.app.goo.gl/qm2SGpNh7gbqhDkW8
+    lat: -1.318691,
+    lng: 36.8685803,
   },
 ];
 
