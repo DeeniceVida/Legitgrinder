@@ -1,19 +1,23 @@
 -- ============================================================================
---  A new pickup point: Aquantuo Kenya, Gatoto Road, Imara Daima.
+--  Two new pickup points: Aquantuo Kenya (Gatoto Road, Imara Daima) and
+--  Tuma Mziko Limited (Homa Bay Road, Industrial Area).
 --
 --  A pickup point lives in TWO places — ORIGINS in utils/delivery.ts for the
 --  quote the customer sees, and inside request_delivery for the price the
 --  server will accept. A point added only to the first is refused at the last
 --  step with "Unknown pickup point", after the customer has filled the form in.
 --
---  Coordinates are the owner's own pin (-1.318691, 36.8685803), not a guess at the
---  middle of the area: the first guess at Industrial Area was ~1.7km out, about
---  KES 85 on every quote from there.
+--  Coordinates are the owner's own pins — Aquantuo -1.318691, 36.8685803 and
+--  Tuma Mziko -1.3047222, 36.8475 — not a guess at the middle of the area: the
+--  first guess at Industrial Area was ~1.7km out, about KES 85 on every quote
+--  from there. Tuma Mziko is a second gate in Industrial Area, 1.2km from
+--  Salihiya, so the two are separate points reading the same to a customer.
 --
 --  Nothing else changes — same arguments, same fee rules read from
 --  delivery_pricing, same floor at the straight-line distance.
 --
---  Run once in the Supabase SQL editor, AFTER add_delivery_pricing_settings.sql. Safe to re-run.
+--  Run once in the Supabase SQL editor, AFTER add_delivery_pricing_settings.sql.
+--  Safe to re-run. This supersedes the Aquantuo-only file, which was never run.
 -- ============================================================================
 
 comment on column public.deliveries.origin_id is
@@ -68,7 +72,7 @@ begin
   v_min   := coalesce(v_min, 300);
   v_bulky := coalesce(v_bulky, 150);
 
-  if coalesce(p_origin_id, '') not in ('cbd', 'industrial', 'safariline', 'aquantuo') then
+  if coalesce(p_origin_id, '') not in ('cbd', 'industrial', 'safariline', 'aquantuo', 'tumamziko') then
     return jsonb_build_object('ok', false, 'error', 'Unknown pickup point.');
   end if;
 
@@ -109,7 +113,8 @@ begin
       ('cbd',        -1.2854649::numeric, 36.8266681::numeric),
       ('industrial', -1.2996869::numeric, 36.839082::numeric),
       ('safariline', -1.273027::numeric,  36.847682::numeric),
-      ('aquantuo', -1.318691::numeric, 36.8685803::numeric)
+      ('aquantuo', -1.318691::numeric, 36.8685803::numeric),
+      ('tumamziko', -1.3047222::numeric, 36.8475::numeric)
     ) as o(id, lat, lng) where o.id = p_origin_id;
 
     -- The browser measures the distance and the browser can be edited, so
@@ -182,13 +187,14 @@ grant execute on function public.request_delivery(text, text, text, text, text, 
 
 
 -- ------------------------------------------------------------------
--- Ran clean? Want: accepts_aquantuo = true, still_one_function = 1.
+-- Ran clean? Want: accepts_both = true, still_one_function = 1.
 -- ------------------------------------------------------------------
 select
   (select position('aquantuo' in pg_get_functiondef(p.oid)) > 0
+      and position('tumamziko' in pg_get_functiondef(p.oid)) > 0
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'request_delivery' limit 1
-  ) as accepts_aquantuo,
+  ) as accepts_both,
   (select count(*) from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = 'request_delivery'

@@ -29,7 +29,7 @@ export const MINIMUM_FEE = 300;
 /** Flat extra for anything that won't sit comfortably on a boda. */
 export const BULKY_SURCHARGE = 150;
 
-export type OriginId = 'cbd' | 'industrial' | 'safariline' | 'aquantuo';
+export type OriginId = 'cbd' | 'industrial' | 'safariline' | 'aquantuo' | 'tumamziko';
 
 export interface Origin {
   id: OriginId;
@@ -86,6 +86,17 @@ export const ORIGINS: Origin[] = [
     // The owner's own pin: https://maps.app.goo.gl/qm2SGpNh7gbqhDkW8
     lat: -1.318691,
     lng: 36.8685803,
+  },
+  {
+    id: 'tumamziko',
+    // Industrial Area already appears above (Salihiya). Same area to a
+    // customer, a different gate to us — the dashboard tells them apart.
+    name: 'Industrial Area',
+    detail: 'Goods coming out of clearing',
+    adminDetail: 'Tuma Mziko Limited, Homa Bay Road, Industrial Area',
+    // The owner's own pin: https://maps.app.goo.gl/AM3rg5CpxHcrHMyGA
+    lat: -1.3047222,
+    lng: 36.8475,
   },
 ];
 
