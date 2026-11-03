@@ -74,6 +74,12 @@ export interface ProductVariation {
   imageUrl?: string;
   /** Optional per-variant stock. When set, the shop caps/deducts this variant's pieces. */
   stockCount?: number;
+  /**
+   * An optional EXTRA rather than a choice about the item itself: its price is
+   * added to whatever was chosen, the chip shows "+KES …", and it stays out of
+   * the "From" price. A battery sold alongside a machine; not its wattage.
+   */
+  addOn?: boolean;
 }
 
 export interface Product {

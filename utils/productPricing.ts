@@ -23,8 +23,13 @@ export const basePriceOf = (p: Product): number => p.discountPriceKES || p.price
  */
 export const ACCESSORY_TYPES = ['bundle'];
 
+/**
+ * `addOn` is the explicit answer, ticked per option in the dashboard. The type
+ * list stays for the products that predate the tick — and because a group
+ * literally called "Bundle" is never anything else.
+ */
 export const isAccessory = (v: ProductVariation): boolean =>
-  ACCESSORY_TYPES.includes(String(v.type || '').toLowerCase());
+  v.addOn === true || ACCESSORY_TYPES.includes(String(v.type || '').toLowerCase());
 
 /** Variants that carry a price of their own, accessories excluded. */
 const priced = (p: Product): ProductVariation[] =>

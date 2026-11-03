@@ -554,6 +554,27 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                 {needsVariant && (
                   <p className="text-[11px] font-bold text-[#FF9900] mt-2">Select an option below to see its exact price</p>
                 )}
+                {/* With an extra chosen, the total alone leaves them working out
+                    what the extra cost. Show the sum. */}
+                {!needsVariant && selectedVarsList.some(v => isAccessory(v) && (v.priceKES || 0) > 0) && (
+                  <p className="text-[12px] font-medium text-gray-500 mt-2">
+                    {(() => {
+                      const main = selectedVarsList.filter(v => !isAccessory(v) && (v.priceKES || 0) > 0);
+                      const item = main.length ? Math.max(...main.map(v => v.priceKES || 0)) : basePrice;
+                      const itemName = main.find(v => (v.priceKES || 0) === item)?.name;
+                      const extras = selectedVarsList.filter(v => isAccessory(v) && (v.priceKES || 0) > 0);
+                      return (
+                        <>
+                          {itemName || 'Item'} KES {item.toLocaleString()}
+                          {extras.map(v => (
+                            <span key={v.name} className="text-[#b36b00] font-bold"> + {v.name} KES {(v.priceKES || 0).toLocaleString()}</span>
+                          ))}
+                          {quantity > 1 && <span className="text-gray-400"> × {quantity}</span>}
+                        </>
+                      );
+                    })()}
+                  </p>
+                )}
               </div>
 
               {/* VARIATIONS / CONFIGURATIONS */}
@@ -566,11 +587,16 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                       groups[type].push(v);
                       return groups;
                     }, {} as Record<string, ProductVariation[]>)
-                  ).map(([type, variations]: [string, ProductVariation[]]) => (
+                  ).map(([type, variations]: [string, ProductVariation[]]) => {
+                    // A group of extras, not a choice about the machine itself.
+                    // Read from the options, because "adds on" is ticked per
+                    // option — the group's name alone cannot tell you.
+                    const extras = variations.length > 0 && variations.every(isAccessory);
+                    return (
                     <div key={type}>
                       <p className="eyebrow text-gray-400 mb-2.5">
-                        {isAccessory({ type } as ProductVariation) ? `Add ${type}` : `Select ${type}`}
-                        {isAccessory({ type } as ProductVariation) && (
+                        {extras ? `Add ${type}` : `Select ${type}`}
+                        {extras && (
                           <span className="normal-case tracking-normal font-medium text-gray-300"> — optional</span>
                         )}
                       </p>
@@ -621,7 +647,8 @@ const Shop: React.FC<ShopProps> = ({ products, onUpdateProducts }) => {
                         })}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

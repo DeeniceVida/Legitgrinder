@@ -3808,7 +3808,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ) : (
                     <div className="space-y-3">
                       {localVariations.map((v, idx) => (
-                        <div key={idx} className="flex gap-3 animate-in slide-in-from-right-2 duration-300">
+                        <div key={idx} className="flex flex-wrap gap-3 items-center animate-in slide-in-from-right-2 duration-300">
                           <select
                             value={v.type}
                             onChange={(e) => updateVariation(idx, { type: e.target.value as any })}
@@ -3834,16 +3834,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onChange={(e) => updateVariation(idx, { imageUrl: e.target.value })}
                             className="flex-1 bg-white border border-neutral-100 rounded-xl px-4 py-3 text-[10px] font-bold outline-none focus:ring-2 focus:ring-teal-100"
                           />
-                          <div className="relative w-28" title="What this option costs, in full. Type 4500 and the customer pays 4500 — nothing is added on top. Leave blank to charge the product's own price.">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">KES</span>
+                          <div className="relative w-28" title={v.addOn
+                            ? "What this extra ADDS. Type 11100 and the customer pays whatever they chose, plus 11,100."
+                            : "What this option costs, in full. Type 4500 and the customer pays 4500 — nothing is added on top. Leave blank to charge the product's own price."}>
+                            <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black ${v.addOn ? 'text-[#FF9900]' : 'text-gray-400'}`}>
+                              {v.addOn ? '+KES' : 'KES'}
+                            </span>
                             <input
                               type="number"
                               placeholder="Price"
                               value={v.priceKES || ''}
                               onChange={(e) => updateVariation(idx, { priceKES: parseInt(e.target.value) || 0 })}
-                              className="w-full bg-white border border-neutral-100 rounded-xl pl-11 pr-2 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100"
+                              className={`w-full bg-white border rounded-xl ${v.addOn ? 'pl-12' : 'pl-11'} pr-2 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-teal-100 ${v.addOn ? 'border-[#FF9900]/40' : 'border-neutral-100'}`}
                             />
                           </div>
+                          {/* The difference that caught out the laser machine's
+                              battery: is this what the item IS, or something
+                              extra alongside it? */}
+                          <label
+                            title="Tick for an optional extra — its price is ADDED to whatever the customer chose, and it stays out of the From price. Leave unticked for a choice about the item itself, like a size or a wattage."
+                            className={`flex items-center gap-2 px-3 py-3 rounded-xl border cursor-pointer select-none ${v.addOn
+                              ? 'border-[#FF9900]/40 bg-[#FF9900]/10 text-[#b36b00]'
+                              : 'border-neutral-100 bg-white text-gray-400'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!v.addOn}
+                              onChange={(e) => updateVariation(idx, { addOn: e.target.checked })}
+                              className="accent-[#FF9900]"
+                            />
+                            <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Adds on</span>
+                          </label>
                           <div className="relative w-24" title="Pieces in stock for this variant (leave blank to not track)">
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-gray-400">PCS</span>
                             <input
