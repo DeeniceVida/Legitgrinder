@@ -20,7 +20,9 @@ export interface MonitorModel {
   refreshHz?: number;
   curved: boolean;
   baseType: 'Fixed' | 'Lifting';
-  factoryUsd: number;
+  /** Supplier price per unit. null when no sheet quotes this model — then
+   *  buyingOverrideKes carries the price. Never back-solved to hit a figure. */
+  factoryUsd: number | null;
   /** Buying price set by hand. When present it REPLACES the calculated goods
    *  price; shipping and the service fee are untouched. factory_usd stays the
    *  real cost, so the admin margin view keeps telling the truth. */
@@ -127,7 +129,7 @@ const toModel = (d: any): MonitorModel => ({
   refreshHz: d.refresh_hz ?? undefined,
   curved: !!d.curved,
   baseType: d.base_type === 'Lifting' ? 'Lifting' : 'Fixed',
-  factoryUsd: Number(d.factory_usd),
+  factoryUsd: d.factory_usd == null ? null : Number(d.factory_usd),
   buyingOverrideKes: d.buying_override_kes == null ? null : Number(d.buying_override_kes),
   panelType: d.panel_type || undefined,
   seriesPublic: d.series_public === true,
@@ -277,12 +279,12 @@ export const updateMonitorShipping = async (
 
 export const updateMonitorModel = async (
   id: string,
-  p: { factoryUsd?: number; imageUrl?: string | null; isActive?: boolean; availableColors?: string[];
+  p: { factoryUsd?: number | null; imageUrl?: string | null; isActive?: boolean; availableColors?: string[];
        /** null clears it and hands the price back to the formula. */
        buyingOverrideKes?: number | null }
 ): Promise<{ success: boolean; error?: string }> => {
   const row: any = {};
-  if (p.factoryUsd !== undefined) row.factory_usd = p.factoryUsd;
+  if (p.factoryUsd !== undefined) row.factory_usd = p.factoryUsd;  // null = cost not known
   if (p.imageUrl !== undefined) row.image_url = p.imageUrl || null;
   if (p.isActive !== undefined) row.is_active = p.isActive;
   if (p.availableColors !== undefined) row.available_colors = p.availableColors;
@@ -310,7 +312,7 @@ export interface PriceResult {
   };
   /** Internal only. Never render this to a buyer: it exposes cost and margin. */
   breakdown: {
-    factoryUsd: number;
+    factoryUsd: number | null;
     alibabaUsd: number;
     crateUsd: number;
     freightUsd: number;
@@ -350,7 +352,11 @@ export const priceMonitor = (
   port?: PortOption,
   color?: MonitorColor
 ): PriceResult => {
-  const factoryUsd = m.factoryUsd;
+  // No quoted cost: the formula has nothing to work from, so only a decided
+  // price can quote this model. Pricing it as if the panel were free would put
+  // a nonsense figure on the page.
+  const factoryUsd = m.factoryUsd ?? 0;
+  const costUnknown = m.factoryUsd == null;
 
   const speakers = (m.refreshHz || 0) >= 165 ? s.speakersHighUsd : s.speakersLowUsd;
   // A lifting base is already height-adjustable, so there's nothing to add.
@@ -378,7 +384,7 @@ export const priceMonitor = (
   const sizeFreight = shipping[sizeGroup(m.sizeInches)] ?? null;
 
   const breakdown = {
-    factoryUsd, alibabaUsd, crateUsd: s.crateUsd, freightUsd: s.freightUsd, inclusionsUsd,
+    factoryUsd: m.factoryUsd, alibabaUsd, crateUsd: s.crateUsd, freightUsd: s.freightUsd, inclusionsUsd,
     marginUsd: s.marginUsd, colorUsd, goodsKES, shippingKES: sizeFreight, configKES, serviceFeeKES: 0,
     /** Set when the buying price was decided by hand rather than calculated. */
     overrideKES: (typeof m.buyingOverrideKes === 'number' && m.buyingOverrideKes > 0)
@@ -398,6 +404,9 @@ export const priceMonitor = (
   // override is really earning.
   const override = m.buyingOverrideKes;
   const hasOverride = typeof override === 'number' && override > 0;
+  if (costUnknown && !hasOverride) {
+    return { unitKES: null, parts: { buyingKES: 0, shippingKES: 0 }, breakdown };
+  }
   const buyingKES = hasOverride ? override : Math.ceil(goodsKES / 100) * 100;
   const shippingKES = Math.ceil((sizeFreight + freightPartKES) / 100) * 100;
   const legacyPct = (buyingKES + shippingKES) * (s.serviceFeePct / 100);

@@ -346,11 +346,19 @@ const MonitorsTab: React.FC = () => {
                         {modelTitle(m)}
                       </td>
                       <td className="px-4 py-3">
+                        {/* Empty means we have no quoted cost for this model —
+                            the 34" 165Hz is in no supplier sheet. Such a model
+                            needs a decided price beside it, and says so rather
+                            than pricing as if the panel were free. */}
                         <input
                           type="number"
                           step="0.01"
-                          value={m.factoryUsd}
-                          onChange={e => patchModel(m.id, { factoryUsd: parseFloat(e.target.value) || 0 })}
+                          placeholder="—"
+                          title={m.factoryUsd == null ? 'No supplier quote for this model. Set a price beside it.' : 'Supplier price per unit'}
+                          value={m.factoryUsd ?? ''}
+                          onChange={e => patchModel(m.id, {
+                            factoryUsd: e.target.value.trim() === '' ? null : (parseFloat(e.target.value) || 0),
+                          })}
                           className="w-24 bg-neutral-50 border border-neutral-100 rounded-lg px-2.5 py-2 text-sm font-bold text-gray-900 outline-none focus:border-[#3D8593]"
                         />
                       </td>
