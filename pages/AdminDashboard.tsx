@@ -42,6 +42,7 @@ import RidersPanel from '../components/RidersPanel';
 import DeliveriesPanel, { DeliveryPrefill } from '../components/DeliveriesPanel';
 import BookingsPanel from '../components/BookingsPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
+import ReceiptsTab from '../components/ReceiptsTab';
 import { effectiveStock } from '../utils/productPricing';
 import { collectedKES, outstandingKES, sumCollected, sumInvoiced, sumOutstanding } from '../utils/invoiceMoney';
 import SupervisorPanel from '../components/SupervisorPanel';
@@ -404,6 +405,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'content', name: 'Blog Content', group: 'Operations', icon: <List className="w-4 h-4" /> },
     { id: 'pricelist', name: 'Phone Price Sync', group: 'Operations', icon: <RefreshCcw className="w-4 h-4" /> },
     { id: 'books', name: 'eBooks', group: 'Operations', icon: <Book className="w-4 h-4" /> },
+    // Paid orders and whether the customer actually has their receipt. The ✉
+    // on an order row still sends one; this is where you can see who is missing it.
+    { id: 'receipts', name: 'Receipts', group: 'Operations', icon: <FileText className="w-4 h-4" /> },
     { id: 'emails', name: 'Sent Emails', group: 'Operations', icon: <Mail className="w-4 h-4" /> },
     { id: 'security', name: 'Security', group: 'System', icon: <Lock className="w-4 h-4" /> },
     { id: 'card', name: 'Business Card', group: 'System', icon: <CreditCard className="w-4 h-4" /> },
@@ -3326,6 +3330,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'monitors' && <MonitorsTab />}
 
         {activeTab === 'chairs' && <ChairsTab />}
+
+        {activeTab === 'receipts' && <ReceiptsTab invoices={invoices} />}
 
         {activeTab === 'emails' && <SentEmailsTab />}
 
