@@ -43,6 +43,7 @@ import DeliveriesPanel, { DeliveryPrefill } from '../components/DeliveriesPanel'
 import BookingsPanel from '../components/BookingsPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import ReceiptsTab from '../components/ReceiptsTab';
+import { serviceFeeFor, serviceFeeBasis, looksLikeBusinessGoods } from '../utils/serviceFee';
 import { effectiveStock } from '../utils/productPricing';
 import { collectedKES, feeMissing, outstandingKES, sumCollected, sumFeesEarned, sumInvoiced, sumOutstanding } from '../utils/invoiceMoney';
 import SupervisorPanel from '../components/SupervisorPanel';
@@ -438,6 +439,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   /** Deposit taken at the point the order is created, when it's part-paid. */
   const [manualOrderPaidAmount, setManualOrderPaidAmount] = useState('');
   const [manualOrderCurrency, setManualOrderCurrency] = useState<'KES' | 'USD'>('KES');
+  /** Business goods and work machines carry the higher rate — see utils/serviceFee. */
+  const [manualFeeBusiness, setManualFeeBusiness] = useState(false);
+  const [amendFeeBusiness, setAmendFeeBusiness] = useState(false);
   // Receipt form. "Sum in words" writes itself from the amount received, but
   // stays fully editable — once it's been hand-edited we stop overwriting it.
   const [receiptAmount, setReceiptAmount] = useState('');
@@ -4280,6 +4284,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const inputCls = "w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 font-semibold text-sm text-gray-900 outline-none focus:border-[#3D8593] focus:bg-white transition-colors placeholder:text-neutral-300 placeholder:font-medium";
         const labelCls = "text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5";
         const itemsTotal = manualOrderItems.reduce((acc, item) => acc + (item.priceKES || 0) * (item.quantity || 1), 0);
+
+        /**
+         * The fee is a percentage of the GOODS — not of the total, which would
+         * charge the customer a fee on his own freight, and not of itself.
+         */
+        const isFeeLine = (n: string) => /\b(service|handling|commission|agent)\s*fee\b/i.test(n || '');
+        const isShipLine = (n: string) => /shipping|freight|delivery/i.test(n || '');
+        const manualGoodsTotal = manualOrderItems
+          .filter(i => !isFeeLine(i.name) && !isShipLine(i.name))
+          .reduce((acc, i) => acc + (i.priceKES || 0) * (i.quantity || 1), 0);
+        const hasFeeLine = manualOrderItems.some(i => isFeeLine(i.name));
+        const manualFeeSuggestion = serviceFeeFor(manualGoodsTotal, manualFeeBusiness);
+
+        /** Add the fee line, or correct the one already there. */
+        const applyServiceFee = (business: boolean) => {
+          const amount = serviceFeeFor(manualGoodsTotal, business);
+          setManualOrderItems(prev => {
+            const cleaned = prev.filter(i => i.name.trim() || i.priceKES);
+            return cleaned.some(i => isFeeLine(i.name))
+              ? cleaned.map(i => (isFeeLine(i.name) ? { ...i, priceKES: amount, quantity: 1, tbd: false } : i))
+              : [...cleaned, { name: 'Service fee', quantity: 1, priceKES: amount }];
+          });
+        };
         return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-300 relative max-h-[92vh] flex flex-col overflow-hidden">
@@ -4353,11 +4380,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     + Shipping fee (TBD)
                   </button>
                   <button type="button"
-                    onClick={() => setManualOrderItems([...manualOrderItems.filter(i => i.name.trim() || i.priceKES), { name: 'Service fee', quantity: 1, priceKES: 0 }])}
-                    className="px-3 py-1.5 rounded-full border border-neutral-200 text-[9px] font-black uppercase tracking-widest text-neutral-500 hover:border-[#3D8593] hover:text-[#3D8593]">
-                    + Service fee
+                    onClick={() => applyServiceFee(manualFeeBusiness)}
+                    className="px-3 py-1.5 rounded-full border border-[#3D8593] bg-[#3D8593]/5 text-[9px] font-black uppercase tracking-widest text-[#3D8593] hover:bg-[#3D8593] hover:text-white">
+                    + Service fee {manualFeeSuggestion > 0 ? `· ${manualOrderCurrency} ${manualFeeSuggestion.toLocaleString()}` : ''}
                   </button>
+                  <label className={`px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest cursor-pointer select-none flex items-center gap-1.5 ${manualFeeBusiness
+                    ? 'border-[#FF9900] bg-[#FF9900]/10 text-[#b36b00]'
+                    : 'border-neutral-200 text-neutral-500 hover:border-[#FF9900] hover:text-[#FF9900]'}`}>
+                    <input type="checkbox" checked={manualFeeBusiness}
+                      onChange={e => { setManualFeeBusiness(e.target.checked); if (hasFeeLine) applyServiceFee(e.target.checked); }}
+                      className="accent-[#FF9900]" />
+                    Business goods
+                  </label>
                 </div>
+                {/* The fee is the only part of this invoice he keeps, and it was
+                    being typed from memory — 74 of 95 orders this year came in
+                    under the rate his own site publishes. */}
+                <p className="text-[10px] font-bold text-gray-400 mb-3">
+                  {serviceFeeBasis(manualGoodsTotal, manualFeeBusiness)}
+                  {!manualFeeBusiness && looksLikeBusinessGoods(manualOrderItems.map(i => i.name).join(' ')) && (
+                    <span className="text-[#FF9900]"> · this looks like a work machine — tick Business goods</span>
+                  )}
+                </p>
                 <div className="space-y-3">
                   {manualOrderItems.map((item, idx) => (
                     <div key={idx} className="bg-neutral-50/60 border border-neutral-100 rounded-xl p-2.5 space-y-2 relative">
@@ -5824,6 +5868,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const inputCls = "w-full bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-2.5 font-semibold text-sm text-gray-900 outline-none focus:border-[#3D8593] focus:bg-white transition-colors placeholder:text-neutral-300 placeholder:font-medium";
         const labelCls = "text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-1.5";
         const itemsTotal = amendItems.reduce((acc, i) => acc + (i.priceKES || 0) * (i.quantity || 1), 0);
+
+        const isAmendFee = (n: string) => /\b(service|handling|commission|agent)\s*fee\b/i.test(n || '');
+        const isAmendShip = (n: string) => /shipping|freight|delivery/i.test(n || '');
+        const amendGoodsTotal = amendItems
+          .filter(i => !isAmendFee(i.name) && !isAmendShip(i.name))
+          .reduce((acc, i) => acc + (i.priceKES || 0) * (i.quantity || 1), 0);
+        const amendHasFee = amendItems.some(i => isAmendFee(i.name));
+        const amendFeeSuggestion = serviceFeeFor(amendGoodsTotal, amendFeeBusiness);
+        const applyAmendFee = (business: boolean) => {
+          const amount = serviceFeeFor(amendGoodsTotal, business);
+          setAmendItems(prev => (prev.some(i => isAmendFee(i.name))
+            ? prev.map(i => (isAmendFee(i.name) ? { ...i, priceKES: amount, quantity: 1, tbd: false } : i))
+            : [...prev, { name: 'Service fee', quantity: 1, priceKES: amount }]));
+        };
         const patchItem = (idx: number, patch: Partial<InvoiceItem>) =>
           setAmendItems(prev => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
@@ -5946,6 +6004,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button type="button" onClick={() => setAmendItems([...amendItems, { name: '', quantity: 1, priceKES: 0 }])} className="text-[10px] font-black uppercase tracking-widest text-[#3D8593] hover:text-[#2d626c] flex items-center gap-1">
                     <Plus className="w-3 h-3" /> Add line
                   </button>
+                </div>
+                {/* The same rate card as a new order, so an old invoice can be
+                    put right without working the percentage out by hand. */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                  <button type="button"
+                    onClick={() => applyAmendFee(amendFeeBusiness)}
+                    className="px-3 py-1.5 rounded-full border border-[#3D8593] bg-[#3D8593]/5 text-[9px] font-black uppercase tracking-widest text-[#3D8593] hover:bg-[#3D8593] hover:text-white">
+                    {amendHasFee ? 'Correct' : '+'} service fee · {amendCurrency} {amendFeeSuggestion.toLocaleString()}
+                  </button>
+                  <label className={`px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest cursor-pointer select-none flex items-center gap-1.5 ${amendFeeBusiness
+                    ? 'border-[#FF9900] bg-[#FF9900]/10 text-[#b36b00]'
+                    : 'border-neutral-200 text-neutral-500 hover:border-[#FF9900] hover:text-[#FF9900]'}`}>
+                    <input type="checkbox" checked={amendFeeBusiness}
+                      onChange={e => setAmendFeeBusiness(e.target.checked)} className="accent-[#FF9900]" />
+                    Business goods
+                  </label>
+                  <span className="text-[10px] font-bold text-gray-400">
+                    {serviceFeeBasis(amendGoodsTotal, amendFeeBusiness)}
+                  </span>
                 </div>
                 <div className="space-y-3">
                   {amendItems.map((item, idx) => (

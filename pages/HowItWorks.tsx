@@ -9,6 +9,7 @@ import { WHATSAPP_NUMBER } from '../constants';
 import { Reveal } from '../components/Motion';
 import { getPricing } from '../utils/delivery';
 import { loadDeliveryPricing } from '../services/deliveryPricing';
+import { FEE_CARD_TEXT } from '../utils/serviceFee';
 
 /**
  * The one link Dennis sends when a client asks "how does this work?"
@@ -45,7 +46,7 @@ const feeParts = [
     Icon: HandCoins,
     title: 'Service Fee',
     lead: 'Our sourcing fee',
-    desc: 'From KES 3,000 — or KES 3,500 for business goods and work machines. Above KES 100,000 it becomes 5% of the buying price, or 7% for business goods.'
+    desc: FEE_CARD_TEXT
   },
 ];
 
