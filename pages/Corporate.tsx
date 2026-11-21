@@ -1,27 +1,35 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowRight, CheckCircle, CircleNotch, Factory, Truck, ShieldCheck,
+  ArrowRight, CircleNotch, Factory, Truck, ShieldCheck,
   SealCheck, ArrowLeft, Buildings, WarningCircle, WhatsappLogo, Cube,
-  Receipt, FileXls, HardHat, Scales, ClipboardText, CaretDown
+  Receipt, HardHat, Scales, ClipboardText
 } from '@phosphor-icons/react';
-import {
-  CorporateCategory, fetchCorporateCategories, submitCorporateQuote, notifyCorporateQuote
-} from '../services/corporate';
+import { submitCorporateQuote, notifyCorporateQuote } from '../services/corporate';
 import { normalizeKenyanPhone } from '../utils/phone';
 import { Reveal, CountUp } from '../components/Motion';
-import ChairCatalog, { ChairOrder } from '../components/ChairCatalog';
 
-/** The catalogue line these quantities belong to. */
-const CHAIR_CATEGORY = 'Ergonomic Chairs';
+/**
+ * /corporate — bulk sourcing, by brief.
+ *
+ * It used to list what we source, with a fourteen-model chair catalogue and an
+ * instant estimate. That came off on 2026-11-21: the goods are the same ones
+ * sold as singles, only quoted by the dozen, so a separate catalogue was a
+ * second list to keep true and it said less than a sentence from the buyer
+ * would. What a volume buyer actually needs is a way to say what they want and
+ * how many — and a figure back within a day.
+ *
+ * The chair pricing is untouched in Admin → Chairs, so the catalogue can be
+ * brought back if he ever wants it.
+ */
 
 const WHATSAPP = '254791873538';
 
 const QTY_BANDS = [
-  { id: '5-10', label: '5 – 10 units', low: 5, high: 10 },
-  { id: '10-25', label: '10 – 25 units', low: 10, high: 25 },
-  { id: '25-50', label: '25 – 50 units', low: 25, high: 50 },
-  { id: '50+', label: '50+ units', low: 50, high: 50 },
+  { id: '5-10', label: '5 – 10 units' },
+  { id: '10-25', label: '10 – 25 units' },
+  { id: '25-50', label: '25 – 50 units' },
+  { id: '50+', label: '50+ units' },
 ];
 
 const BUDGET_BANDS = ['Under KES 500,000', 'KES 500,000 – 2M', 'KES 2M – 5M', 'Over KES 5M', 'Not yet defined'];
@@ -66,13 +74,11 @@ const PRICE_PARTS = [
 ];
 
 const PROCESS = [
-  { n: '01', title: 'Identify', body: 'Your name, company or project, and a working email. Two minutes, once.' },
-  { n: '02', title: 'Build volumes', body: 'Pick your lines and set quantities against each one. Specifications, MOQ and freight are on the page.' },
-  { n: '03', title: 'Firm quote', body: 'We confirm factory availability, production time and lead time, then issue a landed-cost quotation within one business day.' },
+  { n: '01', title: 'Send the brief', body: 'What you need and roughly how many. Models and specifications if you have them, a description if you don’t.' },
+  { n: '02', title: 'We source it', body: 'We find it at the factory, confirm availability, production time and carton volume.' },
+  { n: '03', title: 'Firm quote', body: 'A landed-cost quotation within one business day — goods, freight, clearing and our fee, itemised.' },
   { n: '04', title: 'Production to door', body: 'Sampling and pre-shipment inspection, freight, clearing, then delivery to your site.' },
 ];
-
-const money = (n: number) => `KES ${Math.round(n).toLocaleString('en-US')}`;
 
 // Native dropdowns paint their popup from the element's own colours, so options
 // are forced back to light — otherwise they render dark-on-dark.
@@ -89,24 +95,11 @@ const SectionRule: React.FC<{ n: string; children: React.ReactNode }> = ({ n, ch
 );
 
 const Corporate: React.FC = () => {
-  const [categories, setCategories] = useState<CorporateCategory[]>([]);
   const [step, setStep] = useState<1 | 2>(1);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
-  const catalogRef = useRef<HTMLDivElement>(null);
-
-  /** What they configured in the chair catalogue. */
-  const [chairOrder, setChairOrder] = useState<ChairOrder | null>(null);
-  /** How many chair models exist. Zero before the migration is run. */
-  const [chairCount, setChairCount] = useState(0);
-  /** A few chair photos for the closed category row. */
-  const [chairThumbs, setChairThumbs] = useState<string[]>([]);
-  /** Which sourcing line is expanded. One at a time, all shut to begin with. */
-  const [openCategory, setOpenCategory] = useState<string | null>(null);
-  /** Prices unlock once they have told us who they are — specs never lock. */
-  const [identified, setIdentified] = useState(false);
 
   // Step 1 — who they are
   const [buyerType, setBuyerType] = useState<'business' | 'project'>('business');
@@ -116,96 +109,39 @@ const Corporate: React.FC = () => {
   const [whatsapp, setWhatsapp] = useState('');
   const [location, setLocation] = useState('');
 
-  // Step 2 — what they need
-  const [picked, setPicked] = useState<string[]>([]);
+  // Step 2 — what they need. No list to tick: the goods are the same ones we
+  // sell as singles, so what matters is what THEY want and how many.
+  const [needs, setNeeds] = useState('');
   const [qtyBand, setQtyBand] = useState('');
   const [budget, setBudget] = useState('');
   const [timeline, setTimeline] = useState('');
-  const [notes, setNotes] = useState('');
-
-  const [catsLoaded, setCatsLoaded] = useState(false);
-  useEffect(() => {
-    fetchCorporateCategories()
-      .then(setCategories)
-      .catch(() => {})
-      .finally(() => setCatsLoaded(true));
-  }, []);
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const step1Valid = !!fullName.trim() && !!businessName.trim() && emailValid;
+  const step2Valid = needs.trim().length > 3 && !!qtyBand && !!timeline;
 
-  /** Chairs configured in the catalogue count as a line, and carry their own
-   *  quantity — so neither has to be re-entered in the form. */
-  const chairQty = chairOrder?.lines.reduce((n, l) => n + l.qty, 0) || 0;
-  const hasChairs = chairQty > 0;
-
-  // A category is required only when there are categories to choose from — if
-  // none are configured yet, the specifications box carries the request.
-  const step2Valid = (picked.length > 0 || hasChairs || (catsLoaded && categories.length === 0))
-    && (!!qtyBand || hasChairs) && !!timeline;
-
-  const chosen = useMemo(() => categories.filter(c => picked.includes(c.name)), [categories, picked]);
-  const band = QTY_BANDS.find(b => b.id === qtyBand);
-
-  /** The band their configured schedule falls into, when they used the catalogue. */
-  const effectiveBand = hasChairs
-    ? (chairQty >= 50 ? '50+' : chairQty >= 25 ? '25-50' : chairQty >= 10 ? '10-25' : '5-10')
-    : qtyBand;
-
-  /** Highest MOQ among what they picked — the real "worth my time" threshold. */
-  const requiredMoq = chosen.length ? Math.max(...chosen.map(c => c.moq || 0)) : 0;
-  const belowMoq = hasChairs
-    ? requiredMoq > 0 && chairQty < requiredMoq
-    : !!band && requiredMoq > 0 && band.high < requiredMoq;
-
-  /** Indicative landed range — only from categories you've actually priced. */
-  const estimate = useMemo(() => {
-    const priced = chosen.filter(c => (c.minKES || 0) > 0 && (c.maxKES || 0) > 0);
-    if (!priced.length || !band) return null;
-    const low = Math.min(...priced.map(c => c.minKES!));
-    const high = Math.max(...priced.map(c => c.maxKES!));
-    return { priced, unitLow: low, unitHigh: high, totalLow: low * band.low, totalHigh: high * band.high };
-  }, [chosen, band]);
-
-  // Researchers and below-minimum enquiries are logged but never interrupt you.
-  const leadQuality: 'priority' | 'low' = (timeline === 'researching' || belowMoq) ? 'low' : 'priority';
+  // Researchers are logged but never interrupt him.
+  const leadQuality: 'priority' | 'low' = timeline === 'researching' ? 'low' : 'priority';
 
   const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  /** Jump to the chair line and open it — scrolling to a shut row would look
-   *  like the button did nothing. */
-  const scrollToCatalog = () => {
-    setOpenCategory(CHAIR_CATEGORY);
-    requestAnimationFrame(() => catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  };
 
   const handleSubmit = async () => {
     if (!step2Valid || submitting) return;
     setSubmitting(true);
     setError(null);
 
-    // A configured schedule implies the chair line even if they never ticked it.
-    const categoriesOut = hasChairs && !picked.includes(CHAIR_CATEGORY)
-      ? [...picked, CHAIR_CATEGORY]
-      : picked;
-
-    // A priced schedule is an exact figure, so it beats the category band.
-    const exact = chairOrder?.priced ? chairOrder.totalKES : undefined;
-
     const payload = {
       fullName, businessName, email,
       whatsapp: whatsapp.trim() ? normalizeKenyanPhone(whatsapp) : undefined,
       location: location.trim() || undefined,
-      categories: categoriesOut,
-      quantityBand: effectiveBand || undefined,
+      // Their own words are the brief now. Kept as a category too, so the
+      // dashboard's list of what people ask for still fills itself in.
+      categories: [needs.trim().slice(0, 80)],
+      quantityBand: qtyBand || undefined,
       budgetBand: budget || undefined,
       timeline,
-      notes: notes.trim() || undefined,
+      notes: needs.trim(),
       buyerType,
-      lineItems: chairOrder?.lines.map(l => ({
-        code: l.modelCode, name: l.name, color: l.color, qty: l.qty, unitKES: l.unitKES,
-      })),
-      estimateLow: exact ?? estimate?.totalLow,
-      estimateHigh: exact ?? estimate?.totalHigh,
       leadQuality,
     };
 
@@ -217,9 +153,6 @@ const Corporate: React.FC = () => {
     setSubmitting(false);
     setDone(true);
   };
-
-  const toggle = (name: string) =>
-    setPicked(p => p.includes(name) ? p.filter(x => x !== name) : [...p, name]);
 
   const orgLabel = buyerType === 'business' ? 'Business name' : 'Project name';
 
@@ -253,14 +186,15 @@ const Corporate: React.FC = () => {
           </p>
 
           <h1 className="font-black uppercase tracking-tighter leading-[0.92] max-w-4xl mb-7 text-[2.6rem] sm:text-6xl md:text-7xl">
-            Buy at factory<br />
-            <span className="text-[#7fc2ce]">volume.</span> Land it<br />
-            at your site.
+            Tell us what<br />
+            <span className="text-[#7fc2ce]">you need.</span> We land<br />
+            it at your site.
           </h1>
 
           <p className="text-base md:text-lg text-white/70 font-light leading-relaxed max-w-xl mb-9">
-            Direct-from-factory sourcing for offices, developments and fit-out projects —
-            costed per unit, freighted by volume, cleared and delivered as one landed figure.
+            Anything we sell as a single, we source by the dozen — and most of what we source
+            was never on a list to begin with. Send the brief; a landed-cost quote follows
+            within one business day.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3.5">
@@ -268,7 +202,7 @@ const Corporate: React.FC = () => {
               onClick={scrollToForm}
               className="btn-vibrant-orange shine inline-flex items-center justify-center gap-3 px-9 py-4.5 rounded-full font-black uppercase text-[11px] tracking-widest"
             >
-              Start a bulk quote <ArrowRight size={16} weight="bold" />
+              Send your brief <ArrowRight size={16} weight="bold" />
             </button>
             <a
               href={`https://wa.me/${WHATSAPP}`}
@@ -358,137 +292,9 @@ const Corporate: React.FC = () => {
         </p>
       </section>
 
-      {/* ---------------- 03 · WHAT WE SOURCE ---------------- */}
-      {/* One row per line. Open a line to see its models; everything else stays
-          shut, so a fourteen-model catalogue never buries the line beneath it. */}
-      <section ref={catalogRef} className="max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20 scroll-mt-16">
-        <SectionRule n="03">What we source</SectionRule>
-        <p className="text-sm text-white/55 font-light leading-relaxed max-w-2xl mb-8">
-          Open a line to see the models, the carton volumes and the minimums. Set quantities as you go and
-          your schedule builds itself — nothing here is held in stock, which is exactly why the price works
-          at volume.
-        </p>
-
-        <div className="space-y-3">
-          {categories.map((c, i) => {
-            const open = openCategory === c.name;
-            const hasCatalog = c.name === CHAIR_CATEGORY && chairCount > 0;
-            const picked = c.name === CHAIR_CATEGORY ? chairQty : 0;
-
-            return (
-              <Reveal key={c.id} delay={i * 60}>
-                <div className={`rounded-xl border overflow-hidden transition-colors ${open ? 'border-[#3D8593]/60 bg-white/[0.03]' : 'border-white/10 bg-white/[0.02] hover:border-white/25'}`}>
-                  <button
-                    onClick={() => setOpenCategory(open ? null : c.name)}
-                    aria-expanded={open}
-                    className="w-full text-left p-5 md:p-6 flex items-center gap-5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="text-base font-bold">{c.name}</h3>
-                        {hasCatalog && (
-                          <span className="tnum eyebrow text-[#FF9900]">{chairCount} models</span>
-                        )}
-                        {picked > 0 && (
-                          <span className="tnum eyebrow text-[#7fc2ce]">· {picked} selected</span>
-                        )}
-                      </div>
-                      {c.blurb && <p className="text-sm text-white/55 font-light leading-relaxed mt-1.5">{c.blurb}</p>}
-                      <p className="tnum eyebrow text-white/35 mt-2.5">
-                        {hasCatalog ? `Min order · ${c.moq} units · Priced on this page` : `Min order · ${c.moq} units · Quoted to your brief`}
-                      </p>
-                    </div>
-
-                    {/* A glance at the range, without opening anything */}
-                    {hasCatalog && chairThumbs.length > 0 && !open && (
-                      <div className="hidden sm:flex items-center -space-x-3 shrink-0">
-                        {chairThumbs.map(src => (
-                          <span key={src} className="w-11 h-11 rounded-lg bg-white border border-white/10 overflow-hidden flex items-center justify-center">
-                            <img src={src} alt="" loading="lazy" className="max-h-full max-w-full object-contain" />
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <CaretDown
-                      size={18}
-                      weight="bold"
-                      className={`shrink-0 transition-transform ${open ? 'rotate-180 text-[#7fc2ce]' : 'text-white/35'}`}
-                    />
-                  </button>
-
-                  {/* Mounted even while shut, so the count and the thumbnails
-                      above are real rather than a promise. */}
-                  {c.name === CHAIR_CATEGORY && (
-                    <div className={`px-5 md:px-6 pb-6 ${open && hasCatalog ? '' : 'hidden'}`}>
-                      <ChairCatalog
-                        identified={identified}
-                        onUnlock={scrollToForm}
-                        onChange={setChairOrder}
-                        onReady={(info) => { setChairCount(info.count); setChairThumbs(info.thumbs); }}
-                      />
-                    </div>
-                  )}
-
-                  {open && !hasCatalog && (
-                    <div className="px-5 md:px-6 pb-6">
-                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-5">
-                        <p className="text-sm text-white/60 font-light leading-relaxed">
-                          This line is sourced to your specification rather than from a fixed list — tell us the
-                          models, sizes and quantities you need in the brief below and we will come back with a
-                          landed-cost quotation within one business day.
-                        </p>
-                        <button
-                          onClick={scrollToForm}
-                          className="mt-3.5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:text-white transition-colors"
-                        >
-                          Brief us on this line <ArrowRight size={13} weight="bold" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Reveal>
-            );
-          })}
-
-          {/* The all-in-one route — anything not on the list */}
-          <Reveal delay={categories.length * 60}>
-            <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-5 md:p-6">
-              <div className="flex items-start gap-4">
-                <FileXls size={24} weight="duotone" className="text-[#FF9900] shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <h3 className="text-base font-bold mb-2">Not on the list?</h3>
-                  <p className="text-sm text-white/55 font-light leading-relaxed mb-4">
-                    Send us your own schedule — item, quantity and your target price per unit — and we will
-                    source against it. Forty lines is as easy as one.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-5">
-                    <button
-                      onClick={scrollToForm}
-                      className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#FF9900] hover:text-white transition-colors"
-                    >
-                      Send your schedule <ArrowRight size={13} weight="bold" />
-                    </button>
-                    <a
-                      href={`https://wa.me/${WHATSAPP}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/45 hover:text-[#7fc2ce] transition-colors"
-                    >
-                      <WhatsappLogo size={14} weight="fill" /> Or ask on WhatsApp
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ---------------- 04 · THE PROCESS ---------------- */}
+      {/* ---------------- 03 · THE PROCESS ---------------- */}
       <section className="max-w-6xl mx-auto px-5 md:px-6 pt-16 md:pt-20">
-        <SectionRule n="04">How it runs</SectionRule>
+        <SectionRule n="03">How it runs</SectionRule>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 border-t border-white/10">
           {PROCESS.map(({ n, title, body }, i) => (
             <Reveal key={n} delay={i * 90}>
@@ -500,11 +306,15 @@ const Corporate: React.FC = () => {
             </Reveal>
           ))}
         </div>
+        <p className="text-sm text-white/50 font-light leading-relaxed mt-6 max-w-2xl">
+          No catalogue to work through, and nothing is held in stock — which is exactly why the price works at
+          volume. If you can describe it, we can price it.
+        </p>
       </section>
 
       {/* ---------------- QUOTE FORM ---------------- */}
       <section ref={formRef} className="max-w-2xl mx-auto px-5 md:px-6 pt-16 md:pt-20 pb-24 scroll-mt-16">
-        <SectionRule n="05">Request your quote</SectionRule>
+        <SectionRule n="04">Request your quote</SectionRule>
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
           {done ? (
             <div className="p-8 md:p-14 text-center">
@@ -513,7 +323,7 @@ const Corporate: React.FC = () => {
               <p className="text-white/60 font-light leading-relaxed max-w-md mx-auto mb-8">
                 {leadQuality === 'low'
                   ? 'We’ve sent our indicative pricing to your inbox. When you’re ready to move on volumes, reply to that email and we’ll prepare a formal landed-cost quotation.'
-                  : 'Our procurement team will confirm factory availability and lead times, then issue a formal landed-cost quotation within one business day. A confirmation is already in your inbox.'}
+                  : 'We’ll confirm factory availability and lead times, then issue a formal landed-cost quotation within one business day. A confirmation is already in your inbox.'}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-5">
                 <a
@@ -605,7 +415,7 @@ const Corporate: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => { setIdentified(true); setStep(2); }}
+                      onClick={() => setStep(2)}
                       disabled={!step1Valid}
                       className="btn-vibrant-orange w-full mt-2 py-4 rounded-full font-black uppercase text-[11px] tracking-widest disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
@@ -617,80 +427,26 @@ const Corporate: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-7">
-                    {/* What they built in the catalogue rides along with the brief */}
-                    {hasChairs ? (
-                      <div className="rounded-lg border border-[#FF9900]/35 bg-[#FF9900]/[0.07] p-4">
-                        <p className="eyebrow text-[#FF9900] mb-2.5">Your chair schedule</p>
-                        <p className="tnum text-sm text-white/75 font-light leading-relaxed">
-                          <strong className="font-bold text-white">{chairQty} chairs</strong> across{' '}
-                          {chairOrder!.lines.length} model{chairOrder!.lines.length === 1 ? '' : 's'}
-                          {chairOrder!.priced && <> · {money(chairOrder!.totalKES)} landed</>}
-                        </p>
-                        <button
-                          onClick={scrollToCatalog}
-                          className="mt-2.5 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/50 hover:text-[#FF9900] transition-colors"
-                        >
-                          Edit the schedule <ArrowRight size={12} weight="bold" />
-                        </button>
-                      </div>
-                    ) : chairCount > 0 ? (
-                      <button
-                        onClick={scrollToCatalog}
-                        className="w-full text-left rounded-lg border border-dashed border-white/20 bg-white/[0.02] p-4 hover:border-[#3D8593]/60 transition-colors"
-                      >
-                        <p className="text-sm font-bold mb-1">Need chairs? Build the schedule.</p>
-                        <p className="text-xs text-white/50 font-light leading-relaxed">
-                          {chairCount} ergonomic models are priced on this page — set quantities and they come
-                          through with your brief.
-                        </p>
-                      </button>
-                    ) : null}
-
-                    {/* Categories */}
+                    {/* Their own words. A list of lines to tick told them less
+                        than a sentence from them tells us. */}
                     <div>
-                      <span className={labelCls}>What are you sourcing? *</span>
-                      <div className="space-y-2.5">
-                        {!catsLoaded && (
-                          <p className="text-sm text-white/40 font-light">Loading lines…</p>
-                        )}
-                        {catsLoaded && categories.length === 0 && (
-                          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
-                            <p className="text-sm text-white/60 font-light leading-relaxed">
-                              Tell us what you need in the specifications box below and we’ll quote it — or{' '}
-                              <a href={`https://wa.me/${WHATSAPP}`} target="_blank" rel="noopener noreferrer" className="underline decoration-[#FF9900]/60 hover:text-[#FF9900] transition-colors">message us directly</a>.
-                            </p>
-                          </div>
-                        )}
-                        {categories.map(c => {
-                          const on = picked.includes(c.name);
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => toggle(c.name)}
-                              aria-pressed={on}
-                              className={`w-full text-left flex items-start gap-3.5 rounded-lg border p-4 transition-all ${on ? 'border-[#3D8593] bg-[#3D8593]/15' : 'border-white/10 hover:border-white/30'}`}
-                            >
-                              <span className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${on ? 'bg-[#3D8593] border-[#3D8593]' : 'border-white/25'}`}>
-                                {on && <CheckCircle size={14} weight="fill" className="text-white" />}
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block text-sm font-bold">{c.name}</span>
-                                {c.blurb && <span className="block text-xs text-white/55 font-light mt-0.5">{c.blurb}</span>}
-                                {c.moq > 0 && <span className="block tnum eyebrow text-[#FF9900] mt-1.5">Min {c.moq} units</span>}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <label className={labelCls} htmlFor="c-needs">What are you sourcing? *</label>
+                      <textarea
+                        id="c-needs" rows={5} className={`${field} resize-none`}
+                        value={needs} onChange={e => setNeeds(e.target.value)}
+                        placeholder="e.g. 30 ergonomic office chairs, mesh back, black — and 12 monitors, 27 inch. Models, sizes, colours, branding, deadlines, or paste a schedule."
+                      />
+                      <p className="text-[11px] text-white/40 font-medium mt-2">
+                        Anything we sell as a single we can quote in volume, and plenty we don’t list at all.
+                        If you have a schedule, paste it here.
+                      </p>
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-5">
                       <div>
-                        <label className={labelCls} htmlFor="c-qty">
-                          {hasChairs ? 'Quantity beyond the chairs' : 'Estimated quantity *'}
-                        </label>
+                        <label className={labelCls} htmlFor="c-qty">Roughly how many *</label>
                         <select id="c-qty" className={field} value={qtyBand} onChange={e => setQtyBand(e.target.value)}>
-                          <option value="">{hasChairs ? 'Chairs only' : 'Select…'}</option>
+                          <option value="">Select…</option>
                           {QTY_BANDS.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
                         </select>
                       </div>
@@ -711,46 +467,11 @@ const Corporate: React.FC = () => {
                       </select>
                     </div>
 
-                    {/* Below-minimum notice — honest, not a dead end */}
-                    {belowMoq && (
-                      <div className="flex items-start gap-3 bg-[#FF9900]/10 border border-[#FF9900]/30 rounded-lg p-4">
-                        <WarningCircle size={18} weight="duotone" className="text-[#FF9900] shrink-0 mt-0.5" />
-                        <p className="text-sm text-white/70 font-light leading-relaxed">
-                          Our minimum for this line is <strong className="tnum font-bold text-[#FF9900]">{requiredMoq} units</strong>. You’re welcome to
-                          submit — we’ll send indicative pricing — but smaller orders are usually better served through our{' '}
-                          <Link to="/shop" className="underline decoration-[#FF9900]/60 hover:text-[#FF9900] transition-colors">retail shop</Link>.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Indicative landed cost — only from categories you've priced */}
-                    {estimate && (
-                      <div className="rounded-xl border border-[#3D8593]/40 bg-[#3D8593]/10 p-6">
-                        <p className="eyebrow text-[#7fc2ce] mb-4">Indicative landed cost</p>
-                        <div className="space-y-2.5 mb-5">
-                          {estimate.priced.map(c => (
-                            <div key={c.id} className="flex justify-between items-baseline gap-4 text-sm">
-                              <span className="text-white/60 font-light">{c.name}</span>
-                              <span className="tnum font-bold whitespace-nowrap">{money(c.minKES!)} – {money(c.maxKES!)}<span className="text-white/45 font-medium text-xs"> /unit</span></span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex justify-between items-baseline gap-4 pt-4 border-t border-white/10">
-                          <span className="eyebrow text-white/60">Order value</span>
-                          <span className="tnum text-lg font-black tracking-tight text-[#FF9900]">{money(estimate.totalLow)} – {money(estimate.totalHigh)}</span>
-                        </div>
-                        <p className="text-[11px] text-white/45 font-light leading-relaxed mt-4">
-                          Landed to Nairobi, inclusive of freight and clearing. Indicative only — your formal quotation confirms
-                          the exact mix, specification and final figure.
-                        </p>
-                      </div>
-                    )}
-
-                    <div>
-                      <label className={labelCls} htmlFor="c-notes">Specifications, schedule or branding</label>
-                      <textarea id="c-notes" rows={4} className={`${field} resize-none`} value={notes} onChange={e => setNotes(e.target.value)}
-                        placeholder="Models, sizes, colours, logo branding, site deadlines — or paste your schedule here." />
-                    </div>
+                    <p className="text-sm text-white/50 font-light leading-relaxed">
+                      Buying one or two rather than a dozen? Our{' '}
+                      <Link to="/shop" className="underline decoration-[#FF9900]/60 hover:text-[#FF9900] transition-colors">retail shop</Link>{' '}
+                      is the quicker route — same goods, priced per unit.
+                    </p>
 
                     <div className="flex gap-3">
                       <button onClick={() => setStep(1)}

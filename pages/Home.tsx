@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight, ArrowUpRight, MagnifyingGlass, Handshake, AirplaneTilt,
-  Package, SealCheck, Star, Quotes, Storefront, Calculator, Phone
+  Package, SealCheck, Star, Quotes, Storefront, Calculator, Phone, Buildings
 } from '@phosphor-icons/react';
 import SafeImage from '../components/SafeImage';
 import { Reveal, CountUp } from '../components/Motion';
@@ -110,6 +110,42 @@ const Home: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          SOURCING IN BULK — a line, not a catalogue
+          Businesses buy the same goods as everyone else, only by the
+          dozen, so there is nothing to list: what they need is somewhere
+          to say what they want and how many.
+         ============================================================ */}
+      <section className="px-6 pt-10">
+        <div className="max-w-7xl mx-auto">
+          <Reveal>
+            <Link
+              to="/corporate"
+              className="group block rounded-[1.75rem] border border-[#3D8593]/25 bg-[#3D8593]/[0.06] p-6 md:p-7 hover:border-[#3D8593]/60 hover:bg-[#3D8593]/[0.1] transition-colors"
+            >
+              <div className="flex flex-wrap items-center gap-5">
+                <span className="w-12 h-12 rounded-2xl bg-[#3D8593] text-white flex items-center justify-center shrink-0">
+                  <Buildings size={22} weight="duotone" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="eyebrow text-[#3D8593] mb-1.5">Sourcing for a business or a project?</p>
+                  <p className="text-lg md:text-xl font-bold tracking-tight text-gray-900">
+                    Tell us what you need and how many — we quote it landed in Nairobi.
+                  </p>
+                  <p className="text-[13px] text-gray-500 font-light mt-1.5 leading-relaxed">
+                    Anything here can be ordered in volume, and plenty we don't list at all. One brief,
+                    a landed-cost quote within a business day.
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[#3D8593] group-hover:gap-3 transition-all shrink-0">
+                  Send a request <ArrowRight size={14} weight="bold" />
+                </span>
+              </div>
+            </Link>
+          </Reveal>
         </div>
       </section>
 

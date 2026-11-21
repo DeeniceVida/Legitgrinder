@@ -121,16 +121,17 @@ const ChairsTab: React.FC = () => {
         </div>
       )}
 
-      {rateUnset && (
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
-          <AlertTriangle className="w-4 h-4 text-[#FF9900] shrink-0 mt-0.5" />
-          <p className="text-[12px] font-medium text-amber-900/80 leading-relaxed">
-            <strong>No chair prices are showing on /corporate.</strong> Set <em>Freight, duty &amp; clearing</em> below
-            — the KES you pay per cubic metre, landed — and every chair prices itself instantly. Until then
-            buyers see photos, specifications and minimums only.
-          </p>
-        </div>
-      )}
+      {/* The catalogue is off the site, so this has to say so — otherwise the
+          pricing below reads as something buyers can see. */}
+      <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl p-4">
+        <AlertTriangle className="w-4 h-4 text-[#FF9900] shrink-0 mt-0.5" />
+        <p className="text-[12px] font-medium text-amber-900/80 leading-relaxed">
+          <strong>These chairs are no longer shown to buyers.</strong> The catalogue came off /corporate on
+          21 Nov 2026 — bulk is quoted from a written brief now. The models, photos and pricing rules are all
+          kept here, so say the word and they can go back up.
+          {rateUnset && <> The cubic-metre rate below was never set, so they had no prices anyway.</>}
+        </p>
+      </div>
 
       {/* ── Rates ─────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
