@@ -7,7 +7,7 @@ import {
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
   ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText, Star, Building2 as Buildings, Armchair,
-  AlertTriangle
+  AlertTriangle, Wallet
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -44,7 +44,7 @@ import BookingsPanel from '../components/BookingsPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import ReceiptsTab from '../components/ReceiptsTab';
 import { effectiveStock } from '../utils/productPricing';
-import { collectedKES, outstandingKES, sumCollected, sumInvoiced, sumOutstanding } from '../utils/invoiceMoney';
+import { collectedKES, feeMissing, outstandingKES, sumCollected, sumFeesEarned, sumInvoiced, sumOutstanding } from '../utils/invoiceMoney';
 import SupervisorPanel from '../components/SupervisorPanel';
 import { UserGear } from '@phosphor-icons/react';
 import type { SupervisorAction } from '../services/supervisor';
@@ -1545,11 +1545,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               const nothingPaidCount = owing.filter(i => collectedKES(i) === 0).length;
               const partPaidCount = unpaidCount - nothingPaidCount;
 
+              // "Money in" is the customer's whole payment — buying price and
+              // shipping included, and both go straight back out to the supplier
+              // and the freighter. THIS is the part he keeps, and it was nowhere
+              // on the dashboard, so a 585,000 month and a 20,000 month looked
+              // identical from here.
+              const feeThis = sumFeesEarned(invoices.filter(i => inMonth(i, thisKey)));
+              const feeLast = sumFeesEarned(invoices.filter(i => inMonth(i, lastKey)));
+              const feeGaps = invoices.filter(i => inMonth(i, thisKey) && collectedKES(i) > 0 && feeMissing(i)).length;
+
               const fmtK = (n: number) => n >= 1000000 ? `${(n / 1000000).toFixed(2)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`;
               const delta = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : null;
 
               const tiles = [
                 { label: 'Money in', val: `KES ${fmtK(revThis)}`, d: delta(revThis, revLast), foot: `of KES ${fmtK(billedThis)} invoiced · vs KES ${fmtK(revLast)} last month`, icon: <DollarSign className="w-4 h-4" />, iconBg: 'bg-teal-50 text-[#3D8593]' },
+                { label: 'You earned', val: `KES ${fmtK(feeThis)}`, d: delta(feeThis, feeLast), foot: feeGaps > 0 ? `service fees · ${feeGaps} paid order${feeGaps === 1 ? '' : 's'} with no fee on it` : `service fees · vs KES ${fmtK(feeLast)} last month`, icon: <Wallet className="w-4 h-4" />, iconBg: 'bg-emerald-50 text-emerald-600', warn: feeGaps > 0 },
                 { label: 'Orders', val: ordThis.toLocaleString(), d: delta(ordThis, ordLast), foot: `vs ${ordLast} last month`, icon: <ShoppingBag className="w-4 h-4" />, iconBg: 'bg-indigo-50 text-indigo-500' },
                 // "deposits included" read as though money already banked was
                 // counted in this figure. It never was — this is only what is

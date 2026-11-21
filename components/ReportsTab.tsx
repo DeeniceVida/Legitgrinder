@@ -5,7 +5,7 @@ import {
 import * as XLSX from 'xlsx';
 import { ChevronLeft, ChevronRight, Download, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Invoice, Client, PaymentStatus } from '../types';
-import { collectedKES, outstandingKES } from '../utils/invoiceMoney';
+import { collectedKES, feeEarnedKES, feeMissing, outstandingKES } from '../utils/invoiceMoney';
 
 /**
  * Reports — month-by-month money, and the ability to compare any two periods.
@@ -17,7 +17,10 @@ import { collectedKES, outstandingKES } from '../utils/invoiceMoney';
  *               of invoices that happen to be settled in full; on a deposit
  *               business that reads near zero while the bank fills up.
  *   outstanding every shilling still owed, balances on part-paid invoices too.
- *   profit      service fee, recognised only when the order is fully paid.
+ *   profit      the service fee earned — the only part of an import total
+ *               the owner keeps. Counted once money has come in, and read
+ *               from wherever it was recorded: the "Service fee" line on the
+ *               invoice, or the old Internal Cost Breakdown box.
  *
  * An invoice is dated by createdAt falling back to date.
  */
@@ -51,7 +54,7 @@ interface Bucket {
   orders: number;       // every invoice raised
   paidOrders: number;   // settled in full
   payingOrders: number; // paid us something — the divisor for a sane average
-  profit: number;       // service fee on fully paid invoices
+  profit: number;       // service fee earned on orders that have paid something
   outstanding: number;  // still owed, part-paid balances included
   noBreakdown: number;  // paid invoices with no costs captured
 }
@@ -108,12 +111,12 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
       b[k].revenue += collectedKES(inv);
       b[k].invoiced += total;
       if (collectedKES(inv) > 0) b[k].payingOrders += 1;
+      if (collectedKES(inv) > 0) b[k].profit += feeEarnedKES(inv);
       if (inv.isPaid) {
         b[k].paidOrders += 1;
-        b[k].profit += inv.serviceFeeKES || 0;
-        const hasCosts = (inv.buyingPriceKES || 0) > 0 || (inv.shippingFeeKES || 0) > 0
-          || (inv.logisticsCostKES || 0) > 0 || (inv.serviceFeeKES || 0) > 0;
-        if (!hasCosts) b[k].noBreakdown += 1;
+        // The fee is the figure that matters, and it is missing far more often
+        // than the rest of the breakdown — so that is what this flags.
+        if (feeMissing(inv)) b[k].noBreakdown += 1;
       }
       // Every shilling still owed, including the balance on a part-paid
       // invoice — not only invoices with nothing paid at all.
@@ -482,8 +485,8 @@ const ReportsTab: React.FC<ReportsTabProps> = ({ invoices, clients }) => {
           <div className="flex items-start gap-2.5 mt-4 rounded-xl bg-amber-50 border border-amber-100 p-3.5">
             <AlertTriangle className="w-4 h-4 text-[#FF9900] shrink-0 mt-0.5" />
             <p className="text-[11px] font-medium text-amber-900/80 leading-relaxed">
-              <strong>{sel.noBreakdown}</strong> paid order{sel.noBreakdown === 1 ? ' has' : 's have'} no cost breakdown entered, so the
-              service-fee figure for this month is understated. Add the breakdown on those invoices to make profit accurate.
+              <strong>{sel.noBreakdown}</strong> paid order{sel.noBreakdown === 1 ? ' has' : 's have'} no service fee on them, so what you
+              earned this month is understated. Add a "Service fee" line to those invoices and this figure corrects itself.
             </p>
           </div>
         )}

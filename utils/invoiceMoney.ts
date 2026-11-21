@@ -37,6 +37,38 @@ export const collectedKES = (inv: Invoice): number => {
 /** What was billed, settled or not. */
 export const invoicedKES = (inv: Invoice): number => inv.totalKES || 0;
 
+/**
+ * What the OWNER earned on this order — his service fee, and on an import the
+ * only part of the total he keeps. Buying price and shipping go straight back
+ * out to the supplier and the freighter.
+ *
+ * It is recorded in two different places, which is why it looked like almost
+ * nothing was being earned:
+ *
+ *   1. As a LINE ITEM called "Service fee" on the invoice — how he has
+ *      actually done it since June, and what the customer sees.
+ *   2. In `service_fee_kes`, the box in the collapsed Internal Cost Breakdown
+ *      — used on a handful of early orders, then abandoned.
+ *
+ * The line item wins when both exist: it is the figure on the document the
+ * customer was sent, so it is the one that was really charged.
+ */
+const FEE_LINE = /\b(service|handling|commission|agent)\s*fee\b/i;
+
+export const feeEarnedKES = (inv: Invoice): number => {
+  const fromItems = (inv.items || [])
+    .filter(i => FEE_LINE.test(i.name || ''))
+    .reduce((sum, i) => sum + (i.priceKES || 0) * (i.quantity || 1), 0);
+  return fromItems > 0 ? fromItems : (inv.serviceFeeKES || 0);
+};
+
+/** Fees on orders where the money actually came in. Unpaid fee is not income. */
+export const sumFeesEarned = (list: Invoice[]): number =>
+  list.reduce((sum, inv) => sum + (collectedKES(inv) > 0 ? feeEarnedKES(inv) : 0), 0);
+
+/** True when an order records no fee at all — the gap that hid his real income. */
+export const feeMissing = (inv: Invoice): boolean => feeEarnedKES(inv) <= 0;
+
 /** Still owed. Never negative — an overpayment is not a debt owed back here. */
 export const outstandingKES = (inv: Invoice): number =>
   Math.max(0, invoicedKES(inv) - collectedKES(inv));
