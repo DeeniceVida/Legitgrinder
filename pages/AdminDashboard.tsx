@@ -7,7 +7,7 @@ import {
   User, List, Download, Mail, ExternalLink, Filter, MapPin, Truck,
   Activity, DollarSign, Smartphone, History, Image as ImageIcon, Tag, AlignLeft, Check, Printer,
   ShieldCheck, MessageCircle, Youtube, Book, Lock, ScrollText, Star, Building2 as Buildings, Armchair,
-  AlertTriangle, Wallet
+  AlertTriangle, Wallet, Calculator
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -43,6 +43,7 @@ import DeliveriesPanel, { DeliveryPrefill } from '../components/DeliveriesPanel'
 import BookingsPanel from '../components/BookingsPanel';
 import SentEmailsTab from '../components/SentEmailsTab';
 import ReceiptsTab from '../components/ReceiptsTab';
+import ChinaQuoteTab from '../components/ChinaQuoteTab';
 import { serviceFeeFor, serviceFeeBasis, looksLikeBusinessGoods } from '../utils/serviceFee';
 import { effectiveStock } from '../utils/productPricing';
 import { collectedKES, feeMissing, outstandingKES, sumCollected, sumFeesEarned, sumInvoiced, sumOutstanding } from '../utils/invoiceMoney';
@@ -409,6 +410,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Paid orders and whether the customer actually has their receipt. The ✉
     // on an order row still sends one; this is where you can see who is missing it.
     { id: 'receipts', name: 'Receipts', group: 'Operations', icon: <FileText className="w-4 h-4" /> },
+    // Sea by the cubic metre, air by the kilo — a quoting tool, kept off the
+    // public site because the freight rates are his edge.
+    { id: 'chinaquote', name: 'China Quote', group: 'Operations', icon: <Calculator className="w-4 h-4" /> },
     { id: 'emails', name: 'Sent Emails', group: 'Operations', icon: <Mail className="w-4 h-4" /> },
     { id: 'security', name: 'Security', group: 'System', icon: <Lock className="w-4 h-4" /> },
     { id: 'card', name: 'Business Card', group: 'System', icon: <CreditCard className="w-4 h-4" /> },
@@ -3346,6 +3350,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === 'chairs' && <ChairsTab />}
 
         {activeTab === 'receipts' && <ReceiptsTab invoices={invoices} />}
+
+        {activeTab === 'chinaquote' && <ChinaQuoteTab />}
 
         {activeTab === 'emails' && <SentEmailsTab />}
 
