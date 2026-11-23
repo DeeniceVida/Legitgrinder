@@ -18,8 +18,13 @@
  */
 
 export const FEE_THRESHOLD_KES = 50000;
-export const FEE_FLAT_KES = 3000;
-export const FEE_FLAT_BUSINESS_KES = 3500;
+/**
+ * Raised from 3,000 on 2026-11-23. It is what /calculators had been quoting
+ * all along ($30 × 135), so buyers pricing an import themselves have been told
+ * this figure for a year — the card was the odd one out, not this.
+ */
+export const FEE_FLAT_KES = 4050;
+export const FEE_FLAT_BUSINESS_KES = 4550;
 export const FEE_PCT = 0.05;
 export const FEE_PCT_BUSINESS = 0.07;
 

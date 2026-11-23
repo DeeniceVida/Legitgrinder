@@ -5,10 +5,14 @@ import { serviceFeeFor, FEE_THRESHOLD_KES, FEE_CARD_TEXT } from '../../utils/ser
 const results = [];
 const check = (label, cond, got) => { results.push([label, cond]); if (!cond && got !== undefined) console.log('      got:', JSON.stringify(got)); };
 
-// The published card, word for word.
-check('up to 50k is the flat fee', serviceFeeFor(18000) === 3000, serviceFeeFor(18000));
-check('up to 50k, business', serviceFeeFor(18000, true) === 3500, serviceFeeFor(18000, true));
-check('exactly 50k is still flat', serviceFeeFor(50000) === 3000, serviceFeeFor(50000));
+// The published card, word for word. Figures are written out rather than read
+// from the constants, so a rate changed by accident still fails here.
+check('up to 50k is the flat fee', serviceFeeFor(18000) === 4050, serviceFeeFor(18000));
+check('up to 50k, business', serviceFeeFor(18000, true) === 4550, serviceFeeFor(18000, true));
+check('exactly 50k is still flat', serviceFeeFor(50000) === 4050, serviceFeeFor(50000));
+// The floor holds well past the threshold: 5% only overtakes 4,050 at 81,000.
+check('the floor still applies above 50k', serviceFeeFor(60000) === 4050, serviceFeeFor(60000));
+check('5% takes over once it beats the floor', serviceFeeFor(100000) === 5000, serviceFeeFor(100000));
 check('above 50k is 5%', serviceFeeFor(92000) === 4600, serviceFeeFor(92000));
 check('above 50k, business is 7%', serviceFeeFor(201800, true) === 14200, serviceFeeFor(201800, true));
 

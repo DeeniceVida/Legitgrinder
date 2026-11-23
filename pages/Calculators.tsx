@@ -9,6 +9,7 @@ import { KES_PER_USD, FEE_STRUCTURE, WHATSAPP_NUMBER } from '../constants';
 import { CalculationResult, SourcingRequest } from '../types';
 import { submitSourcingRequest } from '../services/supabaseData';
 import { calculateUSImport } from '../utils/priceCalculations';
+import { FEE_PCT, FEE_PCT_BUSINESS } from '../utils/serviceFee';
 import { Reveal } from '../components/Motion';
 import GroupBuyPoster from '../components/GroupBuyPoster';
 import { GroupCampaign, fetchGroupCampaigns } from '../services/groupBuys';
@@ -48,6 +49,8 @@ const Calculators: React.FC<CalculatorsProps> = ({ isAdmin = false }) => {
   const [discountOn, setDiscountOn] = useState(true);
   const [discountAmount, setDiscountAmount] = useState<string>('1000');
   const [quoteCopied, setQuoteCopied] = useState(false);
+  /** Work machines and business goods carry the higher rate on the card. */
+  const [businessGoods, setBusinessGoods] = useState(false);
   // Running group buys — same poster the shop uses, shown to people pricing imports.
   const [groupCampaigns, setGroupCampaigns] = useState<GroupCampaign[]>([]);
   useEffect(() => { fetchGroupCampaigns().then(setGroupCampaigns).catch(() => {}); }, []);
@@ -91,8 +94,9 @@ const Calculators: React.FC<CalculatorsProps> = ({ isAdmin = false }) => {
       weightKg: shipWeightKg,
       fromApple: phoneUrl.toLowerCase().includes('apple.com'),
       discountKES: specialDiscountKES,
+      business: businessGoods,
     }));
-  }, [phonePriceUSD, phoneUrl, shipWeightKg, isAdmin, discountOn, discountAmount]);
+  }, [phonePriceUSD, phoneUrl, shipWeightKg, isAdmin, discountOn, discountAmount, businessGoods]);
 
   /**
    * Admin: build a clean, client-ready quote and copy it to the clipboard, so it
@@ -369,6 +373,29 @@ const Calculators: React.FC<CalculatorsProps> = ({ isAdmin = false }) => {
                     <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-gray-400 px-2">
                       Apple Store links include a KES {(FEE_STRUCTURE.APPLE_PICKUP_FEE_USD * KES_PER_USD).toLocaleString()} in-store pickup fee — added automatically.
                     </p>
+
+                    {/* Work machines carry the higher rate on the published card.
+                        Without this the quote and the invoice would disagree for
+                        every business buyer. */}
+                    <label className={`mt-4 flex items-start gap-3 rounded-2xl border px-5 py-4 cursor-pointer select-none transition-colors ${businessGoods
+                      ? 'border-[#FF9900] bg-[#FF9900]/[0.07]'
+                      : 'border-gray-200 bg-white hover:border-[#FF9900]/50'}`}>
+                      <input
+                        type="checkbox"
+                        checked={businessGoods}
+                        onChange={(e) => setBusinessGoods(e.target.checked)}
+                        className="mt-0.5 accent-[#FF9900] w-4 h-4"
+                      />
+                      <span className="min-w-0">
+                        <span className={`block text-[12px] font-black ${businessGoods ? 'text-[#b36b00]' : 'text-gray-700'}`}>
+                          Business goods or a work machine
+                        </span>
+                        <span className="block text-[11px] text-gray-400 font-medium mt-0.5 leading-relaxed">
+                          Printers, engravers, salon or workshop equipment. These take longer to source and clear,
+                          so the service fee is {FEE_PCT_BUSINESS * 100}% rather than {FEE_PCT * 100}%.
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 </div>
               </div>

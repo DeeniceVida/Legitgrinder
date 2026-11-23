@@ -1,6 +1,7 @@
 
 import { FEE_STRUCTURE, KES_PER_USD } from '../constants';
 import { CalculationResult } from '../types';
+import { serviceFeeFor } from './serviceFee';
 
 /**
  * The /calculators "US tech" breakdown — one place, so the calculator and the
@@ -8,23 +9,30 @@ import { CalculationResult } from '../types';
  *
  *   Buying price  USD × 135
  *   Shipping      ($20 per kg + 3.5% of price) × 135
- *   Service fee   $30, or 4.5% of price above $750, × 135
+ *   Service fee   the published rate card — see utils/serviceFee
  *   Apple pickup  $60 × 135 — only when it is bought from apple.com
  *   Discount      subtracted last, when there is one
+ *
+ * The fee used to be its own rule here — $30 flat, or 4.5% above $750 — which
+ * is how the calculator came to quote a different figure from the invoice that
+ * followed it. On a $2,500 order it under-quoted by about 1,700. It reads the
+ * same card as everything else now, so the two cannot drift again.
  */
 export const calculateUSImport = (opts: {
   priceUSD: number;
   weightKg?: number;
   fromApple?: boolean;
   discountKES?: number;
+  /** Business goods and work machines carry the higher rate. */
+  business?: boolean;
 }): CalculationResult => {
   const price = opts.priceUSD;
   const kg = opts.weightKg ?? 1;
   const buyingPriceKES = price * KES_PER_USD;
   const shippingFeeKES = (FEE_STRUCTURE.SHIPPING_FLAT_USD * kg + price * FEE_STRUCTURE.SHIPPING_PERCENT) * KES_PER_USD;
-  const serviceFeeKES = (price > FEE_STRUCTURE.THRESHOLD_USD
-    ? price * FEE_STRUCTURE.SERVICE_FEE_PERCENT_LARGE
-    : FEE_STRUCTURE.SERVICE_FEE_FIXED_USD) * KES_PER_USD;
+  // On the GOODS, never the total — a percentage of the total would charge a
+  // fee on the customer's own freight.
+  const serviceFeeKES = serviceFeeFor(buyingPriceKES, opts.business);
   const applePickupFeeKES = opts.fromApple ? FEE_STRUCTURE.APPLE_PICKUP_FEE_USD * KES_PER_USD : 0;
   const discount = Math.max(0, opts.discountKES || 0);
   return {
