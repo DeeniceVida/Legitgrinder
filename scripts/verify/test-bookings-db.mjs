@@ -47,7 +47,7 @@ try {
   check('settings readable by the public site', !!s, s);
   check('consultations switched OFF', s?.consultations_enabled === false, s?.consultations_enabled);
   check('pickups switched OFF', s?.pickups_enabled === false, s?.pickups_enabled);
-  check('fee 4,000, credit 7 days', s?.consultation_fee_kes === 4000 && s?.consultation_credit_days === 7);
+  check('fee 4,050, credit 7 days', s?.consultation_fee_kes === 4050 && s?.consultation_credit_days === 7);
   check('default meeting pattern 10:00-18:00, 90 + 30',
     s?.day_start === '10:00' && s?.day_end === '18:00' && s?.meeting_minutes === 90 && s?.break_minutes === 30, s);
 
@@ -94,9 +94,9 @@ try {
   /* ---- a booking fills its slot on both calendars ---------------------- */
   await api('/rest/v1/consultation_bookings', { method: 'POST', prefer: 'return=minimal', body: [
     { reference: REF_A, client_name: 'Test A', client_phone: '0700000001', client_email: 'a@example.com',
-      products: 'Chairs', quantity: '50', budget: 'KES 500k', slot_date: DAY, slot_label: FOUR[0], amount_kes: 4000 },
+      products: 'Chairs', quantity: '50', budget: 'KES 500k', slot_date: DAY, slot_label: FOUR[0], amount_kes: 4050 },
     { reference: REF_B, client_name: 'Test B', client_phone: '0700000002', client_email: 'b@example.com',
-      products: 'Monitors', quantity: '10', budget: 'KES 300k', slot_date: DAY, slot_label: FOUR[0], amount_kes: 4000 },
+      products: 'Monitors', quantity: '10', budget: 'KES 300k', slot_date: DAY, slot_label: FOUR[0], amount_kes: 4050 },
   ] });
   check('a payment in progress removes that time from the booking page',
     JSON.stringify(await openOn(DAY)) === JSON.stringify(FOUR.slice(1)), await openOn(DAY));
@@ -105,18 +105,18 @@ try {
     Array.isArray(feed.json) && feed.json.every(r => Object.keys(r).sort().join(',') === 'open_day,open_slot'), feed.json?.[0]);
 
   /* ---- the token gate -------------------------------------------------- */
-  const guess = await rpc('confirm_consultation_booking', { p_reference: REF_A, p_paid_kes: 4000, p_paystack_id: 'x', p_token: 'guess' });
+  const guess = await rpc('confirm_consultation_booking', { p_reference: REF_A, p_paid_kes: 4050, p_paystack_id: 'x', p_token: 'guess' });
   check('WRONG token cannot confirm a booking', guess.json?.ok === false && /not authorised/i.test(guess.json?.error || ''), guess.json);
   const under = await rpc('confirm_consultation_booking', { p_reference: REF_A, p_paid_kes: 1000, p_paystack_id: 'x', p_token: TOKEN });
   check('underpaid is refused', under.json?.ok === false && under.json?.underpaid === true, under.json);
 
-  const ok = await rpc('confirm_consultation_booking', { p_reference: REF_A, p_paid_kes: 4000, p_paystack_id: 'ps_1', p_token: TOKEN });
+  const ok = await rpc('confirm_consultation_booking', { p_reference: REF_A, p_paid_kes: 4050, p_paystack_id: 'ps_1', p_token: TOKEN });
   check('real token + full fee confirms', ok.json?.ok === true && ok.json?.status === 'confirmed', ok.json);
   check('credit expires 7 days after the meeting', ok.json?.creditExpires === addDays(DAY, 7), ok.json?.creditExpires);
-  const again = await rpc('confirm_consultation_booking', { p_reference: REF_A, p_paid_kes: 4000, p_paystack_id: 'ps_1', p_token: TOKEN });
+  const again = await rpc('confirm_consultation_booking', { p_reference: REF_A, p_paid_kes: 4050, p_paystack_id: 'ps_1', p_token: TOKEN });
   check('confirming twice is harmless (Paystack retries)', again.json?.ok === true && again.json?.status === 'confirmed', again.json);
 
-  const clash = await rpc('confirm_consultation_booking', { p_reference: REF_B, p_paid_kes: 4000, p_paystack_id: 'ps_2', p_token: TOKEN });
+  const clash = await rpc('confirm_consultation_booking', { p_reference: REF_B, p_paid_kes: 4050, p_paystack_id: 'ps_2', p_token: TOKEN });
   check('second payer for the same time becomes a clash, not a double booking', clash.json?.status === 'paid_conflict', clash.json);
   const confirmedCount = (await api(`/rest/v1/consultation_bookings?slot_date=eq.${DAY}&slot_label=eq.${FOUR[0]}&status=eq.confirmed&select=id`)).json?.length;
   check('exactly ONE confirmed booking holds that time', confirmedCount === 1, confirmedCount);
@@ -133,8 +133,8 @@ try {
   const REF_C = 'LGC-TESTCCCCCCCC';
   await api('/rest/v1/consultation_bookings', { method: 'POST', prefer: 'return=minimal', body: {
     reference: REF_C, client_name: 'Test C', client_phone: '0700000003', client_email: 'c@example.com',
-    products: 'x', quantity: '1', budget: '1', slot_date: DAY, slot_label: '16:00-17:30', amount_kes: 4000 } });
-  const gone = await rpc('confirm_consultation_booking', { p_reference: REF_C, p_paid_kes: 4000, p_paystack_id: 'ps_3', p_token: TOKEN });
+    products: 'x', quantity: '1', budget: '1', slot_date: DAY, slot_label: '16:00-17:30', amount_kes: 4050 } });
+  const gone = await rpc('confirm_consultation_booking', { p_reference: REF_C, p_paid_kes: 4050, p_paystack_id: 'ps_3', p_token: TOKEN });
   check('a payment for a time closed mid-payment is kept and flagged as a clash', gone.json?.status === 'paid_conflict', gone.json);
 
 } finally {
