@@ -27,10 +27,12 @@ create table if not exists public.booking_settings (
   id                        int primary key default 1 check (id = 1),
   consultations_enabled     boolean not null default false,
   pickups_enabled           boolean not null default false,
-  hub_name                  text not null default 'LegitGrinder Hub',
+  -- There is no shop yet, so where a meeting happens is agreed per booking
+  -- and typed against it. These stay blank until there is a fixed address.
+  hub_name                  text not null default '',
   hub_address               text not null default '',
   hub_map_url               text not null default '',
-  consultation_fee_kes      int  not null default 4000,
+  consultation_fee_kes      int  not null default 4050,
   consultation_credit_days  int  not null default 7,
   -- The pattern used to fill a day when the founder opens it on the calendar.
   meeting_minutes           int  not null default 90,
@@ -96,6 +98,8 @@ create table if not exists public.consultation_bookings (
   paystack_id      text,
   paid_at          timestamptz,
   credit_expires   date,
+  -- Agreed with the client after they book, then typed in by the owner.
+  meeting_place    text,
   credited_invoice text,
   notes            text,
   created_at       timestamptz not null default now()
@@ -455,7 +459,9 @@ begin
     'creditDays', s.consultation_credit_days,
     'hubName', s.hub_name,
     'hubAddress', s.hub_address,
-    'hubMapUrl', s.hub_map_url
+    'hubMapUrl', s.hub_map_url,
+    -- Usually empty at this point: the place is agreed after they book.
+    'meetingPlace', b.meeting_place
   );
 end;
 $$;

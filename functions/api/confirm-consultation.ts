@@ -103,7 +103,7 @@ export const clientEmail = (b: any): string => shell(
     `<h1 style="margin:14px 0 4px;font-size:20px;color:#0f1a1c;">See you ${esc(longDate(b.slotDate))}</h1>
      <p style="margin:0 0 18px;color:#6b7677;font-size:14px;">${esc(fmtSlot(b.slotLabel))} · in person</p>
      <table width="100%" style="border-collapse:collapse;border-top:1px solid #eef0ef;">
-       ${row('Where', esc([b.hubName, b.hubAddress].filter(Boolean).join(', ') || 'We will send the exact location before your meeting.'))}
+       ${row('Where', esc([b.hubName, b.hubAddress].filter(Boolean).join(', ') || 'We will agree the exact place with you on WhatsApp before your meeting.'))}
        ${row('Booking reference', esc(b.reference))}
        ${row('Fee paid', money(b.paidKes))}
      </table>

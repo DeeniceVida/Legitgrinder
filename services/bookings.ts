@@ -255,6 +255,8 @@ export interface ConsultationBooking {
   creditExpires?: string;
   creditedInvoice?: string;
   notes?: string;
+  /** Where to meet, once agreed. Empty until the owner types it. */
+  meetingPlace?: string;
   createdAt: string;
 }
 
@@ -269,7 +271,7 @@ export const fetchConsultationBookings = async (): Promise<ConsultationBooking[]
       slotDate: d.slot_date, slotLabel: d.slot_label, amountKes: Number(d.amount_kes),
       status: d.status, paidKes: d.paid_kes ?? undefined, paidAt: d.paid_at ?? undefined,
       creditExpires: d.credit_expires ?? undefined, creditedInvoice: d.credited_invoice ?? undefined,
-      notes: d.notes ?? undefined, createdAt: d.created_at,
+      notes: d.notes ?? undefined, meetingPlace: d.meeting_place ?? undefined, createdAt: d.created_at,
     }));
   } catch {
     return [];
@@ -278,11 +280,14 @@ export const fetchConsultationBookings = async (): Promise<ConsultationBooking[]
 
 export const updateConsultationBooking = async (id: string, patch: {
   status?: string; creditedInvoice?: string | null; notes?: string | null;
+  /** Where this one meeting happens — agreed with the client after they book. */
+  meetingPlace?: string | null;
 }) => {
   const row: any = {};
   if (patch.status !== undefined) row.status = patch.status;
   if (patch.creditedInvoice !== undefined) row.credited_invoice = patch.creditedInvoice || null;
   if (patch.notes !== undefined) row.notes = patch.notes || null;
+  if (patch.meetingPlace !== undefined) row.meeting_place = patch.meetingPlace || null;
   const { error } = await supabase.from('consultation_bookings').update(row).eq('id', id);
   return { success: !error, error: error?.message };
 };

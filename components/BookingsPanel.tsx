@@ -73,6 +73,9 @@ const BookingsPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [creditFor, setCreditFor] = useState<string | null>(null);
   const [creditInvoice, setCreditInvoice] = useState('');
+  /** Which booking's meeting place is being typed, and what has been typed. */
+  const [placeFor, setPlaceFor] = useState<string | null>(null);
+  const [placeText, setPlaceText] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -133,6 +136,14 @@ const BookingsPanel: React.FC = () => {
     setCreditFor(null); setCreditInvoice(''); load();
   };
 
+  /** Where this one meeting happens. Blank clears it again. */
+  const saveMeetingPlace = async (c: ConsultationBooking) => {
+    setSaving(c.id);
+    const res = await updateConsultationBooking(c.id, { meetingPlace: placeText.trim() || null });
+    setSaving(null);
+    if (!res.success) { setError(res.error || 'Could not save.'); return; }
+    setPlaceFor(null); setPlaceText(''); load();
+  };
   const setPickupStatus = async (p: PickupBooking, status: 'collected' | 'missed' | 'booked') => {
     setSaving(p.id);
     const res = await updatePickupBooking(p.id, status);
@@ -311,12 +322,27 @@ const BookingsPanel: React.FC = () => {
                   {c.creditExpires && ` · credit until ${formatDateLong(c.creditExpires)}`}
                   {c.creditedInvoice && ` · credited to ${c.creditedInvoice}`}
                 </p>
+                {/* There is no shop, so where you meet is agreed per booking.
+                    Until it is typed here, nobody knows where to turn up. */}
+                <p className="text-[11px] font-bold mt-1.5">
+                  {c.meetingPlace
+                    ? <span className="text-gray-600">Meeting at {c.meetingPlace}</span>
+                    : <span className="text-[#FF9900]">No meeting place set yet</span>}
+                </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <a href={waLink(c.clientPhone)} target="_blank" rel="noopener noreferrer"
                   className="px-3 py-2 rounded-xl bg-[#25D366]/10 text-[#1eb955] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
                   <WhatsappLogo size={12} weight="fill" /> {c.clientPhone}
                 </a>
+                {c.status !== 'cancelled' && (
+                  <button onClick={() => { setPlaceFor(c.id); setPlaceText(c.meetingPlace || ''); }}
+                    className={`px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest ${c.meetingPlace
+                      ? 'border-neutral-200 text-gray-500 hover:border-[#3D8593] hover:text-[#3D8593]'
+                      : 'border-[#FF9900] bg-[#FF9900]/10 text-[#b36b00]'}`}>
+                    {c.meetingPlace ? 'Change place' : 'Set place'}
+                  </button>
+                )}
                 {(c.status === 'confirmed' || c.status === 'completed') && !c.creditedInvoice && (
                   <button onClick={() => { setCreditFor(c.id); setCreditInvoice(''); }}
                     className="px-3 py-2 rounded-xl border border-neutral-200 text-gray-500 text-[9px] font-black uppercase tracking-widest hover:border-[#3D8593] hover:text-[#3D8593]">
@@ -331,6 +357,21 @@ const BookingsPanel: React.FC = () => {
                 )}
               </div>
             </div>
+            {placeFor === c.id && (
+              <div className="mt-3">
+                <div className="flex gap-2">
+                  <input className={input} autoFocus
+                    placeholder="e.g. Java House, Kimathi Street — 10 minutes early"
+                    value={placeText} onChange={e => setPlaceText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveMeetingPlace(c); }} />
+                  <button onClick={() => saveMeetingPlace(c)} disabled={saving === c.id}
+                    className="px-4 rounded-xl bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40">Save</button>
+                </div>
+                <p className="text-[10px] font-bold text-gray-400 mt-1.5">
+                  Saved for this meeting only. Tell {c.clientName.split(' ')[0]} on WhatsApp — this does not message them.
+                </p>
+              </div>
+            )}
             {creditFor === c.id && (
               <div className="mt-3 flex gap-2">
                 <input className={input} placeholder="Invoice number the credit went to, e.g. LG100022"

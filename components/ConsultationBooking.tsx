@@ -138,7 +138,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
         <div className="rounded-2xl border border-gray-100 divide-y divide-gray-100 mb-6">
           {[
             ['When', `${formatDateLong(booking.slotDate)} · ${formatSlot(booking.slotLabel)}`],
-            ['Where', [booking.hubName, booking.hubAddress].filter(Boolean).join(', ') || 'We will send the exact location before your meeting.'],
+            ['Where', [booking.hubName, booking.hubAddress].filter(Boolean).join(', ') || 'We will agree the exact place with you on WhatsApp before your meeting.'],
             ['Reference', booking.reference],
             ['Paid', money(booking.paidKes)],
           ].map(([k, v]) => (

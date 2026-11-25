@@ -126,7 +126,10 @@ const ce = clientEmail(goodBooking);
 check('client pass has the date in words', ce.includes('Thursday 10 December'), ce.match(/See you [^<]+/)?.[0]);
 check('client pass has the map button', ce.includes('https://maps.app.goo.gl/x'));
 check('client pass states the credit and that it is not cash-refundable', /comes off your order/.test(ce) && /not refundable in cash/.test(ce));
-check('client pass with no address yet says so honestly', clientEmail({ ...goodBooking, hubAddress: '', hubName: '' }).includes('We will send the exact location'));
+// There is no shop, so this is the normal case rather than the exception:
+// the place is agreed per booking and sent on WhatsApp afterwards.
+check('client pass with no address yet says so honestly',
+  clientEmail({ ...goodBooking, hubAddress: '', hubName: '' }).includes('agree the exact place with you on WhatsApp'));
 check('client pass with no map link has no dead button', !clientEmail({ ...goodBooking, hubMapUrl: '' }).includes('Open the location'));
 
 check('owner email shows the time in words, not the raw key', ownerEmail(goodBooking).includes('10:00 AM - 11:30 AM') && !ownerEmail(goodBooking).includes('10:00-11:30'));
