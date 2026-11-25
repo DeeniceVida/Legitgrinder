@@ -96,7 +96,9 @@ const ChinaQuoteTab: React.FC = () => {
 
       {!hasCost || !measured ? (
         <p className="text-[12px] font-medium text-gray-400">
-          {!hasCost ? 'Enter what the supplier charges.' : basis}
+          {!hasCost
+            ? 'Enter what the supplier charges.'
+            : mode === 'sea' ? 'Add the volume in CBM to price this.' : 'Add the weight in kg to price this.'}
         </p>
       ) : (
         <>
@@ -201,8 +203,10 @@ const ChinaQuoteTab: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {card('sea', sea, (parseFloat(cbm) || 0) > 0, `${cbm || 0} CBM × ${money(parseFloat(seaRate) || 0)}`)}
-          {card('air', air, (parseFloat(kg) || 0) > 0, `${kg || 0} kg × $${airRate}`)}
+          {/* The volume and the weight, not the rate behind them — a quote he
+              can hand straight to a customer without showing his freight cost. */}
+          {card('sea', sea, (parseFloat(cbm) || 0) > 0, `${cbm || 0} CBM`)}
+          {card('air', air, (parseFloat(kg) || 0) > 0, `${kg || 0} kg`)}
         </div>
 
         {/* Freight moves. Changing it here changes this quote only. */}
