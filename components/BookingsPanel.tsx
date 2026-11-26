@@ -14,7 +14,7 @@ import {
 /**
  * Admin → Bookings. Built before the shop exists, so everything here is
  * designed to be switched on later without a code change: the two switches,
- * the hub's name and location, the fee, the credit window and every slot.
+ * the fee, the credit window, the private booking link and every slot.
  */
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -74,6 +74,7 @@ const BookingsPanel: React.FC = () => {
   const [creditFor, setCreditFor] = useState<string | null>(null);
   const [creditInvoice, setCreditInvoice] = useState('');
   /** Which booking's meeting place is being typed, and what has been typed. */
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [placeFor, setPlaceFor] = useState<string | null>(null);
   const [placeText, setPlaceText] = useState('');
 
@@ -103,15 +104,27 @@ const BookingsPanel: React.FC = () => {
   /** A switch is a public change to the website. Say so before flipping it on. */
   const flip = async (key: 'consultationsEnabled' | 'pickupsEnabled') => {
     const turningOn = !settings[key];
-    const what = key === 'consultationsEnabled' ? 'Paid in-person consultations' : 'Hub pickups at checkout';
+    const what = key === 'consultationsEnabled' ? 'Paid in-person consultations' : 'Collection slots at checkout';
     if (turningOn) {
       const gaps: string[] = [];
-      if (!settings.hubAddress.trim()) gaps.push('the hub has no address yet');
-      if (!settings.hubMapUrl.trim()) gaps.push('there is no map link');
+      if (key === 'consultationsEnabled' && upcoming.length === 0) gaps.push('no dates are open on your calendar, so nobody can book anything');
       const warning = gaps.length ? `\n\nNote: ${gaps.join(' and ')}.` : '';
       if (!window.confirm(`Turn ON "${what}"?\n\nThis goes live on the website for every customer immediately.${warning}`)) return;
     }
     await save({ ...settings, [key]: turningOn }, key);
+  };
+
+  /** The link he sends a client while bookings are still shut to the public. */
+  const inviteLink = settings.inviteCode
+    ? `${window.location.origin}/consultation?invite=${settings.inviteCode}`
+    : '';
+  const waInvite = `https://wa.me/?text=${encodeURIComponent(
+    `Here is your booking link for our meeting. Pick a time and pay the KES ${settings.consultationFeeKes.toLocaleString()} to hold it — it comes off your order.\n\n${inviteLink}`
+  )}`;
+  const copyInvite = () => {
+    navigator.clipboard.writeText(inviteLink)
+      .then(() => { setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); })
+      .catch(() => window.prompt('Copy your booking link:', inviteLink));
   };
 
   const today = nairobiNow().date;
@@ -201,7 +214,7 @@ const BookingsPanel: React.FC = () => {
           on={settings.pickupsEnabled} busy={saving === 'pickupsEnabled'}
           onClick={() => flip('pickupsEnabled')}
           icon={<Storefront size={20} weight="duotone" />}
-          title="Hub pickups at checkout"
+          title="Collection slots at checkout"
           note={settings.pickupsEnabled
             ? 'Live. In-stock items offer collection slots before payment.'
             : 'Off. Checkout is unchanged. Preview adds ?preview=bookings to the shop.'}
@@ -209,26 +222,49 @@ const BookingsPanel: React.FC = () => {
         />
       </div>
 
-      {/* ── The hub and the rules ──────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-neutral-100 p-6 space-y-5">
-        <p className="text-sm font-black text-gray-900">The hub</p>
-        <div className="grid md:grid-cols-3 gap-4">
-          <div>
-            <label className={lbl}>Name</label>
-            <input className={input} value={settings.hubName} onChange={e => setSettings({ ...settings, hubName: e.target.value })} />
-          </div>
-          <div>
-            <label className={lbl}>Address</label>
-            <input className={input} value={settings.hubAddress} placeholder="Not set yet"
-              onChange={e => setSettings({ ...settings, hubAddress: e.target.value })} />
-          </div>
-          <div>
-            <label className={lbl}>Google Maps link</label>
-            <input className={input} value={settings.hubMapUrl} placeholder="https://maps.app.goo.gl/…"
-              onChange={e => setSettings({ ...settings, hubMapUrl: e.target.value })} />
-          </div>
+      {/* ── The private link ───────────────────────────────────────────── */}
+      {/* There is no shop and no fixed address, so there is nothing to set
+          here — where you meet is typed against each booking. What this needs
+          instead is a way to let ONE client book while bookings are still
+          shut to everyone else. */}
+      <div className="bg-white rounded-2xl border border-neutral-100 p-6 space-y-4">
+        <div>
+          <p className="text-sm font-black text-gray-900">Private booking link</p>
+          <p className="text-[11px] font-medium text-gray-400 mt-1">
+            {settings.consultationsEnabled
+              ? 'Bookings are open to everyone, so this link is just a shortcut.'
+              : 'Bookings are switched off to the public. Anyone you send this link to can still book and pay.'}
+          </p>
         </div>
 
+        {settings.inviteCode ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <input readOnly value={inviteLink} onFocus={e => e.currentTarget.select()}
+                className={input + ' flex-1 min-w-[260px] font-mono text-[12px]'} />
+              <button onClick={copyInvite}
+                className="px-5 py-3 rounded-xl bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors flex items-center gap-2">
+                {inviteCopied ? <><Check size={13} weight="bold" /> Copied</> : 'Copy link'}
+              </button>
+              <a href={waInvite} target="_blank" rel="noopener noreferrer"
+                className="px-5 py-3 rounded-xl bg-[#25D366]/10 text-[#1eb955] text-[10px] font-black uppercase tracking-widest hover:bg-[#25D366] hover:text-white transition-colors flex items-center gap-2">
+                <WhatsappLogo size={13} weight="fill" /> Send on WhatsApp
+              </a>
+            </div>
+            <p className="text-[11px] font-medium text-gray-400">
+              Keep it to people you have actually agreed to meet. To kill every link you have already
+              sent, change the code in Supabase — tell me and I'll do it.
+            </p>
+          </>
+        ) : (
+          <p className="text-[11px] font-bold text-[#FF9900]">
+            No code yet — run add_booking_invite_link.sql and refresh.
+          </p>
+        )}
+      </div>
+
+      {/* ── The rules ──────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-neutral-100 p-6 space-y-5">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className={lbl}>Consultation fee (KES)</label>
@@ -283,7 +319,7 @@ const BookingsPanel: React.FC = () => {
 
         <button onClick={() => save(settings)} disabled={saving === 'details'}
           className="px-6 py-3 rounded-full bg-[#0f1a1c] text-white text-[10px] font-black uppercase tracking-widest hover:bg-[#3D8593] transition-colors disabled:opacity-50 flex items-center gap-2">
-          {saving === 'details' ? 'Saving…' : saved ? <><Check size={13} weight="bold" /> Saved</> : 'Save hub & rules'}
+          {saving === 'details' ? 'Saving…' : saved ? <><Check size={13} weight="bold" /> Saved</> : 'Save the rules'}
         </button>
       </div>
 

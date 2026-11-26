@@ -35,6 +35,8 @@ export interface BookingSettings {
   hubName: string;
   hubAddress: string;
   hubMapUrl: string;
+  /** Code in /consultation?invite=… Blank until the migration runs. */
+  inviteCode: string;
   consultationFeeKes: number;
   consultationCreditDays: number;
   /** Template used when the founder opens a new day on the calendar. */
@@ -51,10 +53,11 @@ export interface BookingSettings {
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   consultationsEnabled: false,
   pickupsEnabled: false,
-  hubName: 'LegitGrinder Hub',
+  hubName: '',
   hubAddress: '',
   hubMapUrl: '',
-  consultationFeeKes: 4000,
+  inviteCode: '',
+  consultationFeeKes: 4050,
   consultationCreditDays: 7,
   meetingMinutes: 90,
   breakMinutes: 30,

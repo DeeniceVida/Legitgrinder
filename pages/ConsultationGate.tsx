@@ -11,8 +11,8 @@ import { Reveal } from '../components/Motion';
  * /consultation — decides which page a visitor gets.
  *
  * While the owner's "Paid in-person consultations" switch is OFF (as it ships),
- * this renders the existing request form, untouched. Switched ON, it renders the
- * paid hub booking. `?preview=bookings` shows the new flow early so it can be
+ * this renders the existing request form, untouched. Switched ON — or for a
+ * visitor holding an invite code — it renders the paid booking flow. `?preview=bookings` shows the new flow early so it can be
  * checked before launch; the database still refuses the booking unless the
  * visitor is a signed-in admin.
  *
@@ -24,7 +24,14 @@ const money = (n: number) => `KES ${Math.round(n).toLocaleString('en-US')}`;
 
 const ConsultationGate: React.FC<{ onSubmit?: (c: any) => void }> = () => {
   const location = useLocation();
-  const preview = new URLSearchParams(location.search).get('preview') === 'bookings';
+  const params = new URLSearchParams(location.search);
+  const preview = params.get('preview') === 'bookings';
+  /**
+   * A link he sent one client while bookings are still off. The page shows
+   * the booking flow; whether the code is GOOD is decided in the database,
+   * which refuses anyone whose code does not match.
+   */
+  const invite = (params.get('invite') || '').trim();
   const [settings, setSettings] = useState<BookingSettings | null>(null);
 
   useEffect(() => { fetchBookingSettings().then(setSettings); }, []);
@@ -33,11 +40,11 @@ const ConsultationGate: React.FC<{ onSubmit?: (c: any) => void }> = () => {
   // visitor never sees the old page flash and then swap.
   if (!settings) return <div className="bg-brand-bg min-h-screen" />;
 
-  if (!settings.consultationsEnabled && !preview) return <LegacyConsultation />;
+  if (!settings.consultationsEnabled && !preview && !invite) return <LegacyConsultation />;
 
   const points = [
     { icon: <Coins size={24} weight="duotone" className="text-[#3D8593]" />, title: `${money(settings.consultationFeeKes)} consultation fee`, body: `Credited in full to your order if you place it within ${settings.consultationCreditDays} days of the meeting.` },
-    { icon: <Storefront size={24} weight="duotone" className="text-[#FF9900]" />, title: 'In person, at the hub', body: [settings.hubName, settings.hubAddress].filter(Boolean).join(' · ') || settings.hubName },
+    { icon: <Storefront size={24} weight="duotone" className="text-[#FF9900]" />, title: 'In person, in Nairobi', body: 'We agree somewhere that suits you both and confirm it on WhatsApp once your meeting is booked.' },
     { icon: <Clock size={24} weight="duotone" className="text-[#3D8593]" />, title: 'Days the founder is in Nairobi', body: 'Pick a highlighted date on the calendar. Meetings run back to back, so the best times go first.' },
     { icon: <Handshake size={24} weight="duotone" className="text-[#FF9900]" />, title: 'Leave with a plan', body: 'Suppliers, landed cost, lead time and the risks — for exactly what you want to import.' },
   ];
@@ -69,7 +76,7 @@ const ConsultationGate: React.FC<{ onSubmit?: (c: any) => void }> = () => {
           </div>
         </Reveal>
         <Reveal delay={130}>
-          <ConsultationBooking settings={settings} preview={preview && !settings.consultationsEnabled} />
+          <ConsultationBooking settings={settings} preview={preview && !settings.consultationsEnabled} invite={invite} />
         </Reveal>
       </div>
     </div>

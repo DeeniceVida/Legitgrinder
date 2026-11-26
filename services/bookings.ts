@@ -26,6 +26,7 @@ const toSettings = (d: any): BookingSettings => ({
   hubName: d.hub_name || D.hubName,
   hubAddress: d.hub_address || '',
   hubMapUrl: d.hub_map_url || '',
+  inviteCode: d.invite_code || '',
   consultationFeeKes: Number(d.consultation_fee_kes ?? D.consultationFeeKes),
   consultationCreditDays: Number(d.consultation_credit_days ?? D.consultationCreditDays),
   meetingMinutes: Number(d.meeting_minutes ?? D.meetingMinutes),
@@ -105,6 +106,8 @@ export interface ConsultationRequest {
   date: string;
   /** Slot key, "10:00-11:30". */
   slot: string;
+  /** From ?invite= — lets an invited client book while bookings are off. */
+  invite?: string;
 }
 
 export const createConsultationBooking = async (r: ConsultationRequest): Promise<{
@@ -114,7 +117,7 @@ export const createConsultationBooking = async (r: ConsultationRequest): Promise
     const { data, error } = await supabase.rpc('create_consultation_booking', {
       p_name: r.name, p_phone: r.phone, p_email: r.email,
       p_products: r.products, p_quantity: r.quantity, p_budget: r.budget,
-      p_date: r.date, p_slot: r.slot,
+      p_date: r.date, p_slot: r.slot, p_invite: r.invite || null,
     });
     if (error) {
       console.error('create_consultation_booking failed:', error.message);

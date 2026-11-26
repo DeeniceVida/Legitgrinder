@@ -14,7 +14,8 @@ import {
 } from '../services/bookings';
 
 /**
- * Paid, in-person strategy meeting at the hub.
+ * Paid, in-person strategy meeting. There is no fixed address yet — where to
+ * meet is agreed per booking, so this page never promises a place.
  *
  * The calendar shows only the days the founder has opened, and only the
  * meeting times still free — the same live calendar he manages in Admin. The
@@ -32,7 +33,12 @@ const label = 'block text-[10px] font-black uppercase tracking-widest text-gray-
 
 type Step = 'form' | 'pay' | 'confirming' | 'done' | 'problem';
 
-const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boolean }> = ({ settings, preview }) => {
+const ConsultationBooking: React.FC<{
+  settings: BookingSettings;
+  preview?: boolean;
+  /** From ?invite= — the database checks it, not this page. */
+  invite?: string;
+}> = ({ settings, preview, invite }) => {
   const today = nairobiNow().date;
   const horizon = addDays(today, CONSULTATION_HORIZON_DAYS);
 
@@ -90,7 +96,7 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
     const res = await createConsultationBooking({
       name: name.trim(), phone: phone.trim(), email: email.trim(),
       products: products.trim(), quantity: quantity.trim(), budget: budget.trim(),
-      date, slot,
+      date, slot, invite,
     });
     setBusy(false);
 
@@ -138,7 +144,9 @@ const ConsultationBooking: React.FC<{ settings: BookingSettings; preview?: boole
         <div className="rounded-2xl border border-gray-100 divide-y divide-gray-100 mb-6">
           {[
             ['When', `${formatDateLong(booking.slotDate)} · ${formatSlot(booking.slotLabel)}`],
-            ['Where', [booking.hubName, booking.hubAddress].filter(Boolean).join(', ') || 'We will agree the exact place with you on WhatsApp before your meeting.'],
+            // No shop and no fixed address, so this never promises a place:
+            // where to meet is agreed per booking and sent on WhatsApp.
+            ['Where', 'We will agree the exact place with you on WhatsApp before your meeting.'],
             ['Reference', booking.reference],
             ['Paid', money(booking.paidKes)],
           ].map(([k, v]) => (
